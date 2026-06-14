@@ -1,0 +1,42 @@
+# Intralinear Bible Pipeline Configuration
+
+# ── Module identity ──────────────────────────────────────────
+version: "1.0.0"
+translation: "BSB"                    # Base translation abbreviation.
+                                      # Module abbreviations are derived:
+                                      #   intralinear:        {translation}i
+                                      #   intralinear stacked:{translation}is
+                                      #   interlinear:        {translation}i+
+description: "Berean Standard Bible"
+
+# ── Source data ──────────────────────────────────────────────
+data_root: "../"
+
+sources:
+  ot:
+    source:    "macula-hebrew/WLC/tsv/macula-hebrew.tsv"
+    alignment: "Alignments/data/eng/alignments/BSB/WLCM-BSB-manual.json"
+    target:    "Alignments/data/eng/targets/BSB/ot_BSB.tsv"
+  nt:
+    source:    "macula-greek/Nestle1904/tsv/macula-greek-Nestle1904.tsv"
+    alignment: "Alignments/data/eng/alignments/BSB/SBLGNT-BSB-manual.json"
+    target:    "Alignments/data/eng/targets/BSB/nt_BSB.tsv"
+
+# ── Transliteration ──────────────────────────────────────────
+transliteration:
+  hebrew:  "brill_simple"   # brill_simple, sbl_simple, sbl_academic, phonetic_dot
+  greek:   "SIMPLE"
+  aramaic: "brill_simple"
+
+# ── Annotations ──────────────────────────────────────────────
+annotations: "data/bsb_annotations.json"
+
+# ── Output ───────────────────────────────────────────────────
+output:
+  format: "mysword"       # mysword, esword, osis
+  mode:   "intralinear"   # intralinear, interlinear
+  dir:    "output"
+
+# ── Book filter ──────────────────────────────────────────────
+# null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
+books: null

@@ -1,0 +1,140 @@
+"""
+mysword_writer.py
+
+MySword Bible module writer (.bbl.mybible).
+Supports both interlinear (GBF) and intralinear (<lemma>) render modes.
+"""
+
+from pathlib import Path
+from sqlite_writer import SQLiteBibleWriter
+
+
+# ================== CSS AND VERSE RULES ==================
+
+INTERLINEAR_CSS = """
+sup { font-size: 70%; }
+.xlitH a { color: blue; text-decoration: none; }
+.xlitG a { color: green; text-decoration: none; }
+"""
+
+INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
+
+INTRALINEAR_CSS = """
+sup { font-size: 70%; }
+.xlitH a { color: blue; text-decoration: none; }
+.xlitG a { color: green; text-decoration: none; }
+.ref { font-size: 0.65em; color: #333; background-color: #e8e8e8;
+       border-radius: 3px; padding: 0 2px; text-decoration: none; }
+"""
+
+# VerseRules transform <lemma sn="H7225" o="רֵאשִׁ֖ית">bereshit</lemma>
+# into superscript colored dictionary links.
+# Note: tab character between regex and replacement is required by MySword.
+INTRALINEAR_RULES = (
+    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<sup class="xlitH"><a href="s$1">$3</a></sup>\n'
+    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<sup class="xlitG"><a href="s$1">$3</a></sup>'
+)
+
+# CSS variant that stacks xlit above original script using inline-flex
+# Uncomment in Details if you want to try the stacked display
+STACKED_CSS = """
+sup { font-size: 70%; }
+.lemma-block {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    line-height: 1.2;
+}
+.xlit-h { color: blue; font-size: 0.65em; text-decoration: none; }
+.xlit-g { color: green; font-size: 0.65em; text-decoration: none; }
+.orig   { color: #888; font-size: 0.65em; direction: rtl; }
+"""
+
+STACKED_RULES = (
+    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<span class="lemma-block">'
+    '<a class="xlit-h" href="s$1">$3</a>'
+    '<span class="orig">$2</span>'
+    '</span>\n'
+    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<span class="lemma-block">'
+    '<a class="xlit-g" href="s$1">$3</a>'
+    '<span class="orig">$2</span>'
+    '</span>'
+)
+
+
+class MySwordWriter(SQLiteBibleWriter):
+    """Writes MySword .bbl.mybible SQLite Bible modules."""
+
+    file_extension = '.bbl.mybible'
+
+    def insert_details(self, conn, work_id: str, has_ot: bool, has_nt: bool,
+                       render_mode: str):
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS Details (
+                Description  NVARCHAR(255),
+                Abbreviation NVARCHAR(50),
+                Comments     TEXT,
+                Version      TEXT,
+                VersionDate  DATETIME,
+                PublishDate  DATETIME,
+                RightToLeft  BOOL,
+                OT           BOOL,
+                NT           BOOL,
+                Strong       BOOL,
+                CustomCSS    TEXT,
+                VerseRules   TEXT
+            )
+        """)
+
+        if render_mode == 'interlinear':
+            css   = INTERLINEAR_CSS
+            rules = INTERLINEAR_RULES
+        elif render_mode == 'intralinear_stacked':
+            css   = STACKED_CSS
+            rules = STACKED_RULES
+        else:  # intralinear
+            css   = INTRALINEAR_CSS
+            rules = INTRALINEAR_RULES
+
+        conn.execute("""
+            INSERT INTO Details (
+                Description, Abbreviation, Comments, Version,
+                VersionDate, PublishDate, RightToLeft, OT, NT, Strong,
+                CustomCSS, VerseRules
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            "BSB Intralinear Bible",
+            work_id,
+            "Berean Standard Bible with inline Hebrew and Greek transliteration. "
+            "Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible "
+            "Alignments project (CC BY 4.0).",
+            "1.0",
+            "2026-01-01",
+            "2026-01-01",
+            0,
+            1 if has_ot else 0,
+            1 if has_nt else 0,
+            1,
+            css,
+            rules,
+        ))
+
+    @classmethod
+    def write_stacked_details(cls, db_path: Path, work_id: str,
+                              has_ot: bool, has_nt: bool):
+        """Open an existing .bbl.mybible, drop and rewrite Details with stacked CSS."""
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        conn.execute("DROP TABLE IF EXISTS Details")
+        # Reuse insert_details via a temporary instance
+        instance = cls()
+        instance.insert_details.__func__(
+            instance, conn, work_id, has_ot, has_nt, 'intralinear_stacked'
+        )
+        conn.commit()
+        conn.close()
