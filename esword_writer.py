@@ -13,7 +13,7 @@ CHAPTER_CSS = (
     'vertical-align:super;font-size:0.65em;line-height:1.2;}'
     '.xlitH{color:blue;}'
     '.xlitG{color:green;}'
-    '.stk num{color:gray;}'
+    '.snum{color:gray;}'
     '</style>'
 )
 
@@ -169,7 +169,7 @@ class ESwordWriter(SQLiteBibleWriter):
                     lemmas.append(
                         f'<span class="stk {cls}">'
                         f'{xlit}'
-                        f'<num>{sw.stem.strongs}</num>'
+                        f'<num class="snum">{sw.stem.strongs}</num>'
                         f'</span>'
                     )
                 parts.append(' '.join(lemmas))
