@@ -32,39 +32,52 @@ class ESwordWriter(SQLiteBibleWriter):
         self.conn.commit()
 
     def add_verse(self, osis_ref: str, intralinear_tokens: list,
-                  header: str = None):
-        parts   = osis_ref.split('.')
-        chapter = int(parts[1])
-        verse   = int(parts[2])
+                  header: str = None, xrefs: dict = None):
+        parts    = osis_ref.split('.')
+        chapter  = int(parts[1])
+        verse    = int(parts[2])
         book_num = self._book_num(parts[0])
 
         if chapter != self._current_chapter:
-            self._note_counter   = 0
+            self._note_counter    = 0
             self._current_chapter = chapter
 
-        # Collect notes before rendering so the renderer can use sequential IDs
+        # Collect translator notes, assigning sequential N# IDs per chapter
         verse_notes = []
-        for token in intralinear_tokens:
-            for note in token.notes:
-                self._note_counter += 1
-                verse_notes.append({
-                    'seq':  self._note_counter,
-                    'text': note['text'],
-                    'token_note': note,
-                })
+        if self.notes:
+            for token in intralinear_tokens:
+                for note in token.notes:
+                    self._note_counter += 1
+                    verse_notes.append({
+                        'seq':        self._note_counter,
+                        'text':       note['text'],
+                        'token_note': note,
+                    })
 
-        # Build a mapping from original noteId → sequential marker for this verse
         note_id_map = {
             vn['token_note']['noteId']: vn['seq'] for vn in verse_notes
         }
 
+        # Collect xrefs for this verse (keys are already per-chapter sequential)
+        verse_xrefs = []
+        if self.xref and xrefs:
+            for key, text in xrefs.items():
+                verse_xrefs.append({'key': key, 'text': text})
+
         super().add_verse(osis_ref, intralinear_tokens, header=header,
-                          note_id_map=note_id_map)
+                          note_id_map=note_id_map,
+                          xrefs=verse_xrefs if self.xref else None,
+                          xref_placement=self.xref)
 
         for vn in verse_notes:
             self.conn.execute(
                 "INSERT INTO Notes (Book, Chapter, Verse, ID, Note) VALUES (?,?,?,?,?)",
                 (book_num, chapter, verse, f"N{vn['seq']}", vn['text']),
+            )
+        for vx in verse_xrefs:
+            self.conn.execute(
+                "INSERT INTO Notes (Book, Chapter, Verse, ID, Note) VALUES (?,?,?,?,?)",
+                (book_num, chapter, verse, f"R{vx['key']}", vx['text']),
             )
 
     def insert_details(self):
@@ -101,18 +114,28 @@ class ESwordWriter(SQLiteBibleWriter):
             0,           # RightToLeft
         ))
 
+    def _xref_markers(self, xrefs: list) -> str:
+        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
+
     def render_verse_intralinear(self, tokens: list, header: str = None,
-                                 note_id_map: dict = None) -> str:
+                                 note_id_map: dict = None,
+                                 xrefs: list = None,
+                                 xref_placement: int = 0) -> str:
         """Render tokens to intralinear HTML with <sup class="str"> Strong's links.
 
-        Notes rendered as <not>N#</not> referencing the Notes table.
-        Section headers as <b class="headline">text</b>.
+        Notes rendered as <not>N#</not>, xrefs as <not>R#</not>.
+        xref_placement: 1 = beginning of verse, 2 = end of verse.
+        Section headers as <h3 class="headline">text</h3>.
         """
         note_id_map = note_id_map or {}
-        parts = []
+        xrefs       = xrefs or []
+        parts       = []
 
         if header:
             parts.append(f'<h3 class="headline">{header}</h3>')
+
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
 
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -140,20 +163,29 @@ class ESwordWriter(SQLiteBibleWriter):
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
 
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
         return ''.join(parts)
 
     def render_verse_interlinear(self, tokens: list, header: str = None,
-                                 note_id_map: dict = None) -> str:
+                                 note_id_map: dict = None,
+                                 xrefs: list = None,
+                                 xref_placement: int = 0) -> str:
         """Render tokens to interlinear HTML.
 
         Format per aligned token:
           <q><heb>בְּרֵאשִׁית</heb><xlit>bereshit</xlit><num>H7225</num><tvm>in the beginning</tvm></q>
         """
         note_id_map = note_id_map or {}
-        parts = []
+        xrefs       = xrefs or []
+        parts       = []
 
         if header:
             parts.append(f'<b class="headline">{header}</b> ')
+
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
 
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -187,5 +219,8 @@ class ESwordWriter(SQLiteBibleWriter):
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
 
         return ''.join(parts)

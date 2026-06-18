@@ -77,7 +77,8 @@ class SQLiteBibleWriter:
         self.conn.commit()
 
     def add_verse(self, osis_ref: str, intralinear_tokens: list,
-                  header: str = None, note_id_map: dict = None):
+                  header: str = None, note_id_map: dict = None,
+                  xrefs: list = None, xref_placement: int = 0):
         """Render and insert one verse."""
         parts     = osis_ref.split('.')
         book_name = parts[0]
@@ -90,9 +91,13 @@ class SQLiteBibleWriter:
         else:
             self._has_nt = True
 
-        kwargs = {'tokens': intralinear_tokens, 'header': header}
-        if note_id_map is not None:
-            kwargs['note_id_map'] = note_id_map
+        kwargs = {
+            'tokens':          intralinear_tokens,
+            'header':          header,
+            'note_id_map':     note_id_map or {},
+            'xrefs':           xrefs or [],
+            'xref_placement':  xref_placement,
+        }
 
         if self.render_mode == 'interlinear':
             scripture = self.render_verse_interlinear(**kwargs)
