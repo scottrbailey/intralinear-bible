@@ -139,6 +139,7 @@ class MySwordWriter(SQLiteBibleWriter):
         conn.close()
 
     def render_verse_intralinear(self, tokens: list,
+                                 note_id_map: dict = None,
                                  header: str = None) -> str:
         """Render tokens to intralinear string with <lemma> tags.
 
@@ -186,7 +187,8 @@ class MySwordWriter(SQLiteBibleWriter):
 
         return ''.join(parts)
 
-    def render_verse_interlinear(self, tokens: list, header: str = None):
+    def render_verse_interlinear(self, tokens: list, header: str = None,
+                                  note_id_map: dict = None):
         """Render tokens to GBF-tagged interlinear string.
 
         Format per aligned token (one <H>...<h> segment per source display-word):

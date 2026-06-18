@@ -71,7 +71,7 @@ class SQLiteBibleWriter:
         self.conn.commit()
 
     def add_verse(self, osis_ref: str, intralinear_tokens: list,
-                  header: str = None):
+                  header: str = None, note_id_map: dict = None):
         """Render and insert one verse."""
         parts     = osis_ref.split('.')
         book_name = parts[0]
@@ -84,14 +84,14 @@ class SQLiteBibleWriter:
         else:
             self._has_nt = True
 
+        kwargs = {'tokens': intralinear_tokens, 'header': header}
+        if note_id_map is not None:
+            kwargs['note_id_map'] = note_id_map
+
         if self.render_mode == 'interlinear':
-            scripture = self.render_verse_interlinear(
-                tokens=intralinear_tokens, header=header
-            )
+            scripture = self.render_verse_interlinear(**kwargs)
         else:
-            scripture = self.render_verse_intralinear(
-                tokens=intralinear_tokens, header=header
-            )
+            scripture = self.render_verse_intralinear(**kwargs)
 
         self.conn.execute(
             "INSERT INTO Bible (Book, Chapter, Verse, Scripture) VALUES (?, ?, ?, ?)",
