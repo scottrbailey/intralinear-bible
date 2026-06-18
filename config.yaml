@@ -33,7 +33,7 @@ annotations: "data/bsb_annotations.json"
 
 # ── Output ───────────────────────────────────────────────────
 output:
-  format: "mysword"       # mysword, esword, osis
+  format: "esword"       # mysword, esword, osis
   mode:   "intralinear"   # intralinear, interlinear
   dir:    "output"
 

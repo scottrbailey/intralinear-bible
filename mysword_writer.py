@@ -48,8 +48,8 @@ sup { font-size: 70%; }
     vertical-align: middle;
     line-height: 1.2;
 }
-.xlit-h { color: blue; font-size: 0.65em; text-decoration: none; }
-.xlit-g { color: green; font-size: 0.65em; text-decoration: none; }
+.xlitH { color: blue; font-size: 0.65em; text-decoration: none; }
+.xlitG { color: green; font-size: 0.65em; text-decoration: none; }
 .orig   { color: #888; font-size: 0.65em; direction: rtl; }
 """
 
@@ -72,9 +72,8 @@ class MySwordWriter(SQLiteBibleWriter):
 
     file_extension = '.bbl.mybible'
 
-    def insert_details(self, conn, work_id: str, has_ot: bool, has_nt: bool,
-                       render_mode: str):
-        conn.execute("""
+    def insert_details(self):
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS Details (
                 Description  NVARCHAR(255),
                 Abbreviation NVARCHAR(50),
@@ -91,17 +90,17 @@ class MySwordWriter(SQLiteBibleWriter):
             )
         """)
 
-        if render_mode == 'interlinear':
+        if self.render_mode == 'interlinear':
             css   = INTERLINEAR_CSS
             rules = INTERLINEAR_RULES
-        elif render_mode == 'intralinear_stacked':
+        elif self.render_mode == 'intralinear_stacked':
             css   = STACKED_CSS
             rules = STACKED_RULES
         else:  # intralinear
             css   = INTRALINEAR_CSS
             rules = INTRALINEAR_RULES
 
-        conn.execute("""
+        self.conn.execute("""
             INSERT INTO Details (
                 Description, Abbreviation, Comments, Version,
                 VersionDate, PublishDate, RightToLeft, OT, NT, Strong,
@@ -109,7 +108,7 @@ class MySwordWriter(SQLiteBibleWriter):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             "BSB Intralinear Bible",
-            work_id,
+            self.work_id,
             "Berean Standard Bible with inline Hebrew and Greek transliteration. "
             "Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible "
             "Alignments project (CC BY 4.0).",
@@ -117,8 +116,8 @@ class MySwordWriter(SQLiteBibleWriter):
             "2026-01-01",
             "2026-01-01",
             0,
-            1 if has_ot else 0,
-            1 if has_nt else 0,
+            1 if self._has_ot else 0,
+            1 if self._has_nt else 0,
             1,
             css,
             rules,
@@ -138,3 +137,101 @@ class MySwordWriter(SQLiteBibleWriter):
         )
         conn.commit()
         conn.close()
+
+    def render_verse_intralinear(self, tokens: list,
+                                 header: str = None) -> str:
+        """Render tokens to intralinear string with <lemma> tags.
+
+        Format per aligned token (one <lemma> per source display-word):
+          in the beginning <lemma sn="H7225" o="בְּרֵאשִׁית">bereshit</lemma>
+
+        Multiple source words in one alignment group emit multiple <lemma> tags:
+          english phrase <lemma sn="H1234" o="word1">xlit1</lemma><lemma sn="H5678" o="word2">xlit2</lemma>
+
+        VerseRules transform <lemma> to superscript colored dictionary links.
+        The 'o' attribute carries the original script for optional CSS display.
+        Notes rendered as <RF q=N>text<Rf>.
+        Section headers as <TS>text<Ts>.
+        """
+        parts = []
+
+        if header:
+            parts.append(f"<TS>{header}<Ts>")
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(token.english)
+                for note in token.notes:
+                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+            else:
+                parts.append(token.english)
+                parts.append(' ')
+                lemmas = []
+                for sw in token.source_words:
+                    xlit = self.transliterate(sw.text, sw.lang)
+                    lemmas.append(
+                        f'<lemma sn="{sw.stem.strongs}" o="{sw.text}">'
+                        f'{xlit}'
+                        f'</lemma>'
+                    )
+                parts.append(' '.join(lemmas))
+
+                for note in token.notes:
+                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        return ''.join(parts)
+
+    def render_verse_interlinear(self, tokens: list, header: str = None):
+        """Render tokens to GBF-tagged interlinear string.
+
+        Format per aligned token (one <H>...<h> segment per source display-word):
+          <Q><H>בְּרֵאשִׁית<WH7225><X>bereshit<x><h><E>in the beginning<e><q>
+
+        Multiple source words in one alignment group get multiple segments:
+          <Q><H>word1<WH1234><X>xlit1<x><h><H>word2<WH5678><X>xlit2<x><h><E>english<e><q>
+
+        VerseRules transforms each <H>...<h> segment into a superscript link,
+        then strips the outer <Q>...<q> wrapper leaving English + superscripts.
+        """
+        parts = []
+
+        if header:
+            parts.append(f"<TS>{header}<Ts>")
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(token.english)
+                for note in token.notes:
+                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+            else:
+                segments = []
+                for sw in token.source_words:
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    strongs = sw.stem.strongs
+                    if sw.lang == 'G':
+                        seg = f"<G>{sw.text}<W{strongs}><X>{xlit}<x><g>"
+                    else:
+                        seg = f"<H>{sw.text}<W{strongs}><X>{xlit}<x><h>"
+                    segments.append(seg)
+
+                parts.append(
+                    f"<Q>"
+                    f"{''.join(segments)}"
+                    f"<E>{token.english}<e>"
+                    f"<q>"
+                )
+
+                for note in token.notes:
+                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        return ''.join(parts)

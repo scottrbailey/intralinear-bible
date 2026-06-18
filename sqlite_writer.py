@@ -10,121 +10,15 @@ Handles Bible table insertion and shared rendering in two modes:
 import sqlite3
 from pathlib import Path
 from translit import make_transliterator
+from textwrap import dedent
 
-
-# ================== GBF INTERLINEAR RENDERING ==================
-
-def render_verse_gbf(intralinear_tokens: list, transliterate: callable,
-                     header: str = None) -> str:
-    """Render IntralinearTokens to GBF-tagged interlinear string.
-
-    Format per aligned token (one <H>...<h> segment per source display-word):
-      <Q><H>בְּרֵאשִׁית<WH7225><X>bereshit<x><h><E>in the beginning<e><q>
-
-    Multiple source words in one alignment group get multiple segments:
-      <Q><H>word1<WH1234><X>xlit1<x><h><H>word2<WH5678><X>xlit2<x><h><E>english<e><q>
-
-    VerseRules transforms each <H>...<h> segment into a superscript link,
-    then strips the outer <Q>...<q> wrapper leaving English + superscripts.
-    """
-    parts = []
-
-    if header:
-        parts.append(f"<TS>{header}<Ts>")
-
-    for i, token in enumerate(intralinear_tokens):
-        next_token = intralinear_tokens[i + 1] if i + 1 < len(intralinear_tokens) else None
-
-        if token.is_plain_text or not token.source_words:
-            parts.append(token.english)
-            for note in token.notes:
-                parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
-        else:
-            segments = []
-            for sw in token.source_words:
-                xlit = transliterate(sw.text, sw.lang, sw.is_proper)
-                strongs = sw.stem.strongs
-                if sw.lang == 'G':
-                    seg = f"<G>{sw.text}<W{strongs}><X>{xlit}<x><g>"
-                else:
-                    seg = f"<H>{sw.text}<W{strongs}><X>{xlit}<x><h>"
-                segments.append(seg)
-
-            parts.append(
-                f"<Q>"
-                f"{''.join(segments)}"
-                f"<E>{token.english}<e>"
-                f"<q>"
-            )
-
-            for note in token.notes:
-                parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
-
-        if not token.skip_space_after and next_token is not None:
-            parts.append(' ')
-
-    return ''.join(parts)
-
-
-# ================== INTRALINEAR RENDERING ==================
-
-def render_verse_intralinear(intralinear_tokens: list, transliterate: callable,
-                              header: str = None) -> str:
-    """Render IntralinearTokens to intralinear string with <lemma> tags.
-
-    Format per aligned token (one <lemma> per source display-word):
-      in the beginning <lemma sn="H7225" o="בְּרֵאשִׁית">bereshit</lemma>
-
-    Multiple source words in one alignment group emit multiple <lemma> tags:
-      english phrase <lemma sn="H1234" o="word1">xlit1</lemma><lemma sn="H5678" o="word2">xlit2</lemma>
-
-    VerseRules transform <lemma> to superscript colored dictionary links.
-    The 'o' attribute carries the original script for optional CSS display.
-    Notes rendered as <RF q=N>text<Rf>.
-    Section headers as <TS>text<Ts>.
-    """
-    parts = []
-
-    if header:
-        parts.append(f"<TS>{header}<Ts>")
-
-    for i, token in enumerate(intralinear_tokens):
-        next_token = intralinear_tokens[i + 1] if i + 1 < len(intralinear_tokens) else None
-
-        if token.is_plain_text or not token.source_words:
-            parts.append(token.english)
-            for note in token.notes:
-                parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
-        else:
-            parts.append(token.english)
-            parts.append(' ')
-            lemmas = []
-            for sw in token.source_words:
-                xlit = transliterate(sw.text, sw.lang, sw.is_proper)
-                lemmas.append(
-                    f'<lemma sn="{sw.stem.strongs}" o="{sw.text}">'
-                    f'{xlit}'
-                    f'</lemma>'
-                )
-            parts.append(' '.join(lemmas))
-
-            for note in token.notes:
-                parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
-
-        if not token.skip_space_after and next_token is not None:
-            parts.append(' ')
-
-    return ''.join(parts)
-
-
-# ================== BASE SQLITE WRITER ==================
 
 class SQLiteBibleWriter:
     """Base class for SQLite Bible module writers.
 
     Subclasses must implement:
       - file_extension: str
-      - insert_details(conn, work_id, has_ot, has_nt, render_mode)
+      - insert_details()
 
     render_mode: 'interlinear' (GBF) or 'intralinear' (<lemma> tags)
     """
@@ -142,7 +36,7 @@ class SQLiteBibleWriter:
         self._has_nt       = False
         self._verse_count  = 0
 
-    def open(self, output_path: Path, work_id: str = "BSBIntralinear"):
+    def open(self, output_path: Path, work_id: str = "BSBi"):
         """Open (or create) the SQLite database."""
         path_str = str(output_path)
         if not path_str.endswith(self.file_extension):
@@ -191,12 +85,12 @@ class SQLiteBibleWriter:
             self._has_nt = True
 
         if self.render_mode == 'interlinear':
-            scripture = render_verse_gbf(
-                intralinear_tokens, self.transliterate, header=header
+            scripture = self.render_verse_interlinear(
+                tokens=intralinear_tokens, header=header
             )
         else:
-            scripture = render_verse_intralinear(
-                intralinear_tokens, self.transliterate, header=header
+            scripture = self.render_verse_intralinear(
+                tokens=intralinear_tokens, header=header
             )
 
         self.conn.execute(
@@ -211,14 +105,12 @@ class SQLiteBibleWriter:
     def write(self, output_path: Path = None):
         """Finalize — insert Details table and close connection."""
         self.conn.commit()
-        self.insert_details(self.conn, self.work_id,
-                            self._has_ot, self._has_nt, self.render_mode)
+        self.insert_details()
         self.conn.commit()
         self.conn.close()
         print(f"Written to {self.output_path} ({self._verse_count:,} verses)")
 
-    def insert_details(self, conn, work_id: str, has_ot: bool, has_nt: bool,
-                       render_mode: str):
+    def insert_details(self):
         raise NotImplementedError
 
     @staticmethod
@@ -232,3 +124,9 @@ class SQLiteBibleWriter:
                 if book.usfmnumber.isdigit()
             }
         return SQLiteBibleWriter._book_cache.get(osis_book, 0)
+
+    def render_verse_intralinear(self, tokens: list, header: str = None):
+        raise NotImplementedError
+
+    def render_verse_interlinear(self, tokens: list, header: str = None):
+        raise NotImplementedError

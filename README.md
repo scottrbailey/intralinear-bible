@@ -10,10 +10,10 @@ transliteration linked to Strong's concordance.
 Running the pipeline generates up to three MySword module variants:
 
 | Abbreviation | Description |
-|---|---|
-| `BSBi`  | Intralinear — transliteration as colored superscript links after each English word |
-| `BSBis` | Intralinear Stacked — transliteration above original script, stacked display |
-| `BSBi+` | Interlinear — GBF format with Hebrew/Greek script, transliteration, and English |
+|--------------|---|
+| `BSBi`       | Intralinear — transliteration as colored superscript links after each English word |
+| `BSBis`      | Intralinear Stacked — transliteration above original script, stacked display |
+| `BSBi+`      | Interlinear — GBF format with Hebrew/Greek script, transliteration, and English |
 
 ## Download
 
