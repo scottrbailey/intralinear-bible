@@ -27,36 +27,35 @@ TSK_ABBREV = {
 _REF_RE = re.compile(r'([0-9]?[a-z]+)\s+(\d+):(\d+(?:-\d+)?)((?:,\d+(?:-\d+)?)*)')
 
 def normalize_refs(raw: str) -> str:
-    """Expand TSK abbreviated refs into space-separated <ref> tags.
+    """Expand TSK abbreviated refs into clean semicolon-separated verse refs.
 
-    Comma notation is expanded into separate refs (same book and chapter):
-      'ps 33:6,9'     → '<ref>Psa 33:6</ref> <ref>Psa 33:9</ref>'
-    Ranges stay as one ref:
-      'pr 8:22-24'    → '<ref>Pro 8:22-24</ref>'
-    Single-chapter books (no chapter:verse):
-      'jude 3'        → '<ref>Jude 3</ref>'
+    Comma notation is expanded into separate entries (same book and chapter):
+      'ps 33:6,9'     → 'Psa 33:6; Psa 33:9'
+    Ranges stay as one entry:
+      'pr 8:22-24'    → 'Pro 8:22-24'
+    Single-chapter books:
+      'jude 3'        → 'Jude 3'
     """
-    tags = []
+    entries = []
     for ref in raw.split(';'):
         ref = ref.strip()
         m = _REF_RE.match(ref)
         if m:
             abbrev  = TSK_ABBREV.get(m.group(1), m.group(1).capitalize())
             chapter = m.group(2)
-            first   = m.group(3)   # may include a range, e.g. '22-24'
-            rest    = m.group(4)   # comma-separated additional verses, e.g. ',9,15'
-            tags.append(f"<ref>{abbrev} {chapter}:{first}</ref>")
+            first   = m.group(3)
+            rest    = m.group(4)
+            entries.append(f"{abbrev} {chapter}:{first}")
             if rest:
                 for extra in rest.lstrip(',').split(','):
-                    tags.append(f"<ref>{abbrev} {chapter}:{extra}</ref>")
+                    entries.append(f"{abbrev} {chapter}:{extra}")
         elif re.match(r'([0-9]?[a-z]+)\s+(\d+)$', ref):
-            # single-chapter book with bare verse number
             bk, vn = ref.split()
             abbrev = TSK_ABBREV.get(bk, bk.capitalize())
-            tags.append(f"<ref>{abbrev} {vn}</ref>")
+            entries.append(f"{abbrev} {vn}")
         elif ref:
-            tags.append(ref)
-    return ' '.join(tags)
+            entries.append(ref)
+    return '; '.join(entries)
 
 
 def main(reader, xrefs):

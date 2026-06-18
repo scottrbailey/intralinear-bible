@@ -75,9 +75,12 @@ class ESwordWriter(SQLiteBibleWriter):
                 (book_num, chapter, verse, f"N{vn['seq']}", vn['text']),
             )
         for vx in verse_xrefs:
+            note_text = ' '.join(
+                f"<ref>{r.strip()}</ref>" for r in vx['text'].split(';') if r.strip()
+            )
             self.conn.execute(
                 "INSERT INTO Notes (Book, Chapter, Verse, ID, Note) VALUES (?,?,?,?,?)",
-                (book_num, chapter, verse, f"R{vx['key']}", vx['text']),
+                (book_num, chapter, verse, f"R{vx['key']}", note_text),
             )
 
     def insert_details(self):
