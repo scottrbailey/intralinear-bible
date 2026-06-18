@@ -7,6 +7,15 @@ e-Sword LT Bible module writer (.bbli).
 from sqlite_writer import SQLiteBibleWriter
 from textwrap import dedent
 
+CHAPTER_CSS = (
+    '<style>'
+    '.stk{display:inline-flex;flex-direction:column;align-items:center;'
+    'vertical-align:super;font-size:0.65em;line-height:1.2;}'
+    '.xlitH{color:blue;}'
+    '.xlitG{color:green;}'
+    '</style>'
+)
+
 
 class ESwordWriter(SQLiteBibleWriter):
     """Writes e-Sword LT .bbli SQLite Bible modules."""
@@ -67,7 +76,8 @@ class ESwordWriter(SQLiteBibleWriter):
         super().add_verse(osis_ref, intralinear_tokens, header=header,
                           note_id_map=note_id_map,
                           xrefs=verse_xrefs if self.xref else None,
-                          xref_placement=self.xref)
+                          xref_placement=self.xref,
+                          prepend=CHAPTER_CSS if verse == 1 else None)
 
         for vn in verse_notes:
             self.conn.execute(
@@ -153,9 +163,13 @@ class ESwordWriter(SQLiteBibleWriter):
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang)
+                    xlit   = self.transliterate(sw.text, sw.lang)
+                    cls    = 'xlitH' if sw.lang != 'G' else 'xlitG'
                     lemmas.append(
-                        f'<sup style="color:blue" class="str" num="{sw.stem.strongs}">{xlit}</sup>'
+                        f'<span class="stk {cls}" num="{sw.stem.strongs}">'
+                        f'{xlit}'
+                        f'<num>{sw.stem.strongs}</num>'
+                        f'</span>'
                     )
                 parts.append(' '.join(lemmas))
 

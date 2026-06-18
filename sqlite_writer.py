@@ -78,7 +78,8 @@ class SQLiteBibleWriter:
 
     def add_verse(self, osis_ref: str, intralinear_tokens: list,
                   header: str = None, note_id_map: dict = None,
-                  xrefs: list = None, xref_placement: int = 0):
+                  xrefs: list = None, xref_placement: int = 0,
+                  prepend: str = None):
         """Render and insert one verse."""
         parts     = osis_ref.split('.')
         book_name = parts[0]
@@ -103,6 +104,9 @@ class SQLiteBibleWriter:
             scripture = self.render_verse_interlinear(**kwargs)
         else:
             scripture = self.render_verse_intralinear(**kwargs)
+
+        if prepend:
+            scripture = prepend + scripture
 
         self.conn.execute(
             "INSERT INTO Bible (Book, Chapter, Verse, Scripture) VALUES (?, ?, ?, ?)",
