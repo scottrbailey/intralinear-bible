@@ -13,6 +13,7 @@ CHAPTER_CSS = (
     'vertical-align:super;font-size:0.65em;line-height:1.2;}'
     '.xlitH{color:blue;}'
     '.xlitG{color:green;}'
+    '.stk num{color:gray;}'
     '</style>'
 )
 
@@ -85,7 +86,7 @@ class ESwordWriter(SQLiteBibleWriter):
                 (book_num, chapter, verse, f"N{vn['seq']}", vn['text']),
             )
         for vx in verse_xrefs:
-            note_text = ' '.join(
+            note_text = ' ; '.join(
                 f"<ref>{r.strip()}</ref>" for r in vx['text'].split(';') if r.strip()
             )
             self.conn.execute(
