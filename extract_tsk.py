@@ -24,24 +24,39 @@ TSK_ABBREV = {
     're':   'Rev',
 }
 
-_REF_RE = re.compile(r'([0-9]?[a-z]+)\s+(\d+:\d+(?:[,\-]\d+)*|\d+)')
+_REF_RE = re.compile(r'([0-9]?[a-z]+)\s+(\d+):(\d+(?:-\d+)?)((?:,\d+(?:-\d+)?)*)')
 
 def normalize_refs(raw: str) -> str:
-    """Expand TSK abbreviated refs to standard abbreviations.
+    """Expand TSK abbreviated refs into space-separated <ref> tags.
 
-    'pr 8:22-24;ex 20:11' → 'Pro 8:22-24; Exo 20:11'
-    Unknown abbreviations are left as-is.
+    Comma notation is expanded into separate refs (same book and chapter):
+      'ps 33:6,9'     → '<ref>Psa 33:6</ref> <ref>Psa 33:9</ref>'
+    Ranges stay as one ref:
+      'pr 8:22-24'    → '<ref>Pro 8:22-24</ref>'
+    Single-chapter books (no chapter:verse):
+      'jude 3'        → '<ref>Jude 3</ref>'
     """
-    parts = []
+    tags = []
     for ref in raw.split(';'):
         ref = ref.strip()
         m = _REF_RE.match(ref)
         if m:
-            abbrev = TSK_ABBREV.get(m.group(1), m.group(1).capitalize())
-            parts.append(f"{abbrev} {m.group(2)}")
+            abbrev  = TSK_ABBREV.get(m.group(1), m.group(1).capitalize())
+            chapter = m.group(2)
+            first   = m.group(3)   # may include a range, e.g. '22-24'
+            rest    = m.group(4)   # comma-separated additional verses, e.g. ',9,15'
+            tags.append(f"<ref>{abbrev} {chapter}:{first}</ref>")
+            if rest:
+                for extra in rest.lstrip(',').split(','):
+                    tags.append(f"<ref>{abbrev} {chapter}:{extra}</ref>")
+        elif re.match(r'([0-9]?[a-z]+)\s+(\d+)$', ref):
+            # single-chapter book with bare verse number
+            bk, vn = ref.split()
+            abbrev = TSK_ABBREV.get(bk, bk.capitalize())
+            tags.append(f"<ref>{abbrev} {vn}</ref>")
         elif ref:
-            parts.append(ref)
-    return '; '.join(parts)
+            tags.append(ref)
+    return ' '.join(tags)
 
 
 def main(reader, xrefs):
