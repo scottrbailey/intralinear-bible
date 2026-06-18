@@ -146,7 +146,7 @@ class ESwordWriter(SQLiteBibleWriter):
         parts       = []
 
         if header:
-            parts.append(f'<h3 class="headline">{header}</h3>')
+            parts.append(f'<b class="headline">{header}</b><br>')
 
         if xref_placement == 1:
             parts.append(self._xref_markers(xrefs))
