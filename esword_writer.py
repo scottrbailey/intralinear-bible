@@ -13,7 +13,7 @@ CHAPTER_CSS = (
     'vertical-align:super;font-size:0.65em;line-height:1.2;}'
     '.xlitH{color:blue;}'
     '.xlitG{color:green;}'
-    '.snum{color:gray;}'
+    '.snum{color:gray !important;}'
     '</style>'
 )
 
