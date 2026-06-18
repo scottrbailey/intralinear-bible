@@ -10,7 +10,6 @@ Handles Bible table insertion and shared rendering in two modes:
 import sqlite3
 from pathlib import Path
 from translit import make_transliterator
-from textwrap import dedent
 
 
 class SQLiteBibleWriter:
@@ -25,13 +24,20 @@ class SQLiteBibleWriter:
 
     file_extension = '.sqlite'
 
-    def __init__(self, transliterate: callable = None,
-                 render_mode: str = 'intralinear'):
+    def __init__(self,
+                 transliterate: callable = None,
+                 render_mode: str = 'intralinear',
+                 headers: bool = True,
+                 notes: bool = True,
+                 xref: bool = False):
 
         self.transliterate = transliterate or make_transliterator()
         self.render_mode   = render_mode
         self.conn          = None
         self.output_path   = None
+        self.headers       = headers
+        self.notes         = notes
+        self.xref          = xref
         self._has_ot       = False
         self._has_nt       = False
         self._verse_count  = 0

@@ -112,7 +112,7 @@ SCHEMES = {
         '\u05D0': '',         # Aleph dropped
         '\u05E2': '',         # Ayin dropped
         'stress_marker': '\u0301',
-        'syllable_sep': '\uA78F',  # sinological dot
+        'syllable_sep': '\u00B7',  # middle dot
     },
 
     'sbl_simple': {

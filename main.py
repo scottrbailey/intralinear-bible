@@ -24,7 +24,7 @@ def load_config(path: str = "config.yaml") -> dict:
     with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
-    data_root = Path(cfg.get("data_root", "../../"))
+    data_root = Path(cfg.get("data_root", "../"))
     translation = cfg["translation"]
 
     # Resolve source paths relative to data_root
@@ -40,10 +40,9 @@ def load_config(path: str = "config.yaml") -> dict:
         "interlinear":        f"{translation}i+",
     }
 
-    # Resolve annotations path
+    # Resolve paths
     cfg["annotations"] = Path(cfg.get("annotations", "data/bsb_annotations.json"))
-
-    # Resolve output dir
+    cfg["tsk"] = Path(cfg.get("tsk", "data/tskxref.tsv"))
     cfg["output"]["dir"] = Path(cfg["output"]["dir"])
 
     return cfg
@@ -150,6 +149,15 @@ def load_annotations(path: Path) -> dict:
     h = len(data.get('headers', {}))
     n = len(data.get('notes', {}))
     print(f"  Loaded {h:,} headers and {n:,} note anchors from {path.name}")
+    return data
+
+def load_tsk(path: Path):
+    if not path.exists():
+        print(f"  Warning: TSK file not found at {path}, skipping")
+        return dict()
+    with open(path, encoding='utf-8') as f:
+        data = json.load(f)
+    print(f"  Loaded TSK file cross references from {path.name}")
     return data
 
 
@@ -486,7 +494,10 @@ if __name__ == '__main__':
             base_abbrev = abbrev['interlinear']
             base_path   = output_dir / base_abbrev
             writer = MySwordWriter(transliterate=transliterate,
-                                   render_mode='interlinear')
+                                   render_mode='interlinear',
+                                   headers=config.get('headers'),
+                                   notes=config.get('notes'),
+                                   xref=config.get('xref'))
             writer.open(base_path, work_id=base_abbrev)
 
     elif output_format == 'esword':
@@ -494,7 +505,11 @@ if __name__ == '__main__':
         base_abbrev = abbrev['intralinear'] if render_mode == 'intralinear' \
                       else abbrev['interlinear']
         base_path   = output_dir / base_abbrev
-        writer = ESwordWriter(transliterate=transliterate, render_mode=render_mode)
+        writer = ESwordWriter(transliterate=transliterate,
+                              render_mode=render_mode,
+                              headers=config.get('headers'),
+                              notes=config.get('notes'),
+                              xref=config.get('xref'))
         writer.open(base_path, work_id=base_abbrev)
 
     else:  # osis

@@ -93,12 +93,12 @@ class ESwordWriter(SQLiteBibleWriter):
             Berean Standard Bible with inline Hebrew and Greek transliteration.
             Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible
             Alignments project (CC BY 4.0)."""),
-            4,
+            4,          # Version
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
-            0,
-            1,
-            0,
+            0,           # Apocrypha
+            1,           # Strongs
+            0,           # RightToLeft
         ))
 
     def render_verse_intralinear(self, tokens: list, header: str = None,
@@ -112,7 +112,7 @@ class ESwordWriter(SQLiteBibleWriter):
         parts = []
 
         if header:
-            parts.append(f'<b class="headline">{header}</b> ')
+            parts.append(f'<h3 class="headline">{header}</h3>')
 
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -121,7 +121,7 @@ class ESwordWriter(SQLiteBibleWriter):
                 parts.append(token.english)
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f'<not>N{seq}</not>')
+                    parts.append(f' <not>N{seq}</not>')
             else:
                 parts.append(token.english)
                 parts.append(' ')
@@ -129,13 +129,13 @@ class ESwordWriter(SQLiteBibleWriter):
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang)
                     lemmas.append(
-                        f'<sup class="str" num="{sw.stem.strongs}">{xlit}</sup>'
+                        f'<sup style="color:blue" class="str" num="{sw.stem.strongs}">{xlit}</sup>'
                     )
                 parts.append(' '.join(lemmas))
 
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f'<not>N{seq}</not>')
+                    parts.append(f' <not>N{seq}</not>')
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
@@ -162,7 +162,7 @@ class ESwordWriter(SQLiteBibleWriter):
                 parts.append(token.english)
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f'<not>N{seq}</not>')
+                    parts.append(f' <not>N{seq}</not>')
             else:
                 segments = []
                 for sw in token.source_words:
@@ -183,7 +183,7 @@ class ESwordWriter(SQLiteBibleWriter):
 
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f'<not>N{seq}</not>')
+                    parts.append(f' <not>N{seq}</not>')
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
