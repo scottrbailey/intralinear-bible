@@ -167,7 +167,7 @@ class ESwordWriter(SQLiteBibleWriter):
                     xlit   = self.transliterate(sw.text, sw.lang)
                     cls    = 'xlitH' if sw.lang != 'G' else 'xlitG'
                     lemmas.append(
-                        f'<span class="stk {cls}" num="{sw.stem.strongs}">'
+                        f'<span class="stk {cls}">'
                         f'{xlit}'
                         f'<num>{sw.stem.strongs}</num>'
                         f'</span>'
