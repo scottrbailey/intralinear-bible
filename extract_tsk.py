@@ -69,6 +69,8 @@ def main(reader, xrefs):
             _xref_cnt = 0
             last_chapter = chapter
         _xref_cnt += 1
+        if not row['xref']:
+            continue
         normalized = normalize_refs(row['xref'])
         if verse_ref not in xrefs:
             xrefs[verse_ref] = {_xref_cnt: normalized}
