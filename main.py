@@ -448,7 +448,7 @@ def process_testament(testament: str, sources: dict, books_filter: list,
         intralinear = join_verse(verse_id, target_tokens, alignment_records,
                                  source_index, notes_index)
         osis_ref = verse_id_to_osis(verse_id)
-        header   = headers.get(osis_ref)
+        header   = headers.get(osis_ref) if writer.headers else None
         xrefs    = tsk.get(verse_id, {})
         writer.add_verse(osis_ref, intralinear, header=header, xrefs=xrefs)
         verse_count += 1
