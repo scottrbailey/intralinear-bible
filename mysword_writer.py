@@ -5,7 +5,6 @@ MySword Bible module writer (.bbl.mybible).
 Supports both interlinear (GBF) and intralinear (<lemma>) render modes.
 """
 
-from pathlib import Path
 from sqlite_writer import SQLiteBibleWriter
 
 
