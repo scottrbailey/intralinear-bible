@@ -128,15 +128,16 @@ class MySwordWriter(SQLiteBibleWriter):
                               has_ot: bool, has_nt: bool):
         """Open an existing .bbl.mybible, drop and rewrite Details with stacked CSS."""
         import sqlite3
-        conn = sqlite3.connect(db_path)
-        conn.execute("DROP TABLE IF EXISTS Details")
-        # Reuse insert_details via a temporary instance
         instance = cls()
-        instance.insert_details.__func__(
-            instance, conn, work_id, has_ot, has_nt, 'intralinear_stacked'
-        )
-        conn.commit()
-        conn.close()
+        instance.work_id  = work_id
+        instance._has_ot  = has_ot
+        instance._has_nt  = has_nt
+        instance.render_mode = 'intralinear_stacked'
+        instance.conn = sqlite3.connect(db_path)
+        instance.conn.execute("DROP TABLE IF EXISTS Details")
+        instance.insert_details()
+        instance.conn.commit()
+        instance.conn.close()
 
     def render_verse_intralinear(self, tokens: list,
                                  note_id_map: dict = None,
