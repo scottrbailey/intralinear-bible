@@ -173,7 +173,7 @@ class MySwordWriter(SQLiteBibleWriter):
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang)
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     lemmas.append(
                         f'<lemma sn="{sw.stem.strongs}" o="{sw.text}">'
                         f'{xlit}'

@@ -183,7 +183,7 @@ class ESwordWriter(SQLiteBibleWriter):
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
-                    xlit   = self.transliterate(sw.text, sw.lang)
+                    xlit   = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     # cls    = 'xlitH' if sw.lang != 'G' else 'xlitG'
                     lemmas.append(
                         f'<span class="stk">'
@@ -235,7 +235,7 @@ class ESwordWriter(SQLiteBibleWriter):
             else:
                 segments = []
                 for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang)
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     strongs = sw.stem.strongs
                     if sw.lang == 'G':
                         seg = f"<grk>{sw.text}</grk><xlit>{xlit}</xlit><num>{strongs}</num>"
