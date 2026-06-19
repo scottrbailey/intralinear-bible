@@ -123,22 +123,6 @@ class MySwordWriter(SQLiteBibleWriter):
             rules,
         ))
 
-    @classmethod
-    def write_stacked_details(cls, db_path: Path, work_id: str,
-                              has_ot: bool, has_nt: bool):
-        """Open an existing .bbl.mybible, drop and rewrite Details with stacked CSS."""
-        import sqlite3
-        instance = cls()
-        instance.work_id  = work_id
-        instance._has_ot  = has_ot
-        instance._has_nt  = has_nt
-        instance.render_mode = 'intralinear_stacked'
-        instance.conn = sqlite3.connect(db_path)
-        instance.conn.execute("DROP TABLE IF EXISTS Details")
-        instance.insert_details()
-        instance.conn.commit()
-        instance.conn.close()
-
     def render_verse_intralinear(self, tokens: list,
                                  note_id_map: dict = None,
                                  header: str = None,

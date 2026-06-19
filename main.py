@@ -549,8 +549,13 @@ if __name__ == '__main__':
         src = writer.output_path
         dst = src.parent / (stacked_abbrev + MySwordWriter.file_extension)
         shutil.copy2(src, dst)
-        MySwordWriter.write_stacked_details(dst, stacked_abbrev,
-                                            writer._has_ot, writer._has_nt)
+        writer.conn = __import__('sqlite3').connect(dst)
+        writer.work_id = stacked_abbrev
+        writer.render_mode = 'intralinear_stacked'
+        writer.conn.execute("DROP TABLE IF EXISTS Details")
+        writer.insert_details()
+        writer.conn.commit()
+        writer.conn.close()
         print(f"Stacked variant written to {dst}")
     r"""
     osis2mod.exe "$HOME\AppData\Roaming\Sword\modules\texts\ztext\bsbi" .\BSBi.osis.xml -z
