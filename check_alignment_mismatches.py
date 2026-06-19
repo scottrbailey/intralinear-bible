@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 import yaml
+from biblelib.book import Books
 
 
 def load_config(path="config.yaml"):
@@ -27,11 +28,14 @@ def load_config(path="config.yaml"):
     return cfg
 
 
+BOOK_NUM_MAP = {book.usfmnumber: book.osisID for book in Books().values()}
+
 def verse_id_to_ref(verse_id: str) -> str:
-    book  = int(verse_id[:2])
-    chap  = int(verse_id[2:5])
-    verse = int(verse_id[5:8])
-    return f"{book:02d} {chap}:{verse}"
+    book_num  = verse_id[:2]
+    chapter   = int(verse_id[2:5])
+    verse     = int(verse_id[5:8])
+    book_name = BOOK_NUM_MAP.get(book_num, f"Book{book_num}")
+    return f"{book_name} {chapter}:{verse}"
 
 def extract_verse_from_source(sid: str) -> str:
     """n49005014001 -> 49005014"""
