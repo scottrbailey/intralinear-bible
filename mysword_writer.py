@@ -158,7 +158,7 @@ class MySwordWriter(SQLiteBibleWriter):
         """
         parts = []
 
-        if header:
+        if header and self.headers:
             parts.append(f"<TS>{header}<Ts>")
 
         for i, token in enumerate(tokens):
@@ -166,8 +166,9 @@ class MySwordWriter(SQLiteBibleWriter):
 
             if token.is_plain_text or not token.source_words:
                 parts.append(token.english)
-                for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                if self.notes:
+                    for note in token.notes:
+                        parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
             else:
                 parts.append(token.english)
                 parts.append(' ')
@@ -181,8 +182,9 @@ class MySwordWriter(SQLiteBibleWriter):
                     )
                 parts.append(' '.join(lemmas))
 
-                for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                if self.notes:
+                    for note in token.notes:
+                        parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
@@ -206,7 +208,7 @@ class MySwordWriter(SQLiteBibleWriter):
         """
         parts = []
 
-        if header:
+        if header and self.headers:
             parts.append(f"<TS>{header}<Ts>")
 
         for i, token in enumerate(tokens):
@@ -214,8 +216,9 @@ class MySwordWriter(SQLiteBibleWriter):
 
             if token.is_plain_text or not token.source_words:
                 parts.append(token.english)
-                for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                if self.notes:
+                    for note in token.notes:
+                        parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
             else:
                 segments = []
                 for sw in token.source_words:
@@ -234,8 +237,9 @@ class MySwordWriter(SQLiteBibleWriter):
                     f"<q>"
                 )
 
-                for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                if self.notes:
+                    for note in token.notes:
+                        parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
