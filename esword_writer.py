@@ -10,10 +10,8 @@ from textwrap import dedent
 CHAPTER_CSS = (
     '<style>'
     '.stk{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:super;font-size:0.65em;line-height:1.2;}'
-    '.xlitH{color:blue;}'
-    '.xlitG{color:green;}'
-    '.snum{color:gray !important;}'
+    'vertical-align:super;font-size:0.65em;line-height:1.2;color:blue}'
+    'span.stk a {opacity: 0 !important;}'
     '</style>'
 )
 
@@ -165,11 +163,11 @@ class ESwordWriter(SQLiteBibleWriter):
                 lemmas = []
                 for sw in token.source_words:
                     xlit   = self.transliterate(sw.text, sw.lang)
-                    cls    = 'xlitH' if sw.lang != 'G' else 'xlitG'
+                    # cls    = 'xlitH' if sw.lang != 'G' else 'xlitG'
                     lemmas.append(
-                        f'<span class="stk {cls}" num="{sw.stem.strongs}">'
+                        f'<span class="stk">'
                         f'{xlit}'
-                        f'<num class="snum">{sw.stem.strongs}</num>'
+                        f'<num>{sw.stem.strongs}</num>'
                         f'</span>'
                     )
                 parts.append(' '.join(lemmas))
