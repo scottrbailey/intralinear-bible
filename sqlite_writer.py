@@ -23,6 +23,7 @@ class SQLiteBibleWriter:
     """
 
     file_extension = '.sqlite'
+    _table_name    = 'Bible'
 
     def __init__(self,
                  transliterate: callable = None,
@@ -63,8 +64,9 @@ class SQLiteBibleWriter:
         self._create_bible_table()
 
     def _create_bible_table(self):
-        self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS Bible (
+        t = self._table_name
+        self.conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS {t} (
                 Book      INT,
                 Chapter   INT,
                 Verse     INT,
@@ -72,14 +74,13 @@ class SQLiteBibleWriter:
             )
         """)
         self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS bible_key ON Bible (Book, Chapter, Verse)"
+            f"CREATE INDEX IF NOT EXISTS bible_key ON {t} (Book, Chapter, Verse)"
         )
         self.conn.commit()
 
     def add_verse(self, osis_ref: str, intralinear_tokens: list,
                   header: str = None, note_id_map: dict = None,
-                  xrefs: list = None, xref_placement: int = 0,
-                  prepend: str = None):
+                  xrefs: list = None, xref_placement: int = 0):
         """Render and insert one verse."""
         parts     = osis_ref.split('.')
         book_name = parts[0]
@@ -105,11 +106,8 @@ class SQLiteBibleWriter:
         else:
             scripture = self.render_verse_intralinear(**kwargs)
 
-        if prepend:
-            scripture = prepend + scripture
-
         self.conn.execute(
-            "INSERT INTO Bible (Book, Chapter, Verse, Scripture) VALUES (?, ?, ?, ?)",
+            f"INSERT INTO {self._table_name} (Book, Chapter, Verse, Scripture) VALUES (?, ?, ?, ?)",
             (book_num, chapter, verse, scripture)
         )
         self._verse_count += 1
