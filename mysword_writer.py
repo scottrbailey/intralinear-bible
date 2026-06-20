@@ -45,7 +45,7 @@ sup { font-size: 70%; }
     flex-direction: column;
     align-items: center;
     vertical-align: middle;
-    line-height: 1.2;
+    line-height: 1.1;
 }
 .xlitH { color: blue; font-size: 0.65em; text-decoration: none; }
 .xlitG { color: green; font-size: 0.65em; text-decoration: none; }

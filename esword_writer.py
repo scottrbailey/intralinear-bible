@@ -9,7 +9,7 @@ from textwrap import dedent
 
 INTRALINEAR_CSS = (
     '.stk{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:super;font-size:0.65em;line-height:1.2;color:blue}'
+    'vertical-align:super;font-size:0.65em;color:blue;line-height:1.1}'
     'span.stk a{opacity:0 !important;}'
 )
 
