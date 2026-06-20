@@ -24,7 +24,7 @@ def load_config(path: str = "config.yaml") -> dict:
     with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
-    data_root = Path(cfg.get("data_root", "../../"))
+    data_root = Path(cfg.get("data_root", "../"))
     translation = cfg["translation"]
 
     # Resolve source paths relative to data_root
@@ -40,10 +40,9 @@ def load_config(path: str = "config.yaml") -> dict:
         "interlinear":        f"{translation}i+",
     }
 
-    # Resolve annotations path
+    # Resolve paths
     cfg["annotations"] = Path(cfg.get("annotations", "data/bsb_annotations.json"))
-
-    # Resolve output dir
+    cfg["tsk"] = Path(cfg.get("tsk", "data/tskxref.tsv"))
     cfg["output"]["dir"] = Path(cfg["output"]["dir"])
 
     return cfg
@@ -150,6 +149,15 @@ def load_annotations(path: Path) -> dict:
     h = len(data.get('headers', {}))
     n = len(data.get('notes', {}))
     print(f"  Loaded {h:,} headers and {n:,} note anchors from {path.name}")
+    return data
+
+def load_tsk(path: Path):
+    if not path.exists():
+        print(f"  Warning: TSK file not found at {path}, skipping")
+        return dict()
+    with open(path, encoding='utf-8') as f:
+        data = json.load(f)
+    print(f"  Loaded TSK file cross references from {path.name}")
     return data
 
 
@@ -416,7 +424,7 @@ def join_verse(verse_id: str, target_tokens: list,
 # ================== TESTAMENT PROCESSING ==================
 
 def process_testament(testament: str, sources: dict, books_filter: list,
-                      writer, annotations: dict):
+                      writer, annotations: dict, tsk: dict):
     """Process one testament, adding verses to the writer."""
     tcfg = sources[testament]
     print(f"\n{'='*60}")
@@ -440,8 +448,9 @@ def process_testament(testament: str, sources: dict, books_filter: list,
         intralinear = join_verse(verse_id, target_tokens, alignment_records,
                                  source_index, notes_index)
         osis_ref = verse_id_to_osis(verse_id)
-        header   = headers.get(osis_ref)
-        writer.add_verse(osis_ref, intralinear, header=header)
+        header   = headers.get(osis_ref) if writer.headers else None
+        xrefs    = tsk.get(verse_id, {})
+        writer.add_verse(osis_ref, intralinear, header=header, xrefs=xrefs)
         verse_count += 1
 
     print(f"  Processed {verse_count:,} verses.")
@@ -467,26 +476,40 @@ if __name__ == '__main__':
     print("Loading annotations...")
     annotations = load_annotations(config['annotations'])
 
-    output_format = config['output']['format'].lower()
-    render_mode   = config['output']['mode']
-    output_dir    = config['output']['dir']
+    output_cfg    = config['output']
+    output_format = output_cfg['format'].lower()
+    render_mode   = output_cfg['mode']
+    output_dir    = output_cfg['dir']
     abbrev        = config['abbrev']
+    out_headers   = output_cfg.get('headers', 1)
+    out_notes     = output_cfg.get('notes', 1)
+    out_xref      = output_cfg.get('xref', 0)
+
+    tsk = {}
+    if out_xref:
+        print("Loading TSK cross references...")
+        tsk = load_tsk(config['tsk'])
 
     if output_format == 'mysword':
         from mysword_writer import MySwordWriter
 
-        # Base intralinear pass (used for both intralinear variants)
         if render_mode == 'intralinear':
             base_abbrev = abbrev['intralinear']
             base_path   = output_dir / base_abbrev
             writer = MySwordWriter(transliterate=transliterate,
-                                   render_mode='intralinear')
+                                   render_mode='intralinear',
+                                   headers=out_headers,
+                                   notes=out_notes,
+                                   xref=out_xref)
             writer.open(base_path, work_id=base_abbrev)
         else:
             base_abbrev = abbrev['interlinear']
             base_path   = output_dir / base_abbrev
             writer = MySwordWriter(transliterate=transliterate,
-                                   render_mode='interlinear')
+                                   render_mode='interlinear',
+                                   headers=out_headers,
+                                   notes=out_notes,
+                                   xref=out_xref)
             writer.open(base_path, work_id=base_abbrev)
 
     elif output_format == 'esword':
@@ -494,7 +517,11 @@ if __name__ == '__main__':
         base_abbrev = abbrev['intralinear'] if render_mode == 'intralinear' \
                       else abbrev['interlinear']
         base_path   = output_dir / base_abbrev
-        writer = ESwordWriter(transliterate=transliterate, render_mode=render_mode)
+        writer = ESwordWriter(transliterate=transliterate,
+                              render_mode=render_mode,
+                              headers=out_headers,
+                              notes=out_notes,
+                              xref=out_xref)
         writer.open(base_path, work_id=base_abbrev)
 
     else:  # osis
@@ -503,10 +530,10 @@ if __name__ == '__main__':
 
     sources = config['sources']
     if 'ot' in sources and any(b in ot_abbrev for b in (books_filter or ['Gen'])):
-        process_testament('ot', sources, books_filter, writer, annotations)
+        process_testament('ot', sources, books_filter, writer, annotations, tsk)
 
     if 'nt' in sources and any(b in nt_abbrev for b in (books_filter or ['Matt'])):
-        process_testament('nt', sources, books_filter, writer, annotations)
+        process_testament('nt', sources, books_filter, writer, annotations, tsk)
 
     if output_format == 'osis':
         writer.write(base_path)
@@ -522,8 +549,13 @@ if __name__ == '__main__':
         src = writer.output_path
         dst = src.parent / (stacked_abbrev + MySwordWriter.file_extension)
         shutil.copy2(src, dst)
-        MySwordWriter.write_stacked_details(dst, stacked_abbrev,
-                                            writer._has_ot, writer._has_nt)
+        writer.conn = __import__('sqlite3').connect(dst)
+        writer.work_id = stacked_abbrev
+        writer.render_mode = 'intralinear_stacked'
+        writer.conn.execute("DROP TABLE IF EXISTS Details")
+        writer.insert_details()
+        writer.conn.commit()
+        writer.conn.close()
         print(f"Stacked variant written to {dst}")
     r"""
     osis2mod.exe "$HOME\AppData\Roaming\Sword\modules\texts\ztext\bsbi" .\BSBi.osis.xml -z

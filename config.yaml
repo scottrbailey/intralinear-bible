@@ -26,16 +26,19 @@ sources:
 transliteration:
   hebrew:  "brill_simple"   # brill_simple, sbl_simple, sbl_academic, phonetic_dot
   greek:   "SIMPLE"
-  aramaic: "brill_simple"
 
 # ── Annotations ──────────────────────────────────────────────
 annotations: "data/bsb_annotations.json"
+tsk:         "data/tsk_xrefs.json"
 
 # ── Output ───────────────────────────────────────────────────
 output:
-  format: "mysword"       # mysword, esword, osis
-  mode:   "intralinear"   # intralinear, interlinear
+  format: "esword"       # mysword, esword, osis
+  mode:   "intralinear"  # intralinear, interlinear
   dir:    "output"
+  headers: 0             # section headers
+  notes:   1             # translator notes
+  xref:    0             # cross ref 0: none, 1: beginning of verse, 2: end of verse
 
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
