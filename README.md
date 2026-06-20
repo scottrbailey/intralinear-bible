@@ -1,110 +1,40 @@
-# Intralinear Bible
+# BSB Intralinear Bible
 
-A pipeline for generating intralinear and interlinear Bible modules for
-[MySword](https://www.mysword.info/) (Android) and e-Sword, combining the
-[Berean Standard Bible](https://berean.bible/) with inline Hebrew and Greek
-transliteration linked to Strong's concordance.
+The Bible was written in Hebrew, Aramaic, and Greek. For most of us, that means we're always reading someone else's translation — and translations involve choices. Words that carry layers of meaning get flattened. Nuance gets lost. You find yourself wondering: *what did it actually say?*
 
-## What It Produces
+The BSB Intralinear Bible is for people who want to get closer to the original text without spending years learning ancient languages. It combines the **Berean Standard Bible** — a modern, accurate English translation — with inline transliteration of every Hebrew and Greek word, linked directly to Strong's concordance so you can explore word meanings in seconds.
 
-Running the pipeline generates up to three MySword module variants:
+## What You Get
 
-| Abbreviation | Description |
-|--------------|---|
-| `BSBi`       | Intralinear — transliteration as colored superscript links after each English word |
-| `BSBis`      | Intralinear Stacked — transliteration above original script, stacked display |
-| `BSBi+`      | Interlinear — GBF format with Hebrew/Greek script, transliteration, and English |
+- **Every Hebrew and Greek word** shown in readable Latin script alongside the English
+- **One tap** to open the Strong's lexicon entry for any word
+- **Translator notes** from the BSB team explaining difficult passages
+- **Cross-references** to related verses (e-Sword edition)
+- Works offline, no account required
 
-## Download
+## Who It's For
 
-Pre-built modules are available on the
-[Releases](https://github.com/scottrees/intralinear-bible/releases/latest) page.
+- Bible students who want more than a translation but aren't ready for a full language course
+- Preachers and teachers who want to verify word meanings quickly
+- Anyone who has ever wondered *"but what does that word really mean?"*
 
-To install in MySword:
-1. Download the `.bbl.mybible` file
-2. Copy it to the `MySword/Bibles/` folder on your Android device
-3. Restart MySword and select the module from the Bible list
+## Getting Started
 
-## Building From Source
+See [INSTALL.md](INSTALL.md) for step-by-step instructions for **MySword** (Android) and **e-Sword** (Android and iOS).
 
-### Prerequisites
+## About the Text
 
-You will need to clone the following repositories alongside this one:
+The English translation is the [Berean Standard Bible](https://bereanbible.com) (BSB). The BSB was chosen for several reasons: it aims to be both **accurate and readable** — more literal than the NIV but more accessible than the NASB — and it is released under a Creative Commons license that allows this kind of derivative work. Practically speaking, the [Clear Bible Alignments](https://github.com/Clear-Bible/Alignments) project has done the painstaking work of mapping every BSB English word to its Hebrew or Greek source word, which is what makes the intralinear display possible. Without that alignment data, this project wouldn't exist.
 
-```
-parent/
-├── intralinear-bible/      ← this repo
-├── macula-hebrew/          ← https://github.com/Clear-Bible/macula-hebrew
-├── macula-greek/           ← https://github.com/Clear-Bible/macula-greek
-└── Alignments/             ← https://github.com/Clear-Bible/Alignments
-```
-
-### Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### Configure
-
-Copy and edit the config file:
-
-```bash
-cp config.yaml my_config.yaml
-```
-
-Key settings in `config.yaml`:
-
-```yaml
-output:
-  format: "mysword"      # mysword, esword, osis
-  mode:   "intralinear"  # intralinear, interlinear
-books: null              # null = full Bible, or e.g. [Gen, Exod, Matt]
-```
-
-### Run
-
-```bash
-python main.py                    # uses config.yaml
-python main.py my_config.yaml     # uses custom config
-```
-
-Output files are written to the `output/` directory.
-
-## Transliteration Schemes
-
-Hebrew transliteration scheme is configurable in `config.yaml`:
-
-| Scheme          | Example       |
-|-----------------|---------------|
-| `brill_simple`  | be·re·shít    |
-| `sbl_simple`    | bereʾshit     |
-| `sbl_academic`  | bərēʾšîṯ      |
-| `phonetic_dot`  | beh·reh·SHEET |
-
-## Project Structure
-
-```
-intralinear-bible/
-├── main.py              # pipeline entry point
-├── translit.py          # Hebrew transliteration + make_transliterator()
-├── sqlite_writer.py     # base SQLite writer and verse renderers
-├── mysword_writer.py    # MySword .bbl.mybible writer
-├── osis_renderer.py     # OSIS XML writer
-├── config.yaml          # pipeline configuration
-├── data/
-│   └── bsb_annotations.json   # section headers and footnotes
-└── output/              # generated modules (gitignored)
-```
+Hebrew source text is the Westminster Leningrad Codex (WLC). Greek source text is the SBLGNT. Alignment data is CC BY 4.0.
 
 ## License
 
-This work is licensed under
-[CC BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/).
+This work is licensed under [CC BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/).
 
 ### Attribution
 
-- **Berean Standard Bible** © 2022 Bible Hub — [berean.bible](https://berean.bible/) — CC BY-SA 4.0
+- **Berean Standard Bible** © 2022 Bible Hub — [bereanbible.com](https://bereanbible.com) — CC BY-SA 4.0
 - **Macula Hebrew** © Clear Bible / unfoldingWord — [github.com/Clear-Bible/macula-hebrew](https://github.com/Clear-Bible/macula-hebrew) — CC BY 4.0
 - **Macula Greek** © Clear Bible / unfoldingWord — [github.com/Clear-Bible/macula-greek](https://github.com/Clear-Bible/macula-greek) — CC BY 4.0
 - **Clear Bible Alignments** © Clear Bible — [github.com/Clear-Bible/Alignments](https://github.com/Clear-Bible/Alignments) — CC BY 4.0
