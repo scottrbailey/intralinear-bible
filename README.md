@@ -4,12 +4,14 @@ The Bible was written in Hebrew, Aramaic, and Greek. For most of us, that means 
 
 The BSB Intralinear Bible is for people who want to get closer to the original text without spending years learning ancient languages. It combines the **Berean Standard Bible** — a modern, accurate English translation — with inline transliteration of every Hebrew and Greek word, linked directly to Strong's concordance so you can explore word meanings in seconds.
 
+<img src="docs/assets/MySword_intralinear.jpg" description="MySword Intralinear" width="480"/>
+
 ## What You Get
 
-- **Every Hebrew and Greek word** shown in readable Latin script alongside the English
+- **Every Hebrew and Greek word** transliterated in readable Latin script alongside the English
 - **One tap** to open the Strong's lexicon entry for any word
 - **Translator notes** from the BSB team explaining difficult passages
-- **Cross-references** to related verses (e-Sword edition)
+- **Cross-references** to related verses (optional)
 - Works offline, no account required
 
 ## Who It's For
@@ -20,13 +22,17 @@ The BSB Intralinear Bible is for people who want to get closer to the original t
 
 ## Getting Started
 
-See [INSTALL.md](INSTALL.md) for step-by-step instructions for **MySword** (Android) and **e-Sword** (Android and iOS).
+See [INSTALL.md](docs/INSTALL.md) for step-by-step instructions for **MySword** (Android) and **e-Sword** (Android and iOS).
 
 ## About the Text
 
 The English translation is the [Berean Standard Bible](https://bereanbible.com) (BSB). The BSB was chosen for several reasons: it aims to be both **accurate and readable** — more literal than the NIV but more accessible than the NASB — and it is released under a Creative Commons license that allows this kind of derivative work. Practically speaking, the [Clear Bible Alignments](https://github.com/Clear-Bible/Alignments) project has done the painstaking work of mapping every BSB English word to its Hebrew or Greek source word, which is what makes the intralinear display possible. Without that alignment data, this project wouldn't exist.
 
 Hebrew source text is the Westminster Leningrad Codex (WLC). Greek source text is the SBLGNT. Alignment data is CC BY 4.0.
+
+## Development
+
+Documentation to customize and build your own modules is found in [DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ## License
 

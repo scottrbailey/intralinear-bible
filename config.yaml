@@ -29,16 +29,16 @@ transliteration:
 
 # ── Annotations ──────────────────────────────────────────────
 annotations: "data/bsb_annotations.json"
-tsk:         "data/tsk_xref.json"
+tsk:         "data/tsk_xrefs.json"
 
 # ── Output ───────────────────────────────────────────────────
 output:
   format: "esword"       # mysword, esword, osis
   mode:   "intralinear"  # intralinear, interlinear
   dir:    "output"
-  headers: 1             # section headers
+  headers: 0             # section headers
   notes:   1             # translator notes
-  xref:    2             # cross ref 0: none, 1: beginning of verse, 2: end of verse
+  xref:    0             # cross ref 0: none, 1: beginning of verse, 2: end of verse
 
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
