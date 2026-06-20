@@ -23,7 +23,7 @@ The application is free, but requires a $25 "donation" to unlock all features.
 ### Step 2 — Download the Intralinear Module
 
 1. On your device, open this link to download the module:
-   **[BSBi_1-0-0.zip](#)** *(replace with actual release link)*
+   **[BSBi.bbl_1-0-0.zip](https://github.com/scottrbailey/intralinear-bible/releases/download/v1.0.0/BSBi.bbl_1-0-0.zip)** BSB Intralinear or **[BSBis.bbl_1-0-0.zip](https://github.com/scottrbailey/intralinear-bible/releases/download/v1.0.0/BSBis.bbl_1-0-0.zip)** BSB Intralinear Stacked
 2. When prompted, save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module
@@ -34,8 +34,13 @@ The application is free, but requires a $25 "donation" to unlock all features.
 
 ### Choosing Between Standard and Stacked
 
-- **Standard (`BSBi`)** — transliteration appears as a superscript after the English word. Tap it to open the Strong's lexicon entry.
-- **Stacked (`BSBis`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word.
+**Standard (`BSBi`)** — transliteration appears as a superscript after the English word. Tap it to open the Strong's lexicon entry.
+
+<img src="assets/MySword_intralinear.jpg" width="480" description="BSB Intralinear on MySword"/>
+
+**Stacked (`BSBis`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word.
+
+<img src="assets/MySword_stacked_intralinear.jpg" width="480" description="BSB Intralinear Stacked on MySword" />
 
 ---
 
@@ -57,7 +62,7 @@ The e-Sword app is not as full-featured as MySword and there are not as many mod
 ### Step 2 — Download the Module
 
 1. On your device, open this link to download the module:
-   **[BSBi_1-0-0.zip](#)** *(replace with actual release link)*
+   **[BSBi_1-0-0.zip](https://github.com/scottrbailey/intralinear-bible/releases/download/v1.0.0/BSBi_1-0-0.zip)**
 2. Save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module 
@@ -67,6 +72,7 @@ The e-Sword app is not as full-featured as MySword and there are not as many mod
 3. You should see a file named `BSBi.bbli`.
 4. Open e-Sword and click General > Import. Navigate to your Downloads folder, select the `BSBi.bbli` file and click `Open` to import the module.
 
+<img src="assets/eSword_OT.jpg" width="480" description="BSB Intralinear on e-Sword"/>
 
 ---
 
@@ -86,4 +92,4 @@ The e-Sword app is not as full-featured as MySword and there are not as many mod
 Restart the app. If it still doesn't appear, verify the file is in the correct folder and has the correct extension (`.bbl.mybible` for MySword, `.bbli` for e-Sword).
 
 **Tapping a transliteration doesn't open the lexicon.**
-Make sure you have a Hebrew and Greek dictionary/lexicon installed in the app. Start with 
+Make sure you have a Hebrew and Greek dictionary/lexicon installed in the app. Start "Brown-Driver-Briggs' Hebrew Definitions" and "Thayer's Greek Definitions."
