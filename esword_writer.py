@@ -27,8 +27,9 @@ REVERSE_INTERLINEAR_CSS = (
     'hs{font-size:1.2em}'
     'gs{font-size:1.1em}'
     'xlit{color:#2244aa;font-size:.85em}'
-    'num{color:#7722aa;font-size:.85em;display:block;margin:0;padding:0;border:1px solid red}'
-    'tvm{color:#666;font-size:.8em;display:block;margin:0;padding:0;border:1px solid blue}'
+    'num{color:#7722aa;font-size:.85em;display:block;margin:0;padding:0}'
+    'tvm{color:#666;font-size:.8em;display:block;margin:0;padding:0}'
+    'lem a{display:block;margin:0;padding:0}'
 )
 
 
