@@ -384,8 +384,7 @@ def join_verse(verse_id: str, target_tokens: list,
         span_tokens = target_tokens[first_pos:last_pos + 1]
 
         for t in span_tokens:
-            if t.exclude:
-                absorbed_ids.add(t.id)
+            absorbed_ids.add(t.id)
 
         all_tokens = prefix_tokens + span_tokens
         parts = []
