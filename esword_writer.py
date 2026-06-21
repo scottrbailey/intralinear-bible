@@ -29,7 +29,7 @@ REVERSE_INTERLINEAR_CSS = (
     'xlit{color:#2244aa;font-size:.85em}'
     'num{color:#7722aa;font-size:.85em;display:block;margin:0;padding:0}'
     'tvm{color:#666;font-size:.8em;display:block;margin:0;padding:0}'
-    'lem a{display:block;margin:0;padding:0}'
+    'lem *{border:1px solid red;margin:0;padding:0}'
 )
 
 
