@@ -1,0 +1,43 @@
+# Reverse Interlinear Bible Pipeline Configuration
+# English (BSB) leads each word block; Hebrew/Greek, transliteration,
+# Strong's number, and morphology appear beneath it.
+
+# ── Module identity ──────────────────────────────────────────
+version: "1.0.0"
+translation: "BSB"
+description: "Berean Standard Bible"
+
+# ── Source data ──────────────────────────────────────────────
+data_root: "../"
+
+sources:
+  ot:
+    source:    "macula-hebrew/WLC/tsv/macula-hebrew.tsv"
+    alignment: "Alignments/data/eng/alignments/BSB/WLCM-BSB-manual.json"
+    target:    "Alignments/data/eng/targets/BSB/ot_BSB.tsv"
+  nt:
+    source:    "macula-greek/Nestle1904/tsv/macula-greek-Nestle1904.tsv"
+    alignment: "Alignments/data/eng/alignments/BSB/SBLGNT-BSB-manual.json"
+    target:    "Alignments/data/eng/targets/BSB/nt_BSB.tsv"
+
+# ── Transliteration ──────────────────────────────────────────
+transliteration:
+  hebrew:  "brill_simple"   # brill_simple, sbl_simple, sbl_academic, phonetic_dot
+  greek:   "SIMPLE"
+
+# ── Annotations ──────────────────────────────────────────────
+annotations: "data/bsb_annotations.json"
+tsk:         "data/tsk_xrefs.json"
+
+# ── Output ───────────────────────────────────────────────────
+output:
+  format: "esword"
+  mode:   "reverse_interlinear"
+  dir:    "output"
+  headers: 1
+  notes:   1
+  xref:    0
+
+# ── Book filter ──────────────────────────────────────────────
+# Start with a single book for testing
+books: [Matt]

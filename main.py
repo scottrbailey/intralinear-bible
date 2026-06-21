@@ -515,7 +515,7 @@ if __name__ == '__main__':
         from esword_writer import ESwordWriter
         base_abbrev = abbrev['intralinear'] if render_mode == 'intralinear' \
                       else abbrev['interlinear']
-        base_path   = output_dir / base_abbrev
+        base_path = output_dir / base_abbrev
         writer = ESwordWriter(transliterate=transliterate,
                               render_mode=render_mode,
                               headers=out_headers,
