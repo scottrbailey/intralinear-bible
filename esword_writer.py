@@ -23,7 +23,7 @@ REVERSE_INTERLINEAR_CSS = (
     'qi>span{display:flex;flex-direction:row;gap:4px}'
     # Each source-word block: vertical column of script/xlit/strongs/morph
     'lem{display:inline-flex;flex-direction:column;align-items:center;'
-    'margin-top:2px;padding-top:2px}'
+    'margin-top:2px;padding-top:2px;line-height:1}'
     'hs{font-size:1.2em}'
     'gs{font-size:1.1em}'
     'xlit{color:#2244aa;font-size:.85em}'
