@@ -37,7 +37,7 @@ def load_config(path: str = "config.yaml") -> dict:
     cfg["abbrev"] = {
         "intralinear":        f"{translation}i",
         "intralinear_stacked": f"{translation}is",
-        "interlinear":        f"{translation}i+",
+        "interlinear":        f"{translation}ri+",
     }
 
     # Resolve paths
@@ -48,7 +48,7 @@ def load_config(path: str = "config.yaml") -> dict:
     return cfg
 
 
-CONFIG_FILE = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+CONFIG_FILE = sys.argv[1] if len(sys.argv) > 1 else "esword_intralinear.yaml"
 config = load_config(CONFIG_FILE)
 
 # ================== DATA STRUCTURES ==================

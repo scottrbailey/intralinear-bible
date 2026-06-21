@@ -9,7 +9,7 @@ from textwrap import dedent
 
 INTRALINEAR_CSS = (
     '.stk{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:super;font-size:0.65em;color:blue;line-height:1.1}'
+    'vertical-align:super;font-size:0.65em;color:blue;line-height:0.9}'
     'span.stk a{opacity:0 !important;}'
 )
 
@@ -238,15 +238,15 @@ class ESwordWriter(SQLiteBibleWriter):
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     strongs = sw.stem.strongs
                     if sw.lang == 'G':
-                        seg = f"<grk>{sw.text}</grk><xlit>{xlit}</xlit><num>{strongs}</num>"
+                        seg = f"<lem><grk>{sw.text}</grk><xlit>{xlit}</xlit><num>{strongs}</num><tvm>{sw.stem.morph}</tvm></lem>"
                     else:
-                        seg = f"<heb>{sw.text}</heb><xlit>{xlit}</xlit><num>{strongs}</num>"
+                        seg = f"<lem><heb>{sw.text}</heb><xlit>{xlit}</xlit><num>{strongs}</num><tvm>{sw.stem.morph}</tvm></lem>"
                     segments.append(seg)
 
                 parts.append(
                     f"<q>"
-                    f"{' '.join(segments)}"
-                    f"<tvm>{token.english}</tvm>"
+                    f"<span>{' '.join(segments)}</span>"  # original
+                    f"<e>{token.english}</e>"             # eng                
                     f"</q>"
                 )
 

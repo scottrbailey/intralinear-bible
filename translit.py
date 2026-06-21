@@ -113,6 +113,7 @@ SCHEMES = {
         '\u05E2': '',         # Ayin dropped
         'stress_marker': '\u0301',
         'syllable_sep': '\u00B7',  # middle dot
+        'divine_name': 'Yᵉ·hó·vah',
     },
 
     'sbl_simple': {

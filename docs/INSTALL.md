@@ -72,7 +72,7 @@ The e-Sword app is not as full-featured as MySword and there are not as many mod
 3. You should see a file named `BSBi.bbli`.
 4. Open e-Sword and click General > Import. Navigate to your Downloads folder, select the `BSBi.bbli` file and click `Open` to import the module.
 
-<img src="assets/eSword_OT.jpg" width="480" description="BSB Intralinear on e-Sword"/>
+<img src="assets/eSword_OT.jpg" width="360" description="BSB Intralinear on e-Sword"/>
 
 ---
 
