@@ -32,7 +32,7 @@ tsk:         "data/tsk_xrefs.json"
 # ── Output ───────────────────────────────────────────────────
 output:
   format: "esword"
-  mode:   "reverse_interlinear"
+  mode:   "interlinear"
   dir:    "output"
   headers: 1
   notes:   1

@@ -54,9 +54,9 @@ class ESwordWriter(SQLiteBibleWriter):
                 active       BOOL DEFAULT 0
             )
         """)
-        if self.render_mode == 'reverse_interlinear':
+        if self.render_mode == 'interlinear':
             css   = REVERSE_INTERLINEAR_CSS
-            title = 'Reverse Interlinear'
+            title = 'Interlinear'
         else:
             css   = INTRALINEAR_CSS
             title = 'Intralinear'
@@ -151,9 +151,7 @@ class ESwordWriter(SQLiteBibleWriter):
                 RightToLeft  BOOL
             )
         """)
-        if self.render_mode == 'reverse_interlinear':
-            title = "BSB Reverse Interlinear Bible"
-        elif self.render_mode == 'interlinear':
+        if self.render_mode == 'interlinear':
             title = "BSB Interlinear Bible"
         else:
             title = "BSB Intralinear Bible"
@@ -181,11 +179,11 @@ class ESwordWriter(SQLiteBibleWriter):
     def _xref_markers(self, xrefs: list) -> str:
         return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
 
-    def render_verse_reverse_interlinear(self, tokens: list, header: str = None,
-                                          note_id_map: dict = None,
-                                          xrefs: list = None,
-                                          xref_placement: int = 0) -> str:
-        """Render tokens to reverse interlinear HTML.
+    def render_verse_interlinear(self, tokens: list, header: str = None,
+                                 note_id_map: dict = None,
+                                 xrefs: list = None,
+                                 xref_placement: int = 0) -> str:
+        """Render tokens to interlinear HTML.
 
         Each aligned token becomes a <q> column: English on top, then one <lem>
         per source word side-by-side inside a <span> row.  Unaligned tokens also
@@ -333,59 +331,3 @@ class ESwordWriter(SQLiteBibleWriter):
 
         return ''.join(parts)
 
-    def render_verse_interlinear(self, tokens: list, header: str = None,
-                                 note_id_map: dict = None,
-                                 xrefs: list = None,
-                                 xref_placement: int = 0) -> str:
-        """Render tokens to interlinear HTML.
-
-        Format per aligned token:
-          <q><heb>בְּרֵאשִׁית</heb><xlit>bereshit</xlit><num>H7225</num><tvm>in the beginning</tvm></q>
-        """
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-
-        if header:
-            parts.append(f'<b class="headline">{header}</b> ')
-
-        if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                segments = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    strongs = sw.stem.strongs
-                    if sw.lang == 'G':
-                        seg = f"<lem><grk>{sw.text}</grk><xlit>{xlit}</xlit><num>{strongs}</num><tvm>{sw.stem.morph}</tvm></lem>"
-                    else:
-                        seg = f"<lem><heb>{sw.text}</heb><xlit>{xlit}</xlit><num>{strongs}</num><tvm>{sw.stem.morph}</tvm></lem>"
-                    segments.append(seg)
-
-                parts.append(
-                    f"<q>"
-                    f"<span>{' '.join(segments)}</span>"  # original
-                    f"<e>{token.english}</e>"             # eng                
-                    f"</q>"
-                )
-
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
-
-        return ''.join(parts)

@@ -101,9 +101,7 @@ class SQLiteBibleWriter:
             'xref_placement':  xref_placement,
         }
 
-        if self.render_mode == 'reverse_interlinear':
-            scripture = self.render_verse_reverse_interlinear(**kwargs)
-        elif self.render_mode == 'interlinear':
+        if self.render_mode == 'interlinear':
             scripture = self.render_verse_interlinear(**kwargs)
         else:
             scripture = self.render_verse_intralinear(**kwargs)
@@ -144,7 +142,4 @@ class SQLiteBibleWriter:
         raise NotImplementedError
 
     def render_verse_interlinear(self, tokens: list, header: str = None):
-        raise NotImplementedError
-
-    def render_verse_reverse_interlinear(self, tokens: list, header: str = None):
         raise NotImplementedError
