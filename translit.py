@@ -420,11 +420,9 @@ def is_vocal_sheva(chars: list, i: int) -> bool:
 
     if any(v in SHORT_VOWELS for v in prev_vowels):
         # Exception: sheva after dagesh forte is always vocal
-        prev_base = prev_base_loc(chars, i)
-        if prev_base >= 0:
-            prev_marks = get_marks(chars, prev_base)
-            if DAGESH in prev_marks and has_preceding_vowel_point(chars, prev_base):
-                return True
+        current_marks = get_marks(chars, i)
+        if DAGESH in current_marks and has_preceding_vowel_point(chars, i):
+            return True
         return False
     if any(v in LONG_VOWELS for v in prev_vowels):
         return True
