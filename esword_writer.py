@@ -15,12 +15,12 @@ INTRALINEAR_CSS = (
 
 REVERSE_INTERLINEAR_CSS = (
     # Word block: vertical column, top-aligned, small horizontal margin
-    'q{display:inline-flex;flex-direction:column;align-items:center;'
+    'qi{display:inline-flex;flex-direction:column;align-items:center;'
     'vertical-align:top;margin:0 3px}'
     # English line
     'e{font-weight:bold;white-space:nowrap}'
     # Wrapper for one or more <lem> blocks: lay them out side by side
-    'q>span{display:flex;flex-direction:row;gap:4px}'
+    'qi>span{display:flex;flex-direction:row;gap:4px}'
     # Each source-word block: vertical column of script/xlit/strongs/morph
     'lem{display:inline-flex;flex-direction:column;align-items:center;'
     'font-size:.75em;margin-top:2px;padding-top:2px;border-top:1px solid #ccc}'
@@ -261,10 +261,10 @@ class ESwordWriter(SQLiteBibleWriter):
                     segments.append(seg)
 
                 parts.append(
-                    f'<q>'
+                    f'<qi>'
                     f'<e>{english}</e>'
                     f'<span>{"".join(segments)}</span>'
-                    f'</q>'
+                    f'</qi>'
                 )
 
                 for note in token.notes:
