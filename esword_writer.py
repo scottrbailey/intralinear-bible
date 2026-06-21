@@ -23,12 +23,12 @@ REVERSE_INTERLINEAR_CSS = (
     'qi>span{display:flex;flex-direction:row;gap:4px}'
     # Each source-word block: vertical column of script/xlit/strongs/morph
     'lem{display:inline-flex;flex-direction:column;align-items:center;'
-    'margin-top:2px;padding-top:2px;border-top:1px solid #ccc}'
+    'margin-top:2px;padding-top:2px}'
     'hs{font-size:1.2em}'
     'gs{font-size:1.1em}'
     'xlit{color:#2244aa;font-size:.85em}'
-    'num{color:#7722aa;font-size:.85em}'
-    'tvm{color:#666;font-size:.8em}'
+    'num{color:#7722aa;font-size:.85em;display:block;margin:0;padding:0}'
+    'tvm{color:#666;font-size:.8em;display:block;margin:0;padding:0}'
 )
 
 
