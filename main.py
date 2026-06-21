@@ -175,10 +175,9 @@ def load_source_index(path: Path, testament: str) -> dict:
                            or '')
             # Normalize: strip any existing H/G/A prefix and leading zeros, then re-add lang prefix
             if raw_strongs:
-                # Strip leading H/G prefix if present (re-add from lang below)
                 raw_strongs = re.sub(r'^[HGA]', '', raw_strongs)
-                # Strip leading zeros, preserving trailing alpha (e.g. 0871a -> 871a)
-                raw_strongs = re.sub(r'^0+(\w)', r'\1', raw_strongs)
+                # Strip leading zeros and any trailing letter suffixes (e.g. 0871a -> 871)
+                raw_strongs = re.sub(r'^0*(\d+)[a-z]*$', r'\1', raw_strongs)
                 raw_strongs = lang + raw_strongs
 
             index[row['xml:id']] = SourceToken(
