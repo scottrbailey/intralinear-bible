@@ -18,7 +18,7 @@ REVERSE_INTERLINEAR_CSS = (
     'qi{display:inline-flex;flex-direction:column;align-items:center;'
     'vertical-align:top;margin:0 3px}'
     # English line
-    'e{font-weight:bold;white-space:nowrap}'
+    'e{white-space:nowrap}'
     # Wrapper for one or more <lem> blocks: lay them out side by side
     'qi>span{display:flex;flex-direction:row;gap:4px}'
     # Each source-word block: vertical column of script/xlit/strongs/morph
