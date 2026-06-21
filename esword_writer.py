@@ -127,13 +127,20 @@ class ESwordWriter(SQLiteBibleWriter):
                 RightToLeft  BOOL
             )
         """)
+        if self.render_mode == 'reverse_interlinear':
+            title = "BSB Reverse Interlinear Bible"
+        elif self.render_mode == 'interlinear':
+            title = "BSB Interlinear Bible"
+        else:
+            title = "BSB Intralinear Bible"
+
         self.conn.execute("""
             INSERT INTO Details (
                 Title, Abbreviation, Information, Version,
                 OldTestament, NewTestament, Apocrypha, Strongs, RightToLeft
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            "BSB Intralinear Bible",
+            title,
             self.work_id,
             dedent("""\
             Berean Standard Bible with inline Hebrew and Greek transliteration.
@@ -192,6 +199,74 @@ class ESwordWriter(SQLiteBibleWriter):
                         f'</span>'
                     )
                 parts.append(' '.join(lemmas))
+
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
+        return ''.join(parts)
+
+    def render_verse_reverse_interlinear(self, tokens: list, header: str = None,
+                                          note_id_map: dict = None,
+                                          xrefs: list = None,
+                                          xref_placement: int = 0) -> str:
+        """Render tokens to reverse interlinear HTML.
+
+        English leads each word block; source language, transliteration,
+        Strong's, and morphology follow beneath it.
+
+        Format per aligned token:
+          <q><e>in the beginning</e><span><lem><heb>בְּרֵאשִׁית</heb>
+          <xlit>bereshit</xlit><num>H7225</num><tvm>…</tvm></lem></span></q>
+        """
+        note_id_map = note_id_map or {}
+        xrefs       = xrefs or []
+        parts       = []
+
+        if header:
+            parts.append(f'<b class="headline">{header}</b> ')
+
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(token.english)
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+            else:
+                segments = []
+                for sw in token.source_words:
+                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    strongs = sw.stem.strongs
+                    if sw.lang == 'G':
+                        seg = (f"<lem><grk>{sw.text}</grk>"
+                               f"<xlit>{xlit}</xlit>"
+                               f"<num>{strongs}</num>"
+                               f"<tvm>{sw.stem.morph}</tvm></lem>")
+                    else:
+                        seg = (f"<lem><heb>{sw.text}</heb>"
+                               f"<xlit>{xlit}</xlit>"
+                               f"<num>{strongs}</num>"
+                               f"<tvm>{sw.stem.morph}</tvm></lem>")
+                    segments.append(seg)
+
+                # Reverse interlinear: English FIRST, source language below
+                parts.append(
+                    f"<q>"
+                    f"<e>{token.english}</e>"
+                    f"<span>{' '.join(segments)}</span>"
+                    f"</q>"
+                )
 
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
