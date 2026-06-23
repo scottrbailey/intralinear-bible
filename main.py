@@ -54,12 +54,17 @@ def parse_args():
                         choices=["esword", "mysword", "osis"], default="esword",
                         help="Output format (default: esword)")
     parser.add_argument("--mode", dest="render_mode",
-                        choices=["intralinear", "interlinear"], default="intralinear",
+                        choices=["intralinear", "interlinear", "intra", "inter"],
+                        default="intralinear",
                         help="Render mode (default: intralinear)")
     return parser.parse_args()
 
 
-args   = parse_args()
+args = parse_args()
+if args.render_mode == 'intra':
+    args.render_mode = 'intralinear'
+elif args.render_mode == 'inter':
+    args.render_mode = 'interlinear'
 config = load_config(args.config)
 
 # ================== DATA STRUCTURES ==================
