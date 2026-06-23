@@ -44,7 +44,7 @@ STACKED_CSS = """
     vertical-align: middle;
     line-height: 1.1;
 }
-a.xlit { color: blue; text-decoration: none; }
+a.xlit { display: block; color: blue; text-decoration: none; }
 .orig { color: #888; }
 """
 
