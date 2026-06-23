@@ -151,16 +151,21 @@ class SQLiteBibleWriter:
 
     @staticmethod
     def _pretty_print(osis_ref: str, scripture: str):
+        print(f'\n--- {osis_ref} ---')
         try:
             root = ET.fromstring(f'<v>{scripture}</v>')
-            ET.indent(root, space='  ')
-            print(f'\n--- {osis_ref} ---')
-            print(ET.tostring(root, encoding='unicode')[3:-4])  # strip <v>…</v>
+            # Print leading text, then each child element on its own line
+            if root.text:
+                print(root.text, end='')
+            for child in root:
+                print('\n' + ET.tostring(child, encoding='unicode'), end='')
+                if child.tail:
+                    print(child.tail, end='')
             print()
         except ET.ParseError as e:
-            print(f'\n--- {osis_ref} (parse error: {e}) ---')
+            print(f'(parse error: {e})')
             print(scripture)
-            print()
+        print()
 
     def render_verse_intralinear(self, tokens: list, header: str = None):
         raise NotImplementedError
