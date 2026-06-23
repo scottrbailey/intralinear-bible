@@ -159,8 +159,6 @@ class SQLiteBibleWriter:
                 print(root.text, end='')
             for child in root:
                 print('\n' + ET.tostring(child, encoding='unicode'), end='')
-                if child.tail:
-                    print(child.tail, end='')
             print()
         except ET.ParseError as e:
             print(f'(parse error: {e})')
