@@ -3,6 +3,7 @@ Intralinear Bible — main.py
 Reads source TSVs and alignment JSON, joins them, and writes output.
 """
 
+import argparse
 import csv
 import json
 import re
@@ -24,32 +25,42 @@ def load_config(path: str = "config.yaml") -> dict:
     with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
-    data_root = Path(cfg.get("data_root", "../"))
+    data_root   = Path(cfg.get("data_root", "../"))
     translation = cfg["translation"]
 
-    # Resolve source paths relative to data_root
     for testament in ("ot", "nt"):
         src = cfg["sources"][testament]
         for key in ("source", "alignment", "target"):
             src[key] = data_root / src[key]
 
-    # Derive module abbreviations
     cfg["abbrev"] = {
-        "intralinear":        f"{translation}i",
+        "intralinear":         f"{translation}i",
         "intralinear_stacked": f"{translation}is",
-        "interlinear":        f"{translation}ri+",
+        "interlinear":         f"{translation}ri+",
     }
 
-    # Resolve paths
     cfg["annotations"] = Path(cfg.get("annotations", "data/bsb_annotations.json"))
-    cfg["tsk"] = Path(cfg.get("tsk", "data/tskxref.tsv"))
+    cfg["tsk"]         = Path(cfg.get("tsk", "data/tsk_xrefs.json"))
     cfg["output"]["dir"] = Path(cfg["output"]["dir"])
 
     return cfg
 
 
-CONFIG_FILE = sys.argv[1] if len(sys.argv) > 1 else "esword_intralinear.yaml"
-config = load_config(CONFIG_FILE)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Build an intralinear/interlinear Bible module.")
+    parser.add_argument("config", nargs="?", default="config.yaml",
+                        help="Path to YAML config file (default: config.yaml)")
+    parser.add_argument("--format", dest="output_format",
+                        choices=["esword", "mysword", "osis"], default="esword",
+                        help="Output format (default: esword)")
+    parser.add_argument("--mode", dest="render_mode",
+                        choices=["intralinear", "interlinear"], default="intralinear",
+                        help="Render mode (default: intralinear)")
+    return parser.parse_args()
+
+
+args   = parse_args()
+config = load_config(args.config)
 
 # ================== DATA STRUCTURES ==================
 
@@ -469,20 +480,22 @@ if __name__ == '__main__':
         greek_scheme=xlit.get('greek', 'SIMPLE'),
     )
 
-    print(f"Config: {CONFIG_FILE}")
+    print(f"Config: {args.config}")
     print(f"Translation: {config['translation']} v{config['version']}")
+    print(f"Format: {args.output_format}  Mode: {args.render_mode}")
 
     print("Loading annotations...")
     annotations = load_annotations(config['annotations'])
 
     output_cfg    = config['output']
-    output_format = output_cfg['format'].lower()
-    render_mode   = output_cfg['mode']
+    output_format = args.output_format
+    render_mode   = args.render_mode
     output_dir    = output_cfg['dir']
     abbrev        = config['abbrev']
     out_headers   = output_cfg.get('headers', 1)
     out_notes     = output_cfg.get('notes', 1)
     out_xref      = output_cfg.get('xref', 0)
+    version       = config['version']
 
     tsk = {}
     if out_xref:
@@ -491,25 +504,16 @@ if __name__ == '__main__':
 
     if output_format == 'mysword':
         from mysword_writer import MySwordWriter
-
-        if render_mode == 'intralinear':
-            base_abbrev = abbrev['intralinear']
-            base_path   = output_dir / base_abbrev
-            writer = MySwordWriter(transliterate=transliterate,
-                                   render_mode='intralinear',
-                                   headers=out_headers,
-                                   notes=out_notes,
-                                   xref=out_xref)
-            writer.open(base_path, work_id=base_abbrev)
-        else:
-            base_abbrev = abbrev['interlinear']
-            base_path   = output_dir / base_abbrev
-            writer = MySwordWriter(transliterate=transliterate,
-                                   render_mode='interlinear',
-                                   headers=out_headers,
-                                   notes=out_notes,
-                                   xref=out_xref)
-            writer.open(base_path, work_id=base_abbrev)
+        base_abbrev = abbrev['intralinear'] if render_mode == 'intralinear' \
+                      else abbrev['interlinear']
+        base_path   = output_dir / base_abbrev
+        writer = MySwordWriter(transliterate=transliterate,
+                               render_mode=render_mode,
+                               headers=out_headers,
+                               notes=out_notes,
+                               xref=out_xref,
+                               version=version)
+        writer.open(base_path, work_id=base_abbrev)
 
     elif output_format == 'esword':
         from esword_writer import ESwordWriter
@@ -520,7 +524,8 @@ if __name__ == '__main__':
                               render_mode=render_mode,
                               headers=out_headers,
                               notes=out_notes,
-                              xref=out_xref)
+                              xref=out_xref,
+                              version=version)
         writer.open(base_path, work_id=base_abbrev)
 
     else:  # osis

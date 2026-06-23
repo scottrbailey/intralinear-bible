@@ -9,6 +9,7 @@ Handles Bible table insertion and shared rendering in two modes:
 
 import sqlite3
 import xml.etree.ElementTree as ET
+from datetime import date
 from pathlib import Path
 from translit import make_transliterator
 
@@ -31,10 +32,12 @@ class SQLiteBibleWriter:
                  render_mode: str = 'intralinear',
                  headers: bool = True,
                  notes: bool = True,
-                 xref: bool = False):
+                 xref: bool = False,
+                 version: str = '1.0.0'):
 
         self.transliterate = transliterate or make_transliterator()
         self.render_mode   = render_mode
+        self.version       = version
         self.conn          = None
         self.output_path   = None
         self.headers       = headers

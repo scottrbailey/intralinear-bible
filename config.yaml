@@ -1,10 +1,12 @@
-# Reverse Interlinear Bible Pipeline Configuration
-# English (BSB) leads each word block; Hebrew/Greek, transliteration,
-# Strong's number, and morphology appear beneath it.
+# Intralinear Bible Pipeline Configuration
+# Run: python main.py [--format esword|mysword|osis] [--mode intralinear|interlinear]
 
 # ── Module identity ──────────────────────────────────────────
 version: "1.0.0"
-translation: "BSB"
+translation: "BSB"                    # Module abbreviations derived as:
+                                      #   intralinear:         {translation}i
+                                      #   intralinear stacked: {translation}is
+                                      #   interlinear:         {translation}ri+
 description: "Berean Standard Bible"
 
 # ── Source data ──────────────────────────────────────────────
@@ -31,13 +33,11 @@ tsk:         "data/tsk_xrefs.json"
 
 # ── Output ───────────────────────────────────────────────────
 output:
-  format: "esword"
-  mode:   "interlinear"
-  dir:    "output"
-  headers: 1
-  notes:   1
-  xref:    0
+  dir:     "output"
+  headers: 0             # section headers
+  notes:   1             # translator notes
+  xref:    0             # cross ref 0: none, 1: beginning of verse, 2: end of verse
 
 # ── Book filter ──────────────────────────────────────────────
-# Start with a single book for testing
-books: [Matt]
+# null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
+books: null

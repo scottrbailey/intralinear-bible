@@ -169,7 +169,7 @@ class ESwordWriter(SQLiteBibleWriter):
             Berean Standard Bible with inline Hebrew and Greek transliteration.
             Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible
             Alignments project (CC BY 4.0)."""),
-            4,          # Version
+            self.version,
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
             0,           # Apocrypha

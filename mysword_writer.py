@@ -5,6 +5,8 @@ MySword Bible module writer (.bbl.mybible).
 Supports both interlinear (GBF) and intralinear (<lemma>) render modes.
 """
 
+from datetime import date
+
 from sqlite_writer import SQLiteBibleWriter
 
 # ================== CSS AND VERSE RULES ==================
@@ -100,9 +102,9 @@ class MySwordWriter(SQLiteBibleWriter):
             "Berean Standard Bible with inline Hebrew and Greek transliteration. "
             "Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible "
             "Alignments project (CC BY 4.0).",
-            "1.0",
-            "2026-01-01",
-            "2026-01-01",
+            self.version,
+            date.today().isoformat(),
+            date.today().isoformat(),
             0,
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
