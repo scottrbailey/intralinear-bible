@@ -7,21 +7,18 @@ Supports both interlinear (GBF) and intralinear (<lemma>) render modes.
 
 from sqlite_writer import SQLiteBibleWriter
 
-
 # ================== CSS AND VERSE RULES ==================
 
 INTERLINEAR_CSS = """
 sup { font-size: 70%; }
-.xlitH a { color: blue; text-decoration: none; }
-.xlitG a { color: green; text-decoration: none; }
+.xlit a { color: blue; text-decoration: none; }
 """
 
 INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 INTRALINEAR_CSS = """
 sup { font-size: 70%; }
-.xlitH a { color: blue; text-decoration: none; }
-.xlitG a { color: green; text-decoration: none; }
+.xlit a { color: blue; text-decoration: none; }
 .ref { font-size: 0.65em; color: #333; background-color: #e8e8e8;
        border-radius: 3px; padding: 0 2px; text-decoration: none; }
 """
@@ -30,37 +27,29 @@ sup { font-size: 70%; }
 # into superscript colored dictionary links.
 # Note: tab character between regex and replacement is required by MySword.
 INTRALINEAR_RULES = (
-    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlitH"><a href="s$1">$3</a></sup>\n'
-    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlitG"><a href="s$1">$3</a></sup>'
+    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<sup class="xlit"><a href="s$1">$3</a></sup>'
 )
 
 # CSS variant that stacks xlit above original script using inline-flex
 # Uncomment in Details if you want to try the stacked display
 STACKED_CSS = """
-sup { font-size: 70%; }
 .lemma-block {
+    font-size: 75%;
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     vertical-align: middle;
     line-height: 1.1;
 }
-.xlitH { color: blue; font-size: 0.65em; text-decoration: none; }
-.xlitG { color: green; font-size: 0.65em; text-decoration: none; }
-.orig   { color: #888; font-size: 0.65em; direction: rtl; }
+a.xlit { color: blue; text-decoration: none; }
+.orig { color: #888; }
 """
 
 STACKED_RULES = (
-    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
     '<span class="lemma-block">'
-    '<a class="xlit-h" href="s$1">$3</a>'
-    '<span class="orig">$2</span>'
-    '</span>\n'
-    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<span class="lemma-block">'
-    '<a class="xlit-g" href="s$1">$3</a>'
+    '<a class="xlit" href="s$1">$3</a>'
     '<span class="orig">$2</span>'
     '</span>'
 )

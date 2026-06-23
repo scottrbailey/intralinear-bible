@@ -20,16 +20,16 @@ REVERSE_INTERLINEAR_CSS = (
     # English line
     'e{white-space:nowrap}'
     # Wrapper for one or more <lem> blocks: lay them out side by side
-    'qi>span{display:flex;flex-direction:row;gap:4px}'
+    'qi>span{display:flex;flex-direction:row;gap:0px}'
     # Each source-word block: vertical column of script/xlit/strongs/morph
-    'lem{display:inline-flex;flex-direction:column;align-items:center;'
-    'margin-top:2px;padding-top:2px;line-height:1}'
-    'hs{font-size:1.2em}'
-    'gs{font-size:1.1em}'
-    'xlit{color:#2244aa;font-size:.85em}'
-    'num{color:#7722aa;font-size:.85em;display:block;margin:0;padding:0}'
-    'tvm{color:#666;font-size:.8em;display:block;margin:0;padding:0}'
-    'lem *{border:1px solid red;margin:0;padding:0}'
+    'lem {display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;'
+    'font-size:.9em;margin-top:2px;padding-top:2px;gap:2px;line-height:1 !important;}'
+    'lem sup{display:block;vertical-align:baseline;margin:0;padding:0;line-height:1}'
+    #'hs{font-size:1.2em}'
+    #'gs{font-size:1.1em}'
+    '.xlit{color:#2244aa}'
+    #'num{color:#7722aa}'
+    'tvm{color:#666}'
 )
 
 
@@ -254,9 +254,9 @@ class ESwordWriter(SQLiteBibleWriter):
                                f'</lem>')
                     else:
                         seg = (f'<lem>'
-                               f'<hs>{sw.text}</hs>'
+                               f'<heb>{sw.text}</heb>'
                                f'<xlit>{xlit}</xlit>'
-                               f'<num>{strongs}</num>'
+                               #f'<num>{strongs}</num>'
                                f'<tvm>{sw.stem.morph}</tvm>'
                                f'</lem>')
                     segments.append(seg)

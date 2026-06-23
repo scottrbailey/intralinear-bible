@@ -33,7 +33,7 @@ tsk:         "data/tsk_xrefs.json"
 
 # ── Output ───────────────────────────────────────────────────
 output:
-  format: "myword"       # mysword, esword, osis
+  format: "mysword"       # mysword, esword, osis
   mode:   "intralinear"  # intralinear, interlinear
   dir:    "output"
   headers: 0             # section headers
