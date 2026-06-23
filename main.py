@@ -419,6 +419,24 @@ def join_verse(verse_id: str, target_tokens: list,
     return result
 
 
+# ================== PREVIEW ==================
+
+def _preview_verse(osis_ref: str, tokens: list):
+    """Pretty-print the first verse of a testament to stdout."""
+    print(f"\n  Preview: {osis_ref}")
+    print(f"  {'─' * 56}")
+    for token in tokens:
+        if token.is_plain_text or not token.source_words:
+            print(f"  [{token.english}]")
+        else:
+            src = '  '.join(
+                f"{sw.text} ({sw.stem.strongs})"
+                for sw in token.source_words
+            )
+            print(f"  {token.english!r:30s} ← {src}")
+    print(f"  {'─' * 56}\n")
+
+
 # ================== TESTAMENT PROCESSING ==================
 
 def process_testament(testament: str, sources: dict, books_filter: list,
@@ -449,6 +467,10 @@ def process_testament(testament: str, sources: dict, books_filter: list,
         header   = headers.get(osis_ref) if writer.headers else None
         xrefs    = tsk.get(verse_id, {})
         writer.add_verse(osis_ref, intralinear, header=header, xrefs=xrefs)
+
+        if verse_count == 0:
+            _preview_verse(osis_ref, intralinear)
+
         verse_count += 1
 
     print(f"  Processed {verse_count:,} verses.")
