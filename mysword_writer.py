@@ -36,29 +36,19 @@ INTRALINEAR_RULES = (
 )
 
 # CSS variant that stacks xlit above original script using inline-flex
-# Uncomment in Details if you want to try the stacked display
 STACKED_CSS = """
-.lemma-block {font-size: 0.70em; display: inline-block; text-align: center;
-    vertical-align: middle; line-height: 1.2;}
-.lemma-block a {text-decoration: none; display: block}
-.xlitH { color: blue; }
-.xlitG { color: orange; }
-.orig  { color: #888; display: block}
+ruby { display: inline-flex; flex-direction: column-reverse; align-items: center; 
+  color: #667; gap: 1px; font-size: 0.65em; vertical-align: middle; margin: 0 3px;
+  padding: 3px 0;}
+ruby > rt { font-size: 1em; }
+ruby > rt a { color: blue; text-decoration: none; }
 .ref {font-size: 0.65em; color: #333; background-color: #e8e8e8;
        border-radius: 3px; padding: 0 2px; text-decoration: none; }
 """
-
+# <ruby>Βίβλος<rt>biblos</rt></ruby>
 STACKED_RULES = (
-    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<span class="lemma-block">'
-    '<a class="xlitH" href="s$1">$3</a>'
-    '<span class="orig">$2</span>'
-    '</span>\n'
-    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<span class="lemma-block">'
-    '<a class="xlitG" href="s$1">$3</a><br>'
-    '<span class="orig">$2</span>'
-    '</span>'
+    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<ruby>$2<rt><a href="s$1">$3</a></rt></ruby>'
 )
 
 
