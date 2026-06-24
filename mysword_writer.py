@@ -79,6 +79,7 @@ class MySwordWriter(SQLiteBibleWriter):
             if '\t' not in line:
                 continue
             pattern, replacement = line.split('\t', 1)
+            replacement = re.sub(r'\$(\d+)', r'\\\1', replacement)
             result = re.sub(pattern, replacement, result)
         return result
 
