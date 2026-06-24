@@ -1,7 +1,21 @@
 """
-main.py
+main.py — Intralinear Bible module builder
 
-Entry point: parse args, build writers, run composer, write output.
+Usage:
+    python main.py [config.yaml] [--format FORMAT] [--mode MODE]
+
+    --format  esword     e-Sword LT (.bbli)          [default]
+              mysword    MySword (.bbl.mybible)
+              osis       OSIS XML
+              all        build every output target in one pass
+
+    --mode    intralinear   English + source annotation above  [default]
+              interlinear   reverse interlinear (source-primary columns)
+
+Examples:
+    python main.py
+    python main.py config_nt.yaml --format mysword
+    python main.py --format all
 """
 
 import argparse
