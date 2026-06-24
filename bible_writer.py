@@ -12,7 +12,7 @@ class BibleWriter(ABC):
     """Abstract base for all Bible module writers.
 
     A writer owns one output file and knows how to persist verses to it.
-    Verse rendering is delegated to the ModuleProfile injected at construction.
+    Verse rendering is delegated to the VerseFormatter injected at construction.
     """
 
     @abstractmethod

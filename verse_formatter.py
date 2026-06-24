@@ -1,8 +1,16 @@
 """
-module_profile.py
+verse_formatter.py
 
-ModuleProfile: combines module metadata (abbreviation, file name, CSS, VerseRules)
-with verse rendering logic.  One concrete profile per output target × verse style.
+VerseFormatter: combines module metadata (abbreviation, file name, CSS, VerseRules)
+with verse rendering logic.  One concrete formatter per output target × verse style.
+
+The formatter owns the full rendering contract: the tags render_verse() emits,
+the CSS that styles them, and the VerseRules regex that transforms them (MySword).
+All three must stay in sync — change one, change the others.
+
+The writer is responsible for filtering inputs before calling render_verse():
+if headers/notes/xrefs are disabled, the writer passes None/[] so the formatter
+never emits the corresponding tags and the CSS for them is never exercised.
 """
 
 import re
@@ -80,7 +88,7 @@ _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 # ================================================================ base class
 
-class ModuleProfile(ABC):
+class VerseFormatter(ABC):
     """Defines everything about one build target: metadata, CSS, and verse rendering.
 
     Class-level constants (override in each subclass):
@@ -125,7 +133,7 @@ class ModuleProfile(ABC):
 
 # ============================================================ e-Sword profiles
 
-class ESwordIntralinearProfile(ModuleProfile):
+class ESwordIntralinearFormatter(VerseFormatter):
     abbreviation   = "BSBi"
     module_name    = "BSB Intralinear Bible"
     file_extension = ".bbli"
@@ -180,7 +188,7 @@ class ESwordIntralinearProfile(ModuleProfile):
         return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
 
 
-class ESwordReverseInterlinearProfile(ModuleProfile):
+class ESwordReverseInterlinearFormatter(VerseFormatter):
     abbreviation   = "BSBri"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbli"
@@ -272,7 +280,7 @@ class ESwordReverseInterlinearProfile(ModuleProfile):
 
 # ============================================================ MySword profiles
 
-class MySwordIntralinearProfile(ModuleProfile):
+class MySwordIntralinearFormatter(VerseFormatter):
     abbreviation   = "BSBi"
     module_name    = "BSB Intralinear Bible"
     file_extension = ".bbl.mybible"
@@ -315,7 +323,7 @@ class MySwordIntralinearProfile(ModuleProfile):
         return self._apply_rules(scripture, self.verse_rules)
 
 
-class MySwordStackedProfile(MySwordIntralinearProfile):
+class MySwordStackedFormatter(MySwordIntralinearFormatter):
     """Stacked variant: same <lemma> verse content, different CSS/VerseRules."""
     abbreviation = "BSBis"
     module_name  = "BSB Intralinear Bible (Stacked)"
@@ -323,7 +331,7 @@ class MySwordStackedProfile(MySwordIntralinearProfile):
     verse_rules  = _MYSWORD_STACKED_RULES
 
 
-class MySwordReverseInterlinearProfile(ModuleProfile):
+class MySwordReverseInterlinearFormatter(VerseFormatter):
     abbreviation   = "BSBri"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbl.mybible"

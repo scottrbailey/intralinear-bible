@@ -13,7 +13,7 @@ from textwrap import dedent
 from pathlib import Path
 
 from sqlite_writer import SQLiteBibleWriter
-from module_profile import ModuleProfile
+from verse_formatter import VerseFormatter
 
 
 class ESwordWriter(SQLiteBibleWriter):
@@ -21,7 +21,7 @@ class ESwordWriter(SQLiteBibleWriter):
 
     _table_name = '_Bible'
 
-    def __init__(self, profile: ModuleProfile, **kwargs):
+    def __init__(self, profile: VerseFormatter, **kwargs):
         super().__init__(profile, **kwargs)
         self._note_counter    = 0
         self._current_chapter = None
@@ -135,7 +135,7 @@ class ESwordWriter(SQLiteBibleWriter):
             self.profile.module_name,
             self.profile.abbreviation,
             self.profile.description,
-            self.version,
+            4,          # must be 4 for e-Sword to render HTML
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
             0,

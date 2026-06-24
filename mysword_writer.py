@@ -2,14 +2,14 @@
 mysword_writer.py
 
 MySwordWriter: writes MySword Bible modules (.bbl.mybible).
-CSS and VerseRules come from the injected ModuleProfile.
+CSS and VerseRules come from the injected VerseFormatter.
 """
 
 from datetime import date
 from pathlib import Path
 
 from sqlite_writer import SQLiteBibleWriter
-from module_profile import ModuleProfile
+from verse_formatter import VerseFormatter
 
 
 class MySwordWriter(SQLiteBibleWriter):

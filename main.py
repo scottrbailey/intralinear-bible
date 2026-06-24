@@ -11,12 +11,12 @@ import yaml
 
 from translit import make_transliterator
 from composer import BibleComposer
-from module_profile import (
-    ESwordIntralinearProfile,
-    ESwordReverseInterlinearProfile,
-    MySwordIntralinearProfile,
-    MySwordStackedProfile,
-    MySwordReverseInterlinearProfile,
+from verse_formatter import (
+    ESwordIntralinearFormatter,
+    ESwordReverseInterlinearFormatter,
+    MySwordIntralinearFormatter,
+    MySwordStackedFormatter,
+    MySwordReverseInterlinearFormatter,
 )
 from esword_writer import ESwordWriter
 from mysword_writer import MySwordWriter
@@ -95,23 +95,23 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'all':
         return [
-            esword(ESwordIntralinearProfile),
-            esword(ESwordReverseInterlinearProfile),
-            mysword(MySwordIntralinearProfile),
-            mysword(MySwordStackedProfile),
-            mysword(MySwordReverseInterlinearProfile),
+            esword(ESwordIntralinearFormatter),
+            esword(ESwordReverseInterlinearFormatter),
+            mysword(MySwordIntralinearFormatter),
+            mysword(MySwordStackedFormatter),
+            mysword(MySwordReverseInterlinearFormatter),
             OSISWriter(transliterate=transliterate),
         ]
 
     if output_format == 'esword':
-        profile_cls = (ESwordIntralinearProfile if render_mode == 'intralinear'
-                       else ESwordReverseInterlinearProfile)
+        profile_cls = (ESwordIntralinearFormatter if render_mode == 'intralinear'
+                       else ESwordReverseInterlinearFormatter)
         return [esword(profile_cls)]
 
     if output_format == 'mysword':
         if render_mode == 'intralinear':
-            return [mysword(MySwordIntralinearProfile), mysword(MySwordStackedProfile)]
-        return [mysword(MySwordReverseInterlinearProfile)]
+            return [mysword(MySwordIntralinearFormatter), mysword(MySwordStackedFormatter)]
+        return [mysword(MySwordReverseInterlinearFormatter)]
 
     # osis
     return [OSISWriter(transliterate=transliterate)]

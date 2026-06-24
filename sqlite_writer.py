@@ -3,7 +3,7 @@ sqlite_writer.py
 
 SQLiteBibleWriter: shared base for e-Sword and MySword writers.
 Handles Bible table creation, verse insertion, preview, and finalization.
-Verse rendering is fully delegated to the injected ModuleProfile.
+Verse rendering is fully delegated to the injected VerseFormatter.
 """
 
 import sqlite3
@@ -12,7 +12,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from bible_writer import BibleWriter
-from module_profile import ModuleProfile
+from verse_formatter import VerseFormatter
 
 
 class SQLiteBibleWriter(BibleWriter):
@@ -26,7 +26,7 @@ class SQLiteBibleWriter(BibleWriter):
 
     _table_name: str = 'Bible'
 
-    def __init__(self, profile: ModuleProfile,
+    def __init__(self, profile: VerseFormatter,
                  headers: bool = True,
                  notes: bool = True,
                  xref: bool = False,
@@ -105,6 +105,9 @@ class SQLiteBibleWriter(BibleWriter):
         else:
             self._has_nt = True
 
+        # Filter here so the formatter only sees what it should emit.
+        # If a feature is off, the formatter never writes the corresponding tags
+        # and its CSS rules for those tags are never exercised.
         render_header = header if self.headers else None
         render_tokens = tokens if self.notes else [replace(t, notes=[]) for t in tokens]
 
