@@ -67,6 +67,21 @@ class MySwordWriter(SQLiteBibleWriter):
 
     file_extension = '.bbl.mybible'
 
+    def _preview_transform(self, scripture: str) -> str:
+        rules = (STACKED_RULES if self.render_mode == 'intralinear_stacked'
+                 else INTRALINEAR_RULES if self.render_mode == 'intralinear'
+                 else '')
+        if not rules:
+            return scripture
+        import re
+        result = scripture
+        for line in rules.split('\n'):
+            if '\t' not in line:
+                continue
+            pattern, replacement = line.split('\t', 1)
+            result = re.sub(pattern, replacement, result)
+        return result
+
     def insert_details(self):
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS Details (

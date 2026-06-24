@@ -114,7 +114,7 @@ class SQLiteBibleWriter:
 
         is_ot = book_num <= 39
         if (is_ot and not self._previewed_ot) or (not is_ot and not self._previewed_nt):
-            self._pretty_print(osis_ref, scripture)
+            self._pretty_print(osis_ref, self._preview_transform(scripture))
             if is_ot:
                 self._previewed_ot = True
             else:
@@ -167,6 +167,9 @@ class SQLiteBibleWriter:
             print(f'(parse error: {e})')
             print(scripture)
         print()
+
+    def _preview_transform(self, scripture: str) -> str:
+        return scripture
 
     def render_verse_intralinear(self, tokens: list, header: str = None):
         raise NotImplementedError
