@@ -2,7 +2,7 @@
 # Run: python main.py [--format esword|mysword|osis] [--mode intralinear|interlinear]
 
 # ── Module identity ──────────────────────────────────────────
-version: "1.0.0"
+version: "1.0.1"
 translation: "BSB"                    # Module abbreviations derived as:
                                       #   intralinear:         {translation}i
                                       #   intralinear stacked: {translation}is
