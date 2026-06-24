@@ -8,6 +8,8 @@ Handles Bible table insertion and shared rendering in two modes:
 """
 
 import sqlite3
+import xml.etree.ElementTree as ET
+from datetime import date
 from pathlib import Path
 from translit import make_transliterator
 
@@ -30,18 +32,22 @@ class SQLiteBibleWriter:
                  render_mode: str = 'intralinear',
                  headers: bool = True,
                  notes: bool = True,
-                 xref: bool = False):
+                 xref: bool = False,
+                 version: str = '1.0.0'):
 
         self.transliterate = transliterate or make_transliterator()
         self.render_mode   = render_mode
+        self.version       = version
         self.conn          = None
         self.output_path   = None
         self.headers       = headers
         self.notes         = notes
         self.xref          = xref
-        self._has_ot       = False
-        self._has_nt       = False
-        self._verse_count  = 0
+        self._has_ot        = False
+        self._has_nt        = False
+        self._verse_count   = 0
+        self._previewed_ot  = False
+        self._previewed_nt  = False
 
     def open(self, output_path: Path, work_id: str = "BSBi"):
         """Open (or create) the SQLite database."""
@@ -106,6 +112,15 @@ class SQLiteBibleWriter:
         else:
             scripture = self.render_verse_intralinear(**kwargs)
 
+        is_ot = book_num <= 39
+        if (is_ot and not self._previewed_ot) or (not is_ot and not self._previewed_nt):
+            self._pretty_print(osis_ref, scripture)
+            self._preview_transform(osis_ref, scripture)
+            if is_ot:
+                self._previewed_ot = True
+            else:
+                self._previewed_nt = True
+
         self.conn.execute(
             f"INSERT INTO {self._table_name} (Book, Chapter, Verse, Scripture) VALUES (?, ?, ?, ?)",
             (book_num, chapter, verse, scripture)
@@ -137,6 +152,25 @@ class SQLiteBibleWriter:
                 if book.usfmnumber.isdigit()
             }
         return SQLiteBibleWriter._book_cache.get(osis_book, 0)
+
+    @staticmethod
+    def _pretty_print(osis_ref: str, scripture: str):
+        print(f'\n--- {osis_ref} ---')
+        try:
+            root = ET.fromstring(f'<v>{scripture}</v>')
+            # Print leading text, then each child element on its own line
+            if root.text:
+                print(root.text, end='')
+            for child in root:
+                print('\n' + ET.tostring(child, encoding='unicode'), end='')
+            print()
+        except ET.ParseError as e:
+            print(f'(parse error: {e})')
+            print(scripture)
+        print()
+
+    def _preview_transform(self, osis_ref: str, scripture: str) -> None:
+        pass
 
     def render_verse_intralinear(self, tokens: list, header: str = None):
         raise NotImplementedError

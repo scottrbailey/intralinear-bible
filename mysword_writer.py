@@ -5,15 +5,14 @@ MySword Bible module writer (.bbl.mybible).
 Supports both interlinear (GBF) and intralinear (<lemma>) render modes.
 """
 
+from datetime import date
 from sqlite_writer import SQLiteBibleWriter
-
 
 # ================== CSS AND VERSE RULES ==================
 
 INTERLINEAR_CSS = """
 sup { font-size: 70%; }
-.xlitH a { color: blue; text-decoration: none; }
-.xlitG a { color: green; text-decoration: none; }
+.xlit a { color: blue; text-decoration: none; }
 """
 
 INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
@@ -37,32 +36,19 @@ INTRALINEAR_RULES = (
 )
 
 # CSS variant that stacks xlit above original script using inline-flex
-# Uncomment in Details if you want to try the stacked display
 STACKED_CSS = """
-sup { font-size: 70%; }
-.lemma-block {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    vertical-align: middle;
-    line-height: 1.1;
-}
-.xlitH { color: blue; font-size: 0.65em; text-decoration: none; }
-.xlitG { color: green; font-size: 0.65em; text-decoration: none; }
-.orig   { color: #888; font-size: 0.65em; direction: rtl; }
+ruby { display: inline-flex; flex-direction: column-reverse; align-items: center; 
+  color: #667; gap: 1px; font-size: 0.65em; vertical-align: middle; margin: 0 3px;
+  padding: 3px 0;}
+ruby > rt { font-size: 1em; }
+ruby > rt a { color: blue; text-decoration: none; }
+.ref {font-size: 0.65em; color: #333; background-color: #e8e8e8;
+       border-radius: 3px; padding: 0 2px; text-decoration: none; }
 """
-
+# <ruby>Βίβλος<rt>biblos</rt></ruby>
 STACKED_RULES = (
-    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<span class="lemma-block">'
-    '<a class="xlit-h" href="s$1">$3</a>'
-    '<span class="orig">$2</span>'
-    '</span>\n'
-    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<span class="lemma-block">'
-    '<a class="xlit-g" href="s$1">$3</a>'
-    '<span class="orig">$2</span>'
-    '</span>'
+    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<ruby>$2<rt><a href="s$1">$3</a></rt></ruby>'
 )
 
 
@@ -70,6 +56,28 @@ class MySwordWriter(SQLiteBibleWriter):
     """Writes MySword .bbl.mybible SQLite Bible modules."""
 
     file_extension = '.bbl.mybible'
+
+    def _preview_transform(self, osis_ref: str, scripture: str) -> None:
+        import re
+
+        def apply_rules(rules_str: str) -> str:
+            result = scripture
+            for line in rules_str.split('\n'):
+                if '\t' not in line:
+                    continue
+                pattern, replacement = line.split('\t', 1)
+                replacement = re.sub(r'\$(\d+)', r'\\\1', replacement)
+                result = re.sub(pattern, replacement, result)
+            return result
+
+        if self.render_mode in ('intralinear', 'intralinear_stacked'):
+            print(f"--- {osis_ref} intralinear ---")
+            print(apply_rules(INTRALINEAR_RULES))
+            print(f"\n--- {osis_ref} stacked ---")
+            print(apply_rules(STACKED_RULES))
+        elif self.render_mode == 'interlinear' and INTERLINEAR_RULES:
+            print(f"--- {osis_ref} interlinear ---")
+            print(apply_rules(INTERLINEAR_RULES))
 
     def insert_details(self):
         self.conn.execute("""
@@ -111,9 +119,9 @@ class MySwordWriter(SQLiteBibleWriter):
             "Berean Standard Bible with inline Hebrew and Greek transliteration. "
             "Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible "
             "Alignments project (CC BY 4.0).",
-            "1.0",
-            "2026-01-01",
-            "2026-01-01",
+            self.version,
+            date.today().isoformat(),
+            date.today().isoformat(),
             0,
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,

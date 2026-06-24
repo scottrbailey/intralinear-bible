@@ -13,6 +13,25 @@ INTRALINEAR_CSS = (
     'span.stk a{opacity:0 !important;}'
 )
 
+REVERSE_INTERLINEAR_CSS = (
+    # Word block: vertical column, top-aligned, small horizontal margin
+    'qi{display:inline-flex;flex-direction:column;align-items:center;'
+    'vertical-align:top;margin:0 3px}'
+    # English line
+    'e{white-space:nowrap}'
+    # Wrapper for one or more <lem> blocks: lay them out side by side
+    'qi>span{display:flex;flex-direction:row;gap:0px}'
+    # Each source-word block: vertical column of script/xlit/strongs/morph
+    'lem {display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;'
+    'font-size:.9em;margin-top:2px;padding-top:2px;gap:2px;line-height:1 !important;}'
+    'lem sup{display:block;vertical-align:baseline;margin:0;padding:0;line-height:1}'
+    #'hs{font-size:1.2em}'
+    #'gs{font-size:1.1em}'
+    '.xlit{color:#2244aa}'
+    #'num{color:#7722aa}'
+    'tvm{color:#666}'
+)
+
 
 class ESwordWriter(SQLiteBibleWriter):
     """Writes e-Sword LT .bbli SQLite Bible modules."""
@@ -36,9 +55,15 @@ class ESwordWriter(SQLiteBibleWriter):
                 active       BOOL DEFAULT 0
             )
         """)
+        if self.render_mode == 'interlinear':
+            css   = REVERSE_INTERLINEAR_CSS
+            title = 'Interlinear'
+        else:
+            css   = INTRALINEAR_CSS
+            title = 'Intralinear'
         self.conn.execute(
             "INSERT INTO Mods (mode_id, title, css, active) VALUES (?, ?, ?, ?)",
-            (1, 'Intralinear', INTRALINEAR_CSS, 1)
+            (1, title, css, 1)
         )
         self.conn.execute("""
             CREATE VIEW Bible AS
@@ -127,19 +152,24 @@ class ESwordWriter(SQLiteBibleWriter):
                 RightToLeft  BOOL
             )
         """)
+        if self.render_mode == 'interlinear':
+            title = "BSB Interlinear Bible"
+        else:
+            title = "BSB Intralinear Bible"
+
         self.conn.execute("""
             INSERT INTO Details (
                 Title, Abbreviation, Information, Version,
                 OldTestament, NewTestament, Apocrypha, Strongs, RightToLeft
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            "BSB Intralinear Bible",
+            title,
             self.work_id,
             dedent("""\
             Berean Standard Bible with inline Hebrew and Greek transliteration.
             Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible
             Alignments project (CC BY 4.0)."""),
-            4,          # Version
+            self.version,
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
             0,           # Apocrypha
@@ -149,6 +179,103 @@ class ESwordWriter(SQLiteBibleWriter):
 
     def _xref_markers(self, xrefs: list) -> str:
         return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
+
+    def render_verse_interlinear(self, tokens: list, header: str = None,
+                                 note_id_map: dict = None,
+                                 xrefs: list = None,
+                                 xref_placement: int = 0) -> str:
+        """Render tokens to interlinear HTML.
+
+        Each aligned token becomes a <q> column: English on top, then one <lem>
+        per source word side-by-side inside a <span> row.  Unaligned tokens also
+        get a <q><e> wrapper so they stay on the same vertical grid.
+
+        Punctuation absorption:
+          - Leading (plain token with skip_space_after): accumulated in `pending`
+            and prepended to the next aligned token's <e>.
+          - Trailing (aligned token with skip_space_after followed by plain token):
+            peeked forward and appended to the current <e>, then skipped.
+        """
+        note_id_map = note_id_map or {}
+        xrefs       = xrefs or []
+        parts       = []
+        skip        = set()   # indices already absorbed as trailing punctuation
+        pending     = ''      # leading punctuation waiting for next aligned token
+
+        if header:
+            parts.append(f'<b class="headline">{header}</b><br>')
+
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
+
+        for i, token in enumerate(tokens):
+            if i in skip:
+                continue
+
+            is_plain = token.is_plain_text or not token.source_words
+
+            if is_plain:
+                if token.skip_space_after:
+                    # Leading punctuation — hold for the next aligned token
+                    pending += token.english
+                else:
+                    # Truly standalone plain text
+                    text    = pending + token.english
+                    pending = ''
+                    parts.append(f'<q><e>{text}</e></q>')
+            else:
+                english = pending + token.english
+                pending = ''
+
+                # Absorb any immediately following plain-text tokens that are
+                # glued to this one via skip_space_after chains.
+                j         = i + 1
+                cur_skip  = token.skip_space_after
+                while cur_skip and j < len(tokens):
+                    next_tok = tokens[j]
+                    if next_tok.is_plain_text or not next_tok.source_words:
+                        english += next_tok.english
+                        skip.add(j)
+                        cur_skip = next_tok.skip_space_after
+                        j += 1
+                    else:
+                        break
+
+                segments = []
+                for sw in token.source_words:
+                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    strongs = sw.stem.strongs
+                    if sw.lang == 'G':
+                        seg = (f'<lem>'
+                               f'<gs>{sw.text}</gs>'
+                               f'<xlit>{xlit}</xlit>'
+                               f'<num>{strongs}</num>'
+                               f'<tvm>{sw.stem.morph}</tvm>'
+                               f'</lem>')
+                    else:
+                        seg = (f'<lem>'
+                               f'<heb>{sw.text}</heb>'
+                               f'<xlit>{xlit}</xlit>'
+                               #f'<num>{strongs}</num>'
+                               f'<tvm>{sw.stem.morph}</tvm>'
+                               f'</lem>')
+                    segments.append(seg)
+
+                parts.append(
+                    f'<qi>'
+                    f'<e>{english}</e>'
+                    f'<span>{"".join(segments)}</span>'
+                    f'</qi>'
+                )
+
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
+        return ''.join(parts)
 
     def render_verse_intralinear(self, tokens: list, header: str = None,
                                  note_id_map: dict = None,
@@ -205,59 +332,3 @@ class ESwordWriter(SQLiteBibleWriter):
 
         return ''.join(parts)
 
-    def render_verse_interlinear(self, tokens: list, header: str = None,
-                                 note_id_map: dict = None,
-                                 xrefs: list = None,
-                                 xref_placement: int = 0) -> str:
-        """Render tokens to interlinear HTML.
-
-        Format per aligned token:
-          <q><heb>בְּרֵאשִׁית</heb><xlit>bereshit</xlit><num>H7225</num><tvm>in the beginning</tvm></q>
-        """
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-
-        if header:
-            parts.append(f'<b class="headline">{header}</b> ')
-
-        if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                segments = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    strongs = sw.stem.strongs
-                    if sw.lang == 'G':
-                        seg = f"<lem><grk>{sw.text}</grk><xlit>{xlit}</xlit><num>{strongs}</num><tvm>{sw.stem.morph}</tvm></lem>"
-                    else:
-                        seg = f"<lem><heb>{sw.text}</heb><xlit>{xlit}</xlit><num>{strongs}</num><tvm>{sw.stem.morph}</tvm></lem>"
-                    segments.append(seg)
-
-                parts.append(
-                    f"<q>"
-                    f"<span>{' '.join(segments)}</span>"  # original
-                    f"<e>{token.english}</e>"             # eng                
-                    f"</q>"
-                )
-
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
-
-        return ''.join(parts)
