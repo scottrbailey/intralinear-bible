@@ -1,190 +1,153 @@
 """
-OSIS Renderer for Intralinear Bible
-Converts joined intralinear tokens to OSIS XML output.
+osis_writer.py
+
+OSISWriter: builds an OSIS XML document from AlignedToken verse streams.
 """
 
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import Element, SubElement
 from pathlib import Path
 
+from bible_writer import BibleWriter
 from translit import make_transliterator
 
-
-# ================== OSIS NAMESPACE ==================
-
-OSIS_NS = "http://www.bibletechnologies.net/2003/OSIS/namespace"
+OSIS_NS  = "http://www.bibletechnologies.net/2003/OSIS/namespace"
+WORK_ID  = "BSB_intralinear"
 
 
-def ns(tag: str) -> str:
+def _ns(tag: str) -> str:
     return f"{{{OSIS_NS}}}{tag}"
 
 
-# ================== HEADER ==================
+class OSISWriter(BibleWriter):
+    """Builds an incremental OSIS XML document and writes it to file."""
 
-def make_osis_header(work_id: str = "BSB_intralinear") -> tuple:
-    """Build a minimal OSIS root element with header."""
-    ET.register_namespace('', OSIS_NS)
+    abbreviation   = "BSBi"
+    module_name    = "BSB Intralinear Bible"
+    file_extension = ".osis.xml"
 
-    osis = Element(ns("osis"), {
-        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
-        "xsi:schemaLocation": (
-            "http://www.bibletechnologies.net/2003/OSIS/namespace "
-            "http://www.crosswire.org/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"
-        ),
-    })
+    def __init__(self, work_id: str = WORK_ID, transliterate: callable = None):
+        self.work_id       = work_id
+        self.transliterate = transliterate or make_transliterator()
+        self._osis         = None
+        self._osis_text    = None
+        self._book_map     = {}
+        self._output_path  = None
 
-    osis_text = SubElement(osis, ns("osisText"), {
-        "osisIDWork": work_id,
-        "osisRefWork": "Bible",
-        "xml:lang": "en",
-        "canonical": "true",
-    })
+    def open(self, output_dir: Path) -> None:
+        self._output_path = output_dir / (self.abbreviation + self.file_extension)
+        self._output_path.parent.mkdir(parents=True, exist_ok=True)
+        self._osis, self._osis_text = self._make_header()
 
-    header = SubElement(osis_text, ns("header"))
+    def add_verse(self, osis_ref: str, tokens: list,
+                  header: str = None, xrefs: dict = None) -> None:
+        book_id, chapter_id, verse_id = _split_ref(osis_ref)
+        book_entry = self._get_or_create_book(book_id)
+        chapter_el = self._get_or_create_chapter(book_entry, chapter_id)
 
-    work = SubElement(header, ns("work"), {"osisWork": work_id})
-    SubElement(work, ns("title")).text = "BSB Intralinear Bible"
-    SubElement(work, ns("type"), {"type": "x-bible"})
-    SubElement(work, ns("identifier"), {"type": "OSIS"}).text = work_id
-    SubElement(work, ns("refSystem")).text = "Bible"
+        if header:
+            title_el = SubElement(chapter_el, _ns("title"), {"type": "section"})
+            title_el.text = header
 
-    strong_work = SubElement(header, ns("work"), {"osisWork": "strong"})
-    SubElement(strong_work, ns("refSystem")).text = "Dict.Strongs"
+        self._render_verse(chapter_el, verse_id, tokens)
 
-    bsblex_work = SubElement(header, ns("work"), {"osisWork": "lemma.BSBlex"})
-    SubElement(bsblex_work, ns("refSystem")).text = "Dict.BSBlex"
+    def write(self) -> None:
+        ET.register_namespace('', OSIS_NS)
+        ET.indent(self._osis, space="  ")
+        tree = ET.ElementTree(self._osis)
+        tree.write(self._output_path, encoding="utf-8", xml_declaration=True)
+        print(f"Written to {self._output_path}")
 
-    return osis, osis_text
+    # --------------------------------------------------------------- internals
+
+    def _make_header(self) -> tuple:
+        ET.register_namespace('', OSIS_NS)
+        osis = Element(_ns("osis"), {
+            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            "xsi:schemaLocation": (
+                "http://www.bibletechnologies.net/2003/OSIS/namespace "
+                "http://www.crosswire.org/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"
+            ),
+        })
+        osis_text = SubElement(osis, _ns("osisText"), {
+            "osisIDWork": self.work_id,
+            "osisRefWork": "Bible",
+            "xml:lang": "en",
+            "canonical": "true",
+        })
+        header = SubElement(osis_text, _ns("header"))
+
+        work = SubElement(header, _ns("work"), {"osisWork": self.work_id})
+        SubElement(work, _ns("title")).text = self.module_name
+        SubElement(work, _ns("type"), {"type": "x-bible"})
+        SubElement(work, _ns("identifier"), {"type": "OSIS"}).text = self.work_id
+        SubElement(work, _ns("refSystem")).text = "Bible"
+
+        strong_work = SubElement(header, _ns("work"), {"osisWork": "strong"})
+        SubElement(strong_work, _ns("refSystem")).text = "Dict.Strongs"
+
+        bsblex_work = SubElement(header, _ns("work"), {"osisWork": "lemma.BSBlex"})
+        SubElement(bsblex_work, _ns("refSystem")).text = "Dict.BSBlex"
+
+        return osis, osis_text
+
+    def _render_verse(self, parent: Element, verse_id: str, tokens: list):
+        verse = SubElement(parent, _ns("verse"), {"osisID": verse_id})
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_plain_text or not token.source_words:
+                _append_text(verse, token.english)
+                for note in token.notes:
+                    _append_note(verse, note)
+            else:
+                _append_text(verse, token.english)
+                for sw in token.source_words:
+                    xlit  = "Latn:" + self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    lemma = f"lemma.BSBlex:{sw.text} strong:{sw.stem.strongs}"
+                    SubElement(verse, _ns("w"), {"lemma": lemma, "xlit": xlit})
+                for note in token.notes:
+                    _append_note(verse, note)
+
+            if not token.skip_space_after and next_token is not None:
+                _append_text(verse, " ")
+
+    def _get_or_create_book(self, osis_book: str) -> dict:
+        if osis_book not in self._book_map:
+            div = SubElement(self._osis_text, _ns("div"), {
+                "type": "book",
+                "osisID": osis_book,
+                "canonical": "true",
+            })
+            self._book_map[osis_book] = {"div": div, "chapters": {}}
+        return self._book_map[osis_book]
+
+    def _get_or_create_chapter(self, book_entry: dict, osis_chapter: str) -> Element:
+        if osis_chapter not in book_entry["chapters"]:
+            chapter = SubElement(book_entry["div"], _ns("chapter"), {"osisID": osis_chapter})
+            book_entry["chapters"][osis_chapter] = chapter
+        return book_entry["chapters"][osis_chapter]
 
 
-# ================== VERSE RENDERING ==================
+# ------------------------------------------------------------------- helpers
 
-def render_verse(parent: Element, osis_ref: str, intralinear_tokens: list,
-                 transliterate: callable):
-    """Append a rendered verse to parent element.
-
-    Each IntralinearToken may have multiple SourceWords. Each SourceWord
-    becomes a separate <w> element with its own lemma and xlit attributes.
-    """
-    verse = SubElement(parent, ns("verse"), {"osisID": osis_ref})
-
-    for i, token in enumerate(intralinear_tokens):
-        next_token = intralinear_tokens[i + 1] if i + 1 < len(intralinear_tokens) else None
-
-        if token.is_plain_text or not token.source_words:
-            _append_text(verse, token.english)
-            for note in token.notes:
-                _append_note(verse, note)
-        else:
-            # Emit English text before the <w> elements
-            _append_text(verse, token.english)
-
-            for sw in token.source_words:
-                xlit = "Latn:" + transliterate(sw.text, sw.lang, sw.is_proper)
-                lemma = f"lemma.BSBlex:{sw.text} strong:{sw.stem.strongs}"
-
-                w = SubElement(verse, ns("w"), {
-                    "lemma": lemma,
-                    "xlit":  xlit,
-                })
-
-            # Notes go after the final <w>
-            for note in token.notes:
-                _append_note(verse, note)
-
-        # Space handling
-        if not token.skip_space_after and next_token is not None:
-            _append_text(verse, " ")
-
-    return verse
-
-
-def _append_note(parent: Element, note: dict):
-    """Append a <note> element to parent."""
-    note_el = SubElement(parent, ns("note"), {
-        "type":      "footnote",
-        "placement": "foot",
-        "n":         str(note['noteId']),
-    })
-    note_el.text = note['text']
+def _split_ref(osis_ref: str) -> tuple:
+    """Split 'Gen.1.1' into ('Gen', 'Gen.1', 'Gen.1.1')."""
+    parts = osis_ref.split(".")
+    return parts[0], f"{parts[0]}.{parts[1]}", osis_ref
 
 
 def _append_text(element: Element, text: str):
-    """Append text to the tail of the last child, or to element.text if no children."""
     children = list(element)
     if children:
-        last = children[-1]
+        last      = children[-1]
         last.tail = (last.tail or "") + text
     else:
         element.text = (element.text or "") + text
 
 
-# ================== BOOK / CHAPTER STRUCTURE ==================
-
-def get_or_create_book(osis_text: Element, book_map: dict, osis_book: str) -> dict:
-    """Get or create a <div type='book'> element for the given book."""
-    if osis_book not in book_map:
-        div = SubElement(osis_text, ns("div"), {
-            "type": "book",
-            "osisID": osis_book,
-            "canonical": "true",
-        })
-        book_map[osis_book] = {"div": div, "chapters": {}}
-    return book_map[osis_book]
-
-
-def get_or_create_chapter(book_entry: dict, osis_chapter: str) -> Element:
-    """Get or create a <chapter> element."""
-    if osis_chapter not in book_entry["chapters"]:
-        chapter = SubElement(book_entry["div"], ns("chapter"), {
-            "osisID": osis_chapter,
-        })
-        book_entry["chapters"][osis_chapter] = chapter
-    return book_entry["chapters"][osis_chapter]
-
-
-def osis_ref_to_parts(osis_ref: str) -> tuple:
-    """Split 'Gen.1.1' into ('Gen', 'Gen.1', 'Gen.1.1')"""
-    parts   = osis_ref.split(".")
-    book    = parts[0]
-    chapter = f"{parts[0]}.{parts[1]}"
-    return book, chapter, osis_ref
-
-
-# ================== WRITER ==================
-
-class OSISWriter:
-    """Manages incremental OSIS document construction and final output."""
-
-    def __init__(self, work_id: str = "BSB_intralinear", transliterate: callable = None):
-        self.osis, self.osis_text = make_osis_header(work_id)
-        self.book_map = {}
-        self.transliterate = transliterate or make_transliterator()
-
-    def add_verse(self, osis_ref: str, intralinear_tokens: list,
-                  header: str = None):
-        """Add a verse to the document, optionally preceded by a section title."""
-        book_id, chapter_id, verse_id = osis_ref_to_parts(osis_ref)
-        book_entry = get_or_create_book(self.osis_text, self.book_map, book_id)
-        chapter_el = get_or_create_chapter(book_entry, chapter_id)
-
-        # Emit section title before the verse if present
-        if header:
-            title_el = SubElement(chapter_el, ns("title"), {
-                "type": "section",
-            })
-            title_el.text = header
-
-        render_verse(chapter_el, verse_id, intralinear_tokens, self.transliterate)
-
-    def write(self, output_path: Path):
-        """Write the OSIS document to file."""
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        ET.indent(self.osis, space="  ")
-        tree = ET.ElementTree(self.osis)
-        tree.write(
-            output_path,
-            encoding="utf-8",
-            xml_declaration=True,
-        )
-        print(f"Written to {output_path}")
+def _append_note(parent: Element, note: dict):
+    note_el = SubElement(parent, _ns("note"), {
+        "type": "footnote", "placement": "foot", "n": str(note['noteId']),
+    })
+    note_el.text = note['text']
