@@ -67,21 +67,27 @@ class MySwordWriter(SQLiteBibleWriter):
 
     file_extension = '.bbl.mybible'
 
-    def _preview_transform(self, scripture: str) -> str:
-        rules = (STACKED_RULES if self.render_mode == 'intralinear_stacked'
-                 else INTRALINEAR_RULES if self.render_mode == 'intralinear'
-                 else '')
-        if not rules:
-            return scripture
+    def _preview_transform(self, osis_ref: str, scripture: str) -> None:
         import re
-        result = scripture
-        for line in rules.split('\n'):
-            if '\t' not in line:
-                continue
-            pattern, replacement = line.split('\t', 1)
-            replacement = re.sub(r'\$(\d+)', r'\\\1', replacement)
-            result = re.sub(pattern, replacement, result)
-        return result
+
+        def apply_rules(rules_str: str) -> str:
+            result = scripture
+            for line in rules_str.split('\n'):
+                if '\t' not in line:
+                    continue
+                pattern, replacement = line.split('\t', 1)
+                replacement = re.sub(r'\$(\d+)', r'\\\1', replacement)
+                result = re.sub(pattern, replacement, result)
+            return result
+
+        if self.render_mode in ('intralinear', 'intralinear_stacked'):
+            print(f"--- {osis_ref} intralinear ---")
+            print(apply_rules(INTRALINEAR_RULES))
+            print(f"\n--- {osis_ref} stacked ---")
+            print(apply_rules(STACKED_RULES))
+        elif self.render_mode == 'interlinear' and INTERLINEAR_RULES:
+            print(f"--- {osis_ref} interlinear ---")
+            print(apply_rules(INTERLINEAR_RULES))
 
     def insert_details(self):
         self.conn.execute("""
