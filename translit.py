@@ -1046,7 +1046,7 @@ def make_transliterator(hebrew_scheme: str = "brill_simple",
                 result = lowercase_translit(result)
             sep    = SCHEMES.get(hebrew_scheme, {}).get('syllable_sep', '')
             stress = SCHEMES.get(hebrew_scheme, {}).get('stress_marker', None)
-            if sep or stress:
+            if (sep or stress) and greek_scheme == 'SIMPLE':
                 result = add_greek_syllable_markers(
                     text, result,
                     sep=sep or '',
