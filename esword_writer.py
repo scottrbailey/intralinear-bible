@@ -9,7 +9,6 @@ Responsibilities beyond SQLiteBibleWriter:
   - Sequential per-chapter note numbering
 """
 
-from textwrap import dedent
 from pathlib import Path
 
 from sqlite_writer import SQLiteBibleWriter

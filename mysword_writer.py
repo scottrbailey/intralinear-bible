@@ -6,10 +6,8 @@ CSS and VerseRules come from the injected VerseFormatter.
 """
 
 from datetime import date
-from pathlib import Path
 
 from sqlite_writer import SQLiteBibleWriter
-from verse_formatter import VerseFormatter
 
 
 class MySwordWriter(SQLiteBibleWriter):
@@ -45,7 +43,7 @@ class MySwordWriter(SQLiteBibleWriter):
             self.profile.module_name,
             self.profile.abbreviation,
             self.profile.description,
-            self.version,
+            4,           # needs 4 to indicate HTML... I know
             today, today,
             0,
             1 if self._has_ot else 0,

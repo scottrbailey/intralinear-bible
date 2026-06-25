@@ -25,66 +25,6 @@ MODULE_DESCRIPTION = dedent("""\
     Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible
     Alignments project (CC BY 4.0).""")
 
-# ============================================================ e-Sword CSS
-
-_ESWORD_INTRALINEAR_CSS = (
-    '.stk{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:super;font-size:0.65em;color:blue;line-height:0.9}'
-    'span.stk a{opacity:0 !important;}'
-)
-
-_ESWORD_INTERLINEAR_CSS = (
-    'qi{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:top;margin:0 3px}'
-    'e{white-space:nowrap}'
-    'qi>span{display:flex;flex-direction:row;gap:0px}'
-    'lem {display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;'
-    'font-size:.9em;margin-top:2px;padding-top:2px;gap:2px;line-height:1 !important;}'
-    'lem sup{display:block;vertical-align:baseline;margin:0;padding:0;line-height:1}'
-    '.xlit{color:#2244aa}'
-    'tvm{color:#666}'
-)
-
-# ============================================================ MySword CSS / VerseRules
-
-_MYSWORD_INTRALINEAR_CSS = """
-sup { font-size: 70%; }
-.xlitH a { color: blue; text-decoration: none; }
-.xlitG a { color: green; text-decoration: none; }
-.ref { font-size: 0.65em; color: #333; background-color: #e8e8e8;
-       border-radius: 3px; padding: 0 2px; text-decoration: none; }
-"""
-
-# Tab between pattern and replacement is required by MySword.
-_MYSWORD_INTRALINEAR_RULES = (
-    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlitH"><a href="s$1">$3</a></sup>\n'
-    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlitG"><a href="s$1">$3</a></sup>'
-)
-
-_MYSWORD_STACKED_CSS = """
-ruby { display: inline-flex; flex-direction: column-reverse; align-items: center;
-  color: #667; gap: 1px; font-size: 0.65em; vertical-align: middle; margin: 0 3px;
-  padding: 3px 0;}
-ruby > rt { font-size: 1em; }
-ruby > rt a { color: blue; text-decoration: none; }
-.ref {font-size: 0.65em; color: #333; background-color: #e8e8e8;
-       border-radius: 3px; padding: 0 2px; text-decoration: none; }
-"""
-
-_MYSWORD_STACKED_RULES = (
-    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<ruby>$2<rt><a href="s$1">$3</a></rt></ruby>'
-)
-
-_MYSWORD_INTERLINEAR_CSS = """
-sup { font-size: 70%; }
-.xlit a { color: blue; text-decoration: none; }
-"""
-
-_MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
-
 
 # ================================================================ base class
 
@@ -130,6 +70,25 @@ class VerseFormatter(ABC):
             result = re.sub(pattern, replacement, result)
         return result
 
+# ============================================================ e-Sword CSS
+
+_ESWORD_INTRALINEAR_CSS = (
+    '.stk{display:inline-flex;flex-direction:column;align-items:center;'
+    'vertical-align:super;font-size:0.65em;color:blue;line-height:0.9}'
+    'span.stk a{opacity:0 !important;}'
+)
+
+_ESWORD_INTERLINEAR_CSS = (
+    'qi{display:inline-flex;flex-direction:column;align-items:center;'
+    'vertical-align:top;margin:0 3px}'
+    'e{white-space:nowrap}'
+    'qi>span{display:flex;flex-direction:row;gap:0px}'
+    'lem {display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;'
+    'font-size:.9em;margin-top:2px;padding-top:2px;gap:2px;line-height:1 !important;}'
+    'lem sup{display:block;vertical-align:baseline;margin:0;padding:0;line-height:1}'
+    '.xlit{color:#2244aa}'
+    'tvm{color:#666}'
+)
 
 # ============================================================ e-Sword profiles
 
@@ -277,6 +236,45 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
     def _xref_markers(xrefs: list) -> str:
         return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
 
+# ============================================================ MySword CSS / VerseRules
+
+_MYSWORD_INTRALINEAR_CSS = """
+sup { font-size: 70%; }
+.xlitH a { color: blue; text-decoration: none; }
+.xlitG a { color: green; text-decoration: none; }
+.ref { font-size: 0.65em; color: #333; background-color: #e8e8e8;
+       border-radius: 3px; padding: 0 2px; text-decoration: none; }
+"""
+
+# Tab between pattern and replacement is required by MySword.
+_MYSWORD_INTRALINEAR_RULES = (
+    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<sup class="xlitH"><a href="s$1">$3</a></sup>\n'
+    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<sup class="xlitG"><a href="s$1">$3</a></sup>'
+)
+
+_MYSWORD_STACKED_CSS = """
+ruby { display: inline-flex; flex-direction: column-reverse; align-items: center;
+  color: #667; gap: 1px; font-size: 0.65em; vertical-align: middle; margin: 0 3px;
+  padding: 3px 0;}
+ruby > rt { font-size: 1em; }
+ruby > rt a { color: blue; text-decoration: none; }
+.ref {font-size: 0.65em; color: #333; background-color: #e8e8e8;
+       border-radius: 3px; padding: 0 2px; text-decoration: none; }
+"""
+
+_MYSWORD_STACKED_RULES = (
+    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<ruby>$2<rt><a href="s$1">$3</a></rt></ruby>'
+)
+
+_MYSWORD_INTERLINEAR_CSS = """
+sup { font-size: 70%; }
+.xlit a { color: blue; text-decoration: none; }
+"""
+
+_MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 # ============================================================ MySword profiles
 
