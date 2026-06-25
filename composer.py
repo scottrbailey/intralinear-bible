@@ -153,7 +153,8 @@ def _load_source_index(path: Path, testament: str) -> dict:
             if raw_strongs:
                 raw_strongs = re.sub(r'^[HGA]', '', raw_strongs)
                 raw_strongs = re.sub(r'^0*(\d+)[a-z]*$', r'\1', raw_strongs)
-                raw_strongs = lang + raw_strongs
+                strongs_prefix = 'H' if lang in ('H', 'A') else lang
+                raw_strongs = strongs_prefix + raw_strongs
 
             index[row['xml:id']] = SourceToken(
                 id=row['xml:id'],
