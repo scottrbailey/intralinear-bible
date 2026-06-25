@@ -40,7 +40,7 @@ VOWEL_POINTS = {
 }
 
 SHORT_VOWELS = {'\u05B7', '\u05B6', '\u05B4', '\u05BB'}  # patach, segol, hiriq, qibbuts
-LONG_VOWELS  = {'\u05B5', '\u05B9', '\u05BA'}             # tsere, holam, holam haser
+LONG_VOWELS  = {'\u05B5', '\u05B9', '\u05BA', '\u05B8'}   # tsere, holam, holam haser, qamats (gadol)
 
 FINAL_FORMS = {
     '\u05DA': '\u05DB',  # Final Kaf  -> Kaf
@@ -469,6 +469,9 @@ def is_qamats_qatan(chars: list, i: int) -> bool:
     has_full_vowel = any(v in next_marks for v in FULL_VOWELS)
 
     if has_shewa and not has_full_vowel:
+        # If the shewa is vocal the current syllable is open → qamats must be gadol.
+        if is_vocal_sheva(chars, next_consonant_idx):
+            return False
         for k in range(next_consonant_idx + 1, len(chars)):
             ch = chars[k]
             if ch in (' ', '\t', '\n', MAQAF):
