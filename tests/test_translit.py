@@ -1,14 +1,26 @@
 """
-Tests for Hebrew transliteration edge cases.
+Tests for Hebrew and Greek transliteration.
 Run with: pytest tests/test_translit.py
 """
+import unicodedata
 import pytest
 import translit
+
+def nfc(s: str) -> str:
+    return unicodedata.normalize('NFC', s)
+
 
 @pytest.fixture(scope="module")
 def tl():
     fn = translit.make_transliterator("phonetic_dot")
     return lambda word: fn(word, "phonetic_dot")
+
+
+@pytest.fixture(scope="module")
+def gk():
+    """Greek transliterator (phonetic_dot scheme, proper-noun casing)."""
+    fn = translit.make_transliterator("phonetic_dot")
+    return lambda word, proper=True: nfc(fn(word, "G", is_proper=proper))
 
 
 # ── Qamats gadol vs qamats qatan ────────────────────────────────────────────
@@ -119,3 +131,47 @@ class TestDoubledConsonant:
         assert not result.startswith("m·"), (
             f"Spurious leading syllable dot: {result!r}"
         )
+
+
+# ── Greek syllabification ────────────────────────────────────────────────────
+
+class TestGreekSyllabification:
+    """Greek transliteration should include syllable separators (ꞏ) placed
+    before the onset consonant(s) of each syllable, and a stress marker (´)
+    on the accented vowel, derived from the original Greek diacritics."""
+
+    SEP = 'ꞏ'   # sinological dot U+A78F
+    ACC = '́'  # combining acute
+
+    CASES = [
+        # (Greek, expected_NFC, label)
+        ('ποταμός',    'poꞏtaꞏmós',    'potamos — river, oxytone'),
+        ('ἄνθρωπος',   'ánꞏthroꞏpos',  'anthropos — man, proparoxytone'),
+        ('εὐαγγέλιον', 'euꞏanꞏgéꞏliꞏon', 'euangelion — gospel, 5 syllables'),
+        ('αἷμα',       'haíꞏma',       'haima — blood, diphthong nucleus'),
+        ('Ἰησοῦς',     'Iꞏeꞏsoús',     'Iesous — Jesus, 3 syllables'),
+        ('πνεῦμα',     'pneúꞏma',      'pneuma — spirit, initial cluster'),
+        ('λόγος',      'lóꞏgos',       'logos — word, paroxytone'),
+        ('θεός',       'theꞏós',       'theos — God, two vowels in hiatus'),
+        ('ἀγάπη',      'aꞏgáꞏpe',      'agape — love, proparoxytone'),
+        ('κύριος',     'kýꞏriꞏos',     'kurios — lord, 3 syllables'),
+        ('Ἰσραήλ',     'Isꞏraꞏél',     'Israel — 3 syllables'),
+        ('Μωϋσῆς',     'Moꞏyꞏsés',     'Moyses — Moses, dialytika'),
+    ]
+
+    @pytest.mark.parametrize("greek,expected,label", CASES)
+    def test_syllabification(self, gk, greek, expected, label):
+        result = gk(greek)
+        assert result == expected, (
+            f"{label}: got {result!r}, expected {expected!r}"
+        )
+
+    def test_no_sep_monosyllable(self, gk):
+        """Monosyllabic words should have no syllable separator."""
+        result = gk('ἐν')   # 'en' — in/on
+        assert self.SEP not in result, f"Unexpected sep in monosyllable: {result!r}"
+
+    def test_lowercase_common_noun(self, gk):
+        """Common nouns (is_proper=False) should start lowercase."""
+        result = gk('λόγος', proper=False)
+        assert result[0].islower(), f"Common noun not lowercased: {result!r}"
