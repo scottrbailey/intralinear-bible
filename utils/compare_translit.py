@@ -7,11 +7,11 @@ Usage:
     python utils/compare_translit.py [path/to/macula-hebrew.tsv] [output.tsv]
 
 Defaults:
-    source: ../macula-hebrew/WLC/tsv/macula-hebrew.tsv
-    output: data/translit_compare.tsv
+    source: ../../macula-hebrew/WLC/tsv/macula-hebrew.tsv
+    output:  ../output/translit_compare.tsv
 
 Output columns (TSV):
-    strongs   original   brill_simple   sbl_academic   phonetic_dot   bt_phonetic   native
+    strongs   original  source   brill_simple   sbl_academic   phonetic_dot   bt_phonetic
 """
 
 import csv
@@ -22,21 +22,24 @@ import biblical_transliteration as bt
 
 # Add parent dir so we can import translit
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from translit import HebrewTransliterator
+from translit import make_transliterator
 
-SOURCE_DEFAULT = Path("../macula-hebrew/WLC/tsv/macula-hebrew.tsv")
-OUTPUT_DEFAULT = Path("data/translit_compare.tsv")
+SOURCE_DEFAULT = Path("../../macula-hebrew/WLC/tsv/macula-hebrew.tsv")
+OUTPUT_DEFAULT = Path("../output/translit_compare.tsv")
 
-GENESIS_PREFIX = "01"   # book number in the xml:id
+GENESIS_PREFIX = "o01"   # book number in the xml:id
 
 
 def main():
     source_path = Path(sys.argv[1]) if len(sys.argv) > 1 else SOURCE_DEFAULT
     output_path = Path(sys.argv[2]) if len(sys.argv) > 2 else OUTPUT_DEFAULT
 
-    brill   = HebrewTransliterator('brill_simple')
-    sbl_ac  = HebrewTransliterator('sbl_academic')
-    phon_d  = HebrewTransliterator('phonetic_dot')
+
+    brill = make_transliterator('brill_simple', 'SIMPLE')
+    sbl_ac = make_transliterator('sbl_academic', 'SIMPLE')
+    phon_d = make_transliterator('phonetic_dot', 'SIMPLE')
+    phon_bt = make_transliterator('PHONETIC', 'SIMPLE')
+
 
     seen_strongs = set()
     rows = []
@@ -50,7 +53,7 @@ def main():
                     break
                 continue
 
-            strongs = row.get('strongnumberx') or row.get('strong') or row.get('strongs') or ''
+            strongs = row.get('strongnumberx')
             if not strongs or strongs in seen_strongs:
                 continue
 
@@ -58,23 +61,22 @@ def main():
             text   = row.get('text', '')
             native = row.get('transliteration', '')
 
-            bt_result = bt.hebrew(text, bt.HebrewOptions(scheme=bt.HebrewScheme.PHONETIC))
 
             rows.append({
                 'strongs':      strongs,
                 'original':     text,
-                'brill_simple': brill.transliterate(text),
-                'sbl_academic': sbl_ac.transliterate(text),
-                'phonetic_dot': phon_d.transliterate(text),
-                'bt_phonetic':  bt_result,
-                'native':       native,
+                'source':       native,
+                'brill_simple': brill(text, 'H'),
+                'sbl_academic': sbl_ac(text, 'H'),
+                'phonetic_dot': phon_d(text, 'H'),
+                'bt_phonetic':  phon_bt(text, 'H'),
             })
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, 'w', encoding='utf-8', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=[
-            'strongs', 'original', 'brill_simple', 'sbl_academic',
-            'phonetic_dot', 'bt_phonetic', 'native',
+            'strongs', 'original', 'source', 'brill_simple', 'sbl_academic',
+            'phonetic_dot', 'bt_phonetic',
         ], delimiter='\t')
         writer.writeheader()
         writer.writerows(rows)

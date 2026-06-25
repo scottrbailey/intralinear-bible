@@ -1,5 +1,5 @@
 """
-translit_v2.py
+translit.py
 
 Hebrew transliterator — refactored from biblical_transliteration library.
 Uses a single scheme dict with dagesh-keyed consonants for clean extensibility.
