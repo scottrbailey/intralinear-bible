@@ -756,11 +756,13 @@ def _group_syllables(word_units: list) -> list:
                 if syllables:
                     last_text, last_stress = syllables[-1]
                     syllables[-1] = (last_text + closing, last_stress)
+                    pending = []
+                    syllables.append((text, stressed))
                 else:
-                    syllables.append((closing, False))
-                pending = []
-                # Now this unit opens a new syllable (already starts with consonant)
-                syllables.append((text, stressed))
+                    # Word-initial forte: no previous syllable to close.
+                    # Merge the bare consonant into the opening unit (mm·á vs m·má).
+                    pending = []
+                    syllables.append((closing + text, stressed))
                 stressed = False
             else:
                 # Normal case: pending consonants + this vowel-bearing unit
