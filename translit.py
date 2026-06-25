@@ -863,10 +863,17 @@ def make_transliterator(hebrew_scheme: str = "brill_simple",
                         greek_scheme: str = "SIMPLE") -> callable:
     """Return a configured transliterate(text, lang, is_proper) function.
 
-    Hebrew/Aramaic: routed through HebrewTransliterator
-    Greek:          routed through biblical_transliteration library
+    Hebrew/Aramaic: uses our HebrewTransliterator if hebrew_scheme is in SCHEMES,
+                    otherwise delegates to bt.HebrewTransliterator (falling back to
+                    bt.HebrewScheme.SIMPLE if the name isn't a valid bt scheme).
+    Greek:          routed through bt.GreekTransliterator.
     """
-    _hebrew_t = HebrewTransliterator(hebrew_scheme)
+    if hebrew_scheme in SCHEMES:
+        _hebrew_t = HebrewTransliterator(hebrew_scheme)
+    else:
+        bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
+        _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
+        _hebrew_t  = _bt_hebrew.transliterate
 
     _greek_t = bt.GreekTransliterator(bt.GreekOptions(
         scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)
