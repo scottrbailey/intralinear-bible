@@ -1,15 +1,34 @@
 """
-translit.py
+translit.py — Biblical language transliteration
 
-Hebrew transliterator — refactored from biblical_transliteration library.
-Uses a single scheme dict with dagesh-keyed consonants for clean extensibility.
+Supports Hebrew/Aramaic and Greek for Old and New Testament texts.
+
+Hebrew/Aramaic
+--------------
+Fully custom transliterator (HebrewTransliterator) driven by a scheme dict.
+Handles dagesh lene/forte, matres lectionis, vocal/silent sheva, qamats
+gadol vs. qatan, the Tetragrammaton, and syllable/stress marking.
 
 Scheme dict keys:
-  Hebrew char        — consonant without dagesh (or non-BGDKPT consonant)
-  Hebrew char+dagesh — consonant with dagesh (BGDKPT hard forms + dagesh forte doubling)
-  Vowel point char   — vowel point
-  'syllable_sep'     — syllable separator character (e.g. middle dot, hyphen, empty)
-  'stress_marker'    — stress marker character or None
+  Hebrew char          — consonant without dagesh (spirant/default form)
+  Hebrew char + DAGESH — consonant with dagesh (hard BGDKPT or forte doubling)
+  Vowel point char     — vowel rendering
+  'syllable_sep'       — character inserted between syllables (e.g. 'ꞏ', '·', '')
+  'stress_marker'      — combining accent placed on the stressed vowel, or None
+  'divine_name'        — substitution string for the Tetragrammaton
+
+Built-in schemes: brill_simple, sbl_simple, sbl_academic, phonetic_dot.
+
+Greek
+-----
+Consonant mapping delegated to the biblical_transliteration (bt) library.
+When the Hebrew scheme defines syllable_sep and/or stress_marker, those same
+characters are applied to the Greek output via add_greek_syllable_markers(),
+which reads syllable boundaries and accent position from the original Greek
+diacritics.  If the Hebrew scheme has no sep/stress (e.g. a raw bt scheme
+name was passed), Greek output is returned as-is from bt.
+
+Entry point: make_transliterator(hebrew_scheme, greek_scheme) → transliterate(text, lang, is_proper)
 """
 
 import re
@@ -1046,7 +1065,7 @@ def make_transliterator(hebrew_scheme: str = "brill_simple",
                 result = lowercase_translit(result)
             sep    = SCHEMES.get(hebrew_scheme, {}).get('syllable_sep', '')
             stress = SCHEMES.get(hebrew_scheme, {}).get('stress_marker', None)
-            if (sep or stress) and greek_scheme == 'SIMPLE':
+            if sep or stress:
                 result = add_greek_syllable_markers(
                     text, result,
                     sep=sep or '',
