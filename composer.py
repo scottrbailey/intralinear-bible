@@ -54,12 +54,21 @@ class BibleComposer:
 
     def iter_verses(self):
         """Yield (osis_ref, [AlignedToken], header, xrefs) across all testaments."""
-        sources     = self.config['sources']
-        annotations = _load_annotations(self.config['annotations'])
-        tsk         = _load_tsk(self.config['tsk']) if self.config.get('tsk') else {}
+        sources    = self.config['sources']
+        out        = self.config.get('output', {})
+        need_notes   = bool(out.get('notes',   1))
+        need_headers = bool(out.get('headers', 1))
+        need_xref    = bool(out.get('xref',    0))
 
-        headers_index = annotations.get('headers', {})
-        notes_index   = annotations.get('notes', {})
+        if need_notes or need_headers:
+            annotations = _load_annotations(self.config['annotations'])
+        else:
+            annotations = {}
+
+        headers_index = annotations.get('headers', {}) if need_headers else {}
+        notes_index   = annotations.get('notes',   {}) if need_notes   else {}
+
+        tsk = _load_tsk(self.config['tsk']) if need_xref and self.config.get('tsk') else {}
 
         for testament in ('ot', 'nt'):
             if testament not in sources:
