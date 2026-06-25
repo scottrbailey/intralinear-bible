@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 SOURCE = Path("data/tskxref.tsv")
-OUTPUT = Path("data/tsk_xrefs.json")
+OUTPUT = Path("../data/tsk_xrefs.json")
 
 # TSK abbreviation → standard display abbreviation
 TSK_ABBREV = {

@@ -125,7 +125,7 @@ class ESwordIntralinearFormatter(VerseFormatter):
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     lemmas.append(
                         f'<span class="stk">'
-                        f'{xlit}'
+                        f'{xlit} '
                         f'<num>{sw.stem.strongs}</num>'
                         f'</span>'
                     )
@@ -239,26 +239,23 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
 # ============================================================ MySword CSS / VerseRules
 
 _MYSWORD_INTRALINEAR_CSS = """
-sup { font-size: 70%; }
-.xlitH a { color: blue; text-decoration: none; }
-.xlitG a { color: green; text-decoration: none; }
+sup { font-size: 75%; }
+.xlit a { color: blue; text-decoration: none; }
 .ref { font-size: 0.65em; color: #333; background-color: #e8e8e8;
        border-radius: 3px; padding: 0 2px; text-decoration: none; }
 """
 
 # Tab between pattern and replacement is required by MySword.
 _MYSWORD_INTRALINEAR_RULES = (
-    '<lemma sn="(H[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlitH"><a href="s$1">$3</a></sup>\n'
-    '<lemma sn="(G[^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlitG"><a href="s$1">$3</a></sup>'
+    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
+    '<sup class="xlit"><a href="s$1">$3</a></sup>\n'
 )
 
 _MYSWORD_STACKED_CSS = """
 ruby { display: inline-flex; flex-direction: column-reverse; align-items: center;
-  color: #667; gap: 1px; font-size: 0.65em; vertical-align: middle; margin: 0 3px;
-  padding: 3px 0;}
-ruby > rt { font-size: 1em; }
+  color: #888; gap: 0px; font-size: 80%; vertical-align: middle; margin: 0 3px;
+  padding: 3px 0; line-height: 0.9}
+ruby > rt { font-size: 1.0em; }
 ruby > rt a { color: blue; text-decoration: none; }
 .ref {font-size: 0.65em; color: #333; background-color: #e8e8e8;
        border-radius: 3px; padding: 0 2px; text-decoration: none; }
