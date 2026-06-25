@@ -492,6 +492,10 @@ def is_qamats_qatan(chars: list, i: int) -> bool:
             return False
         if chars[next_consonant_idx] == '\u05D4' and DAGESH not in next_marks:
             return False
+        # A stressed syllable cannot be qamats qatan
+        current_marks = get_marks(chars, i)
+        if has_cantillation(current_marks) or METEG in current_marks:
+            return False
         consonants_before = 0
         for k in range(i - 1, -1, -1):
             if is_hebrew(chars[k]):
@@ -584,7 +588,10 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
                              for m in marks_ahead)
             j = i + 1 + len(marks_ahead)
             has_geresh = j < tlen and chars[j] in {'\u05F3', '\u05F4'}
-            if not has_vowel and not has_geresh:
+            is_standalone = not any(
+                is_hebrew(chars[k]) for k in range(tlen) if k != i
+            )
+            if not has_vowel and not has_geresh and is_standalone:
                 i += 1
                 continue
 
