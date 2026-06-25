@@ -56,7 +56,7 @@ def main():
 
             seen_strongs.add(strongs)
             text   = row.get('text', '')
-            native = row.get('translit', '')
+            native = row.get('transliteration', '')
 
             bt_result = bt.hebrew(text, bt.HebrewOptions(scheme=bt.HebrewScheme.PHONETIC))
 
