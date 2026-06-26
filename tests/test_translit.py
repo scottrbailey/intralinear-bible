@@ -145,18 +145,28 @@ class TestGreekSyllabification:
 
     CASES = [
         # (Greek, expected_NFC, label)
-        ('ποταμός',    'poꞏtaꞏmós',    'potamos — river, oxytone'),
-        ('ἄνθρωπος',   'ánꞏthroꞏpos',  'anthropos — man, proparoxytone'),
-        ('εὐαγγέλιον', 'euꞏanꞏgéꞏliꞏon', 'euangelion — gospel, 5 syllables'),
-        ('αἷμα',       'haíꞏma',       'haima — blood, diphthong nucleus'),
-        ('Ἰησοῦς',     'Iꞏeꞏsoús',     'Iesous — Jesus, 3 syllables'),
-        ('πνεῦμα',     'pneúꞏma',      'pneuma — spirit, initial cluster'),
-        ('λόγος',      'lóꞏgos',       'logos — word, paroxytone'),
-        ('θεός',       'theꞏós',       'theos — God, two vowels in hiatus'),
-        ('ἀγάπη',      'aꞏgáꞏpe',      'agape — love, proparoxytone'),
-        ('κύριος',     'kýꞏriꞏos',     'kurios — lord, 3 syllables'),
-        ('Ἰσραήλ',     'Isꞏraꞏél',     'Israel — 3 syllables'),
-        ('Μωϋσῆς',     'Moꞏyꞏsés',     'Moyses — Moses, dialytika'),
+        # Basic syllabification
+        ('ποταμός',      'poꞏtaꞏmós',       'potamos — river, oxytone'),
+        ('ἄνθρωπος',     'ánꞏthroꞏpos',     'anthropos — νθρ cluster: θρ onset, ν coda'),
+        ('εὐαγγέλιον',   'euꞏanꞏgéꞏliꞏon', 'euangelion — gospel, 5 syllables'),
+        ('αἷμα',         'haíꞏma',          'haima — blood, diphthong nucleus'),
+        ('Ἰησοῦς',       'Iꞏeꞏsoús',        'Iesous — Jesus, 3 syllables'),
+        ('πνεῦμα',       'pneúꞏma',         'pneuma — spirit, initial cluster'),
+        ('λόγος',        'lóꞏgos',          'logos — word, paroxytone'),
+        ('θεός',         'theꞏós',          'theos — God, hiatus not merged'),
+        ('ἀγάπη',        'aꞏgáꞏpe',         'agape — love, proparoxytone'),
+        ('κύριος',       'kýꞏriꞏos',        'kurios — lord, 3 syllables'),
+        ('Ἰσραήλ',       'Isꞏraꞏél',        'Israel — 3 syllables'),
+        ('Μωϋσῆς',       'Moꞏyꞏsés',        'Moyses — Moses, dialytika'),
+        # Digraph fix: φ/χ/θ as single consonant must not be split
+        ('Ἄφες',         'Áꞏphes',          'Aphes — φ single, goes with next syllable'),
+        ('διαφέρετε',    'diꞏaꞏphéꞏreꞏte',  'diapherete — φ between vowels, not split'),
+        ('καταφρονήσει', 'kaꞏtaꞏphroꞏnéꞏsei','kataphronEsei — φρ onset cluster intact'),
+        ('ἀμφίβληστρον', 'amꞏphíꞏbleꞏstron', 'amphiblestron — μφ: φ onset, μ coda'),
+        # Iota subscript: bt renders as explicit i, must not create phantom syllable
+        ('ᾠκοδόμησεν',   'oiꞏkoꞏdóꞏmeꞏsen', 'oikodomesen — ᾠ subscript iota counted'),
+        ('χρῄζετε',      'chreíꞏzeꞏte',     'chreizete — ῄ subscript iota counted'),
+        ('ὥρᾳ',          'hóꞏrai',          'horai — ᾳ subscript iota counted'),
     ]
 
     @pytest.mark.parametrize("greek,expected,label", CASES)

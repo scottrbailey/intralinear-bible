@@ -897,6 +897,9 @@ _GK_VOWELS = set('αεηιουω')
 _GK_DIPHTHONGS = {('α', 'ι'), ('α', 'υ'), ('ε', 'ι'), ('ε', 'υ'),
                   ('ο', 'ι'), ('ο', 'υ'), ('υ', 'ι')}
 
+# Combining iota subscript (ypogegrammeni) — bt renders it as an explicit 'i'
+_YPOGEGRAMMENI = 'ͅ'
+
 # Unicode accent combining characters (after NFD decomposition)
 _GK_ACCENT_COMBINING = {
     '́',  # combining acute (oxia)
@@ -904,8 +907,31 @@ _GK_ACCENT_COMBINING = {
     '͂',  # combining Greek perispomeni (circumflex)
 }
 
-# Tonos precomposed accent for NFC text (also caught by NFD decomposition above)
-_GK_TONOS = '́'
+# 2-char xlit sequences that come from a SINGLE Greek consonant
+_XLIT_DIGRAPHS = {'th', 'ph', 'ch', 'kh', 'ps', 'ks', 'rh'}
+
+# Greek consonant clusters that can begin a syllable (appear word-initially)
+# Used to find the correct split point in inter-vocalic consonant clusters:
+# the longest suffix in this set goes with the following vowel.
+_GK_INITIAL_CLUSTERS = frozenset({
+    'βλ','βρ','γλ','γν','γρ','δρ','θλ','θν','θρ',
+    'κλ','κν','κρ','κτ','μν','πλ','πν','πρ','πτ',
+    'τλ','τμ','τρ','φθ','φλ','φρ','χθ','χλ','χρ',
+    'σβ','σδ','σκ','σμ','σπ','στ','σφ','σχ',
+    'σκλ','σκρ','σπλ','σπρ','στρ','σφρ','σχρ',
+})
+
+
+def _gk_onset_length(cons_bases: list[str]) -> int:
+    """Return the number of consonants (from the end of cons_bases) that form
+    a valid Greek syllable onset — i.e., the largest suffix that is a single
+    consonant or is in _GK_INITIAL_CLUSTERS."""
+    n = len(cons_bases)
+    for length in range(min(n, 3), 0, -1):
+        suffix = ''.join(cons_bases[-length:])
+        if length == 1 or suffix in _GK_INITIAL_CLUSTERS:
+            return length
+    return 1
 
 
 def _greek_base(ch: str) -> tuple[str, bool]:
@@ -917,22 +943,37 @@ def _greek_base(ch: str) -> tuple[str, bool]:
     return base, accented
 
 
-def _greek_nuclei(greek: str) -> list[tuple[int, bool, bool]]:
-    """Return list of (char_index, has_accent, is_diphthong) for each syllable nucleus.
-    Diphthongs count as one nucleus (index of the first vowel)."""
+def _greek_nuclei(greek: str) -> list[tuple[int, bool, bool, int]]:
+    """Return (char_index, has_accent, consumes_2_xlit_vowels, gk_char_count)
+    for each syllable nucleus.
+
+    consumes_2_xlit_vowels is True for:
+      - Explicit diphthongs (αι, ει, ου, etc.) — 2 Greek chars, 2 xlit vowels
+      - Iota subscript vowels (ᾳ, ῃ, ῳ) — 1 Greek char, bt renders 2 xlit vowels
+
+    gk_char_count is how many Greek source characters the nucleus occupies
+    (2 for explicit diphthongs, 1 for everything else).
+    """
     chars = list(greek)
-    nuclei: list[tuple[int, bool, bool]] = []
+    nuclei: list[tuple[int, bool, bool, int]] = []
     i = 0
     while i < len(chars):
         base, accented = _greek_base(chars[i])
         if base in _GK_VOWELS:
+            # Iota subscript: one Greek char, bt produces 2 xlit vowels
+            nfd = unicodedata.normalize('NFD', chars[i])
+            if _YPOGEGRAMMENI in nfd:
+                nuclei.append((i, accented, True, 1))
+                i += 1
+                continue
+            # Explicit diphthong: two Greek chars, two xlit vowels
             if i + 1 < len(chars):
                 next_base, next_acc = _greek_base(chars[i + 1])
                 if (base, next_base) in _GK_DIPHTHONGS:
-                    nuclei.append((i, accented or next_acc, True))
+                    nuclei.append((i, accented or next_acc, True, 2))
                     i += 2
                     continue
-            nuclei.append((i, accented, False))
+            nuclei.append((i, accented, False, 1))
         i += 1
     return nuclei
 
@@ -941,12 +982,15 @@ _XLIT_VOWELS = set('aeiouy')  # y covers upsilon in SIMPLE scheme
 
 
 def _xlit_vowel_spans(xlit: str,
-                      nuclei: list[tuple[int, bool, bool]]) -> list[tuple[int, int]]:
+                      nuclei: list[tuple[int, bool, bool, int]]) -> list[tuple[int, int]]:
     """Return (start, end) index pairs for each vowel span in xlit,
-    driven by the Greek nuclei tuple list (char_index, has_accent, is_diphthong).
+    driven by the Greek nuclei tuple list (char_index, has_accent,
+    consumes_2_xlit_vowels, gk_char_count).
 
-    Diphthong nuclei consume 2 adjacent xlit vowel chars; single nuclei consume 1.
-    This prevents over-merging hiatus vowels (e.g. θεός → the|o|s not theo|s).
+    Nuclei with consumes_2_xlit_vowels=True consume 2 adjacent xlit vowel
+    chars; others consume 1.  This prevents over-merging hiatus vowels
+    (e.g. θεός → the|o|s not theo|s) while correctly grouping diphthongs
+    and iota-subscript vowels.
     """
     vowel_positions: list[int] = []
     for i, ch in enumerate(xlit):
@@ -956,12 +1000,12 @@ def _xlit_vowel_spans(xlit: str,
     spans: list[tuple[int, int]] = []
     vp_idx = 0
 
-    for _gk_pos, _has_accent, is_diphthong in nuclei:
+    for _gk_pos, _has_accent, consumes_2, _gk_len in nuclei:
         if vp_idx >= len(vowel_positions):
             break
         start = vowel_positions[vp_idx]
         vp_idx += 1
-        if (is_diphthong
+        if (consumes_2
                 and vp_idx < len(vowel_positions)
                 and vowel_positions[vp_idx] == vowel_positions[vp_idx - 1] + 1):
             vp_idx += 1
@@ -996,24 +1040,45 @@ def add_greek_syllable_markers(greek: str, xlit: str,
 
     # Find which span is stressed
     stressed_span_idx: int | None = None
-    for idx, ((_gk_pos, has_accent, _is_diph), _span) in enumerate(zip(nuclei, spans)):
+    for idx, ((_gk_pos, has_accent, _c2, _gl), _span) in enumerate(zip(nuclei, spans)):
         if has_accent:
             stressed_span_idx = idx
             break
 
+    greek_chars = list(greek)
+
     # For each pair of adjacent spans compute where the sep should go.
-    # sep_positions[i] = insertion point in xlit for sep before syllable i+1
+    # Strategy: find the longest suffix of the inter-vocalic Greek consonant
+    # cluster that can begin a syllable (_gk_onset_length), then place sep
+    # after the xlit representation of the coda (prefix) consonants.
+    # This correctly handles digraph xlit sequences (φ→ph, χ→ch, θ→th, …)
+    # and valid Greek onset clusters (φρ, θρ, στρ, …).
     sep_positions: list[int] = []
     for i in range(1, len(spans)):
         prev_end   = spans[i - 1][1]
         curr_start = spans[i][0]
-        cluster_len = curr_start - prev_end
-        if cluster_len <= 1:
-            # 0 consonants (hiatus) or 1 consonant: sep before the cluster
-            sep_positions.append(prev_end)
-        else:
-            # 2+ consonants: first consonant stays with prev syllable
-            sep_positions.append(prev_end + 1)
+
+        # Collect base letters of Greek consonants between the two nuclei
+        prev_gk_end   = nuclei[i - 1][0] + nuclei[i - 1][3]  # pos + gk_char_count
+        curr_gk_start = nuclei[i][0]
+        cons_bases = [
+            _greek_base(greek_chars[k])[0]
+            for k in range(prev_gk_end, curr_gk_start)
+            if _greek_base(greek_chars[k])[0] not in _GK_VOWELS
+        ]
+
+        onset_len = _gk_onset_length(cons_bases) if cons_bases else 0
+        coda_len  = len(cons_bases) - onset_len  # consonants staying with prev syllable
+
+        # Walk the xlit cluster to find sep position after coda_len Greek consonants
+        cluster = xlit[prev_end:curr_start]
+        ci = 0
+        for _ in range(coda_len):
+            if cluster[ci:ci + 2].lower() in _XLIT_DIGRAPHS:
+                ci += 2
+            else:
+                ci += 1
+        sep_positions.append(prev_end + ci)
 
     # Build a dict: position → list of strings to insert BEFORE that char
     inserts: dict[int, list[str]] = {}
