@@ -1,5 +1,5 @@
 """
-translit_v2.py
+translit.py
 
 Hebrew transliterator — refactored from biblical_transliteration library.
 Uses a single scheme dict with dagesh-keyed consonants for clean extensibility.
@@ -40,7 +40,7 @@ VOWEL_POINTS = {
 }
 
 SHORT_VOWELS = {'\u05B7', '\u05B6', '\u05B4', '\u05BB'}  # patach, segol, hiriq, qibbuts
-LONG_VOWELS  = {'\u05B5', '\u05B9', '\u05BA'}             # tsere, holam, holam haser
+LONG_VOWELS  = {'\u05B5', '\u05B9', '\u05BA', '\u05B8'}   # tsere, holam, holam haser, qamats (gadol)
 
 FINAL_FORMS = {
     '\u05DA': '\u05DB',  # Final Kaf  -> Kaf
@@ -469,6 +469,9 @@ def is_qamats_qatan(chars: list, i: int) -> bool:
     has_full_vowel = any(v in next_marks for v in FULL_VOWELS)
 
     if has_shewa and not has_full_vowel:
+        # If the shewa is vocal the current syllable is open → qamats must be gadol.
+        if is_vocal_sheva(chars, next_consonant_idx):
+            return False
         for k in range(next_consonant_idx + 1, len(chars)):
             ch = chars[k]
             if ch in (' ', '\t', '\n', MAQAF):
@@ -756,11 +759,13 @@ def _group_syllables(word_units: list) -> list:
                 if syllables:
                     last_text, last_stress = syllables[-1]
                     syllables[-1] = (last_text + closing, last_stress)
+                    pending = []
+                    syllables.append((text, stressed))
                 else:
-                    syllables.append((closing, False))
-                pending = []
-                # Now this unit opens a new syllable (already starts with consonant)
-                syllables.append((text, stressed))
+                    # Word-initial forte: no previous syllable to close.
+                    # Merge the bare consonant into the opening unit (mm·á vs m·má).
+                    pending = []
+                    syllables.append((closing + text, stressed))
                 stressed = False
             else:
                 # Normal case: pending consonants + this vowel-bearing unit
@@ -863,10 +868,17 @@ def make_transliterator(hebrew_scheme: str = "brill_simple",
                         greek_scheme: str = "SIMPLE") -> callable:
     """Return a configured transliterate(text, lang, is_proper) function.
 
-    Hebrew/Aramaic: routed through HebrewTransliterator
-    Greek:          routed through biblical_transliteration library
+    Hebrew/Aramaic: uses our HebrewTransliterator if hebrew_scheme is in SCHEMES,
+                    otherwise delegates to bt.HebrewTransliterator (falling back to
+                    bt.HebrewScheme.SIMPLE if the name isn't a valid bt scheme).
+    Greek:          routed through bt.GreekTransliterator.
     """
-    _hebrew_t = HebrewTransliterator(hebrew_scheme)
+    if hebrew_scheme in SCHEMES:
+        _hebrew_t = HebrewTransliterator(hebrew_scheme)
+    else:
+        bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
+        _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
+        _hebrew_t  = _bt_hebrew.transliterate
 
     _greek_t = bt.GreekTransliterator(bt.GreekOptions(
         scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)

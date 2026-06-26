@@ -24,9 +24,9 @@ from pathlib import Path
 
 API_BASE       = ""
 BOOKS_ENDPOINT = f"{API_BASE}/books.json"
-TARGET_OT      = Path("../Alignments/data/eng/targets/BSB/ot_BSB.tsv")
-TARGET_NT      = Path("../Alignments/data/eng/targets/BSB/nt_BSB.tsv")
-OUTPUT         = Path("data/bsb_annotations.json")
+TARGET_OT      = Path("../../Alignments/data/eng/targets/BSB/ot_BSB.tsv")
+TARGET_NT      = Path("../../Alignments/data/eng/targets/BSB/nt_BSB.tsv")
+OUTPUT         = Path("../data/bsb_annotations.json")
 REQUEST_DELAY  = 0.25
 
 # Set to a list of API book IDs to process only those books, e.g. ['GEN', 'MAT']
