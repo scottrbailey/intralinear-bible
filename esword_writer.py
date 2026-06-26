@@ -1,55 +1,32 @@
 """
 esword_writer.py
 
-e-Sword LT Bible module writer (.bbli).
+ESwordWriter: writes e-Sword LT Bible modules (.bbli).
+
+Responsibilities beyond SQLiteBibleWriter:
+  - Mods table + Bible view (CSS injection)
+  - Notes table (translator notes and cross-references stored separately)
+  - Sequential per-chapter note numbering
 """
 
-from sqlite_writer import SQLiteBibleWriter
-from textwrap import dedent
+from pathlib import Path
 
-INTRALINEAR_CSS = (
-    '.stk{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:super;font-size:0.65em;color:blue;line-height:1.1}'
-    'span.stk a{opacity:0 !important;}'
-)
+from sqlite_writer import SQLiteBibleWriter
+from verse_formatter import VerseFormatter
 
 
 class ESwordWriter(SQLiteBibleWriter):
     """Writes e-Sword LT .bbli SQLite Bible modules."""
 
-    file_extension = '.bbli'
-    _table_name    = '_Bible'
+    _table_name = '_Bible'
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._note_counter   = 0
+    def __init__(self, profile: VerseFormatter, **kwargs):
+        super().__init__(profile, **kwargs)
+        self._note_counter    = 0
         self._current_chapter = None
 
-    def _create_bible_table(self):
-        super()._create_bible_table()
-        self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS Mods (
-                mode_id      INT PRIMARY KEY,
-                title        VARCHAR,
-                css          TEXT,
-                replacements TEXT,
-                active       BOOL DEFAULT 0
-            )
-        """)
-        self.conn.execute(
-            "INSERT INTO Mods (mode_id, title, css, active) VALUES (?, ?, ?, ?)",
-            (1, 'Intralinear', INTRALINEAR_CSS, 1)
-        )
-        self.conn.execute("""
-            CREATE VIEW Bible AS
-            SELECT Book, Chapter, Verse,
-                '<style>' || (SELECT css FROM Mods WHERE active=1) || '</style>' || Scripture AS Scripture
-            FROM _Bible
-        """)
-        self.conn.commit()
-
-    def open(self, output_path, work_id: str = "BSBi"):
-        super().open(output_path, work_id)
+    def open(self, output_dir: Path) -> None:
+        super().open(output_dir)
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS Notes (
                 Book    INT,
@@ -61,8 +38,8 @@ class ESwordWriter(SQLiteBibleWriter):
         """)
         self.conn.commit()
 
-    def add_verse(self, osis_ref: str, intralinear_tokens: list,
-                  header: str = None, xrefs: dict = None):
+    def add_verse(self, osis_ref: str, tokens: list,
+                  header: str = None, xrefs: dict = None) -> None:
         parts    = osis_ref.split('.')
         chapter  = int(parts[1])
         verse    = int(parts[2])
@@ -72,32 +49,30 @@ class ESwordWriter(SQLiteBibleWriter):
             self._note_counter    = 0
             self._current_chapter = chapter
 
-        # Collect translator notes, assigning sequential N# IDs per chapter
         verse_notes = []
+        note_id_map = {}
         if self.notes:
-            for token in intralinear_tokens:
+            for token in tokens:
                 for note in token.notes:
                     self._note_counter += 1
                     verse_notes.append({
-                        'seq':        self._note_counter,
-                        'text':       note['text'],
-                        'token_note': note,
+                        'seq':  self._note_counter,
+                        'text': note['text'],
+                        'note': note,
                     })
+            note_id_map = {vn['note']['noteId']: vn['seq'] for vn in verse_notes}
 
-        note_id_map = {
-            vn['token_note']['noteId']: vn['seq'] for vn in verse_notes
-        }
-
-        # Collect xrefs for this verse (keys are already per-chapter sequential)
         verse_xrefs = []
         if self.xref and xrefs:
-            for key, text in xrefs.items():
-                verse_xrefs.append({'key': key, 'text': text})
+            verse_xrefs = [{'key': k, 'text': v} for k, v in xrefs.items()]
 
-        super().add_verse(osis_ref, intralinear_tokens, header=header,
-                          note_id_map=note_id_map,
-                          xrefs=verse_xrefs if self.xref else None,
-                          xref_placement=self.xref)
+        self._add_verse_impl(
+            osis_ref, tokens,
+            header=header,
+            note_id_map=note_id_map,
+            xrefs=verse_xrefs,
+            xref_placement=self.xref,
+        )
 
         for vn in verse_notes:
             self.conn.execute(
@@ -112,6 +87,29 @@ class ESwordWriter(SQLiteBibleWriter):
                 "INSERT INTO Notes (Book, Chapter, Verse, ID, Note) VALUES (?,?,?,?,?)",
                 (book_num, chapter, verse, f"R{vx['key']}", note_text),
             )
+
+    def _create_bible_table(self):
+        super()._create_bible_table()
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS Mods (
+                mode_id      INT PRIMARY KEY,
+                title        VARCHAR,
+                css          TEXT,
+                replacements TEXT,
+                active       BOOL DEFAULT 0
+            )
+        """)
+        self.conn.execute(
+            "INSERT INTO Mods (mode_id, title, css, active) VALUES (?, ?, ?, ?)",
+            (1, self.profile.module_name, self.profile.css, 1),
+        )
+        self.conn.execute("""
+            CREATE VIEW Bible AS
+            SELECT Book, Chapter, Verse,
+                '<style>' || (SELECT css FROM Mods WHERE active=1) || '</style>' || Scripture AS Scripture
+            FROM _Bible
+        """)
+        self.conn.commit()
 
     def insert_details(self):
         self.conn.execute("""
@@ -133,131 +131,13 @@ class ESwordWriter(SQLiteBibleWriter):
                 OldTestament, NewTestament, Apocrypha, Strongs, RightToLeft
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            "BSB Intralinear Bible",
-            self.work_id,
-            dedent("""\
-            Berean Standard Bible with inline Hebrew and Greek transliteration.
-            Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible
-            Alignments project (CC BY 4.0)."""),
-            4,          # Version
+            self.profile.module_name,
+            self.profile.abbreviation,
+            self.profile.description,
+            4,          # must be 4 for e-Sword to render HTML
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
-            0,           # Apocrypha
-            1,           # Strongs
-            0,           # RightToLeft
+            0,
+            1,
+            0,
         ))
-
-    def _xref_markers(self, xrefs: list) -> str:
-        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
-
-    def render_verse_intralinear(self, tokens: list, header: str = None,
-                                 note_id_map: dict = None,
-                                 xrefs: list = None,
-                                 xref_placement: int = 0) -> str:
-        """Render tokens to intralinear HTML with <sup class="str"> Strong's links.
-
-        Notes rendered as <not>N#</not>, xrefs as <not>R#</not>.
-        xref_placement: 1 = beginning of verse, 2 = end of verse.
-        Section headers as <h3 class="headline">text</h3>.
-        """
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-
-        if header:
-            parts.append(f'<b class="headline">{header}</b><br>')
-
-        if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                parts.append(token.english)
-                parts.append(' ')
-                lemmas = []
-                for sw in token.source_words:
-                    xlit   = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    # cls    = 'xlitH' if sw.lang != 'G' else 'xlitG'
-                    lemmas.append(
-                        f'<span class="stk">'
-                        f'{xlit}'
-                        f'<num>{sw.stem.strongs}</num>'
-                        f'</span>'
-                    )
-                parts.append(' '.join(lemmas))
-
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
-
-        return ''.join(parts)
-
-    def render_verse_interlinear(self, tokens: list, header: str = None,
-                                 note_id_map: dict = None,
-                                 xrefs: list = None,
-                                 xref_placement: int = 0) -> str:
-        """Render tokens to interlinear HTML.
-
-        Format per aligned token:
-          <q><heb>בְּרֵאשִׁית</heb><xlit>bereshit</xlit><num>H7225</num><tvm>in the beginning</tvm></q>
-        """
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-
-        if header:
-            parts.append(f'<b class="headline">{header}</b> ')
-
-        if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                segments = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    strongs = sw.stem.strongs
-                    if sw.lang == 'G':
-                        seg = f"<grk>{sw.text}</grk><xlit>{xlit}</xlit><num>{strongs}</num>"
-                    else:
-                        seg = f"<heb>{sw.text}</heb><xlit>{xlit}</xlit><num>{strongs}</num>"
-                    segments.append(seg)
-
-                parts.append(
-                    f"<q>"
-                    f"{' '.join(segments)}"
-                    f"<tvm>{token.english}</tvm>"
-                    f"</q>"
-                )
-
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
-
-        return ''.join(parts)

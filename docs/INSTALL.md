@@ -2,8 +2,8 @@
 
 The BSB Intralinear Bible combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's concordance. It is available for two Bible apps:
 
-- **MySword** — Android phones and tablets
-- **e-Sword** — Android and iOS phones and tablets
+- **[MySword](#mysword-android)** — Android phones and tablets
+- **[e-Sword](#e-sword-android-and-ios)** — Android and iOS phones and tablets (does not play well with desktop version of e-Sword)
 
 ---
 
@@ -18,12 +18,13 @@ The application is free, but requires a $25 "donation" to unlock all features.
 1. [Download](https://www.mysword.info/download-mysword) the application your Android device.
 2. Click on the downloaded APK package to install it.
 3. Open MySword and complete any first-run setup. Click on "Download Modules" and choose from hundreds of Bible translations, commentaries, books and devotionals.
-4. Install at least one Hebrew and Greek dictionary so dictionary links can load (i.e. the combined BDB/Thayer)
+4. Install at least one Hebrew and Greek lexicon.  See [Lexicon](#lexicondictionary-suggestions) section below for suggestions.
 
 ### Step 2 — Download the Intralinear Module
 
 1. On your device, open this link to download the module:
-   **[BSBi.bbl_1-0-0.zip](https://github.com/scottrbailey/intralinear-bible/releases/download/v1.0.0/BSBi.bbl_1-0-0.zip)** BSB Intralinear or **[BSBis.bbl_1-0-0.zip](https://github.com/scottrbailey/intralinear-bible/releases/download/v1.0.0/BSBis.bbl_1-0-0.zip)** BSB Intralinear Stacked
+   **[BSBi.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBi.bbl.zip)** BSB Intralinear 
+   or **[BSBis.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBis.bbl.zip)** BSB Intralinear Stacked
 2. When prompted, save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module
@@ -45,7 +46,7 @@ The application is free, but requires a $25 "donation" to unlock all features.
 ---
 
 ## e-Sword (Android and iOS)
-The e-Sword app is not as full-featured as MySword and there are not as many modules available for it. But it is still quite capable, and on iOS, it is your only option. 
+The e-Sword app is not as full-featured as MySword and there are not as many modules available for it. But it is still quite capable, and on iOS, it is your only option.
 
 ### Step 1 — Install e-Sword
 
@@ -57,22 +58,22 @@ The e-Sword app is not as full-featured as MySword and there are not as many mod
 1. Open the **App Store**.
 2. Search for **[e-Sword](https://apps.apple.com/us/app/e-sword-lt-bible-study-to-go/id634158738)**  and install it.  Cost is $3.99.
 3. Open e-Sword and complete any first-run setup.
-4. Download > Lexicons - and install at least one for Hebrew and Greek. Be sure to check out the available Bibles, commentaries, books and devtionals.   
+4. Download > Lexicons - and install at least one for Hebrew and Greek (see [lexicon](#lexicondictionary-suggestions) section below for suggestions.). Be sure to check out the available Bibles, commentaries, books and devotionals.   
 
 ### Step 2 — Download the Module
 
 1. On your device, open this link to download the module:
-   **[BSBi_1-0-0.zip](https://github.com/scottrbailey/intralinear-bible/releases/download/v1.0.0/BSBi_1-0-0.zip)**
+   **[BSBi.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBi.zip)**
 2. Save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module 
 
 1. Open a file manager app on your device.
-2. Navigate to your **Downloads** folder and extract the `BSBi_1-0-0.zip` file.
+2. Navigate to your **Downloads** folder and extract the `BSBi.zip` file.
 3. You should see a file named `BSBi.bbli`.
 4. Open e-Sword and click General > Import. Navigate to your Downloads folder, select the `BSBi.bbli` file and click `Open` to import the module.
 
-<img src="assets/eSword_OT.jpg" width="480" description="BSB Intralinear on e-Sword"/>
+<img src="assets/eSword_OT.jpg" width="360" description="BSB Intralinear on e-Sword"/>
 
 ---
 
@@ -86,10 +87,20 @@ The e-Sword app is not as full-featured as MySword and there are not as many mod
 
 ---
 
+## Lexicon/Dictionary Suggestions
+
+Clicking on any of the transliterated words will take you to the lexicon entry for that word.  Which lexicon it takes you to is configurable by you. But first you need to download one or more lexicons. 
+MySword refers to lexicons as "dictionaries", while e-Sword separates "lexicons" (keyed by Strong's numbers) and "dictionaries" (keyed by words like Oxford or Merriam-Webster).
+Most lexicons are for a single language. Try [Brown-Driver-Briggs Hebrew and English Lexicon](https://en.wikipedia.org/wiki/Brown-Driver-Briggs) for Hebrew and [Thayer's Greek-English Lexicon](https://www.bible-discovery.com/dictionary-license-thayer) for Greek. MySword offers a combined "BDB/Thayer's" in one download. 
+We also recommend the [Ancient Hebrew Lexicon of the Bible](https://www.ancient-hebrew.org/ahlb/), if you a much deeper understanding of the Hebrew language. Installing the AHLB lexicon on e-Sword will make the book's forward available under the "Reference" section. 
+Reading the AHLB forward will help you understand the definitions.
+
+---
+
 ## Troubleshooting
 
 **The module doesn't appear after installation.**
 Restart the app. If it still doesn't appear, verify the file is in the correct folder and has the correct extension (`.bbl.mybible` for MySword, `.bbli` for e-Sword).
 
 **Tapping a transliteration doesn't open the lexicon.**
-Make sure you have a Hebrew and Greek dictionary/lexicon installed in the app. Start "Brown-Driver-Briggs' Hebrew Definitions" and "Thayer's Greek Definitions."
+Make sure you have a Hebrew and Greek dictionary/lexicon installed in the app.

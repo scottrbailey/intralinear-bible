@@ -1,15 +1,34 @@
 """
-translit_v2.py
+translit.py — Biblical language transliteration
 
-Hebrew transliterator — refactored from biblical_transliteration library.
-Uses a single scheme dict with dagesh-keyed consonants for clean extensibility.
+Supports Hebrew/Aramaic and Greek for Old and New Testament texts.
+
+Hebrew/Aramaic
+--------------
+Fully custom transliterator (HebrewTransliterator) driven by a scheme dict.
+Handles dagesh lene/forte, matres lectionis, vocal/silent sheva, qamats
+gadol vs. qatan, the Tetragrammaton, and syllable/stress marking.
 
 Scheme dict keys:
-  Hebrew char        — consonant without dagesh (or non-BGDKPT consonant)
-  Hebrew char+dagesh — consonant with dagesh (BGDKPT hard forms + dagesh forte doubling)
-  Vowel point char   — vowel point
-  'syllable_sep'     — syllable separator character (e.g. middle dot, hyphen, empty)
-  'stress_marker'    — stress marker character or None
+  Hebrew char          — consonant without dagesh (spirant/default form)
+  Hebrew char + DAGESH — consonant with dagesh (hard BGDKPT or forte doubling)
+  Vowel point char     — vowel rendering
+  'syllable_sep'       — character inserted between syllables (e.g. 'ꞏ', '·', '')
+  'stress_marker'      — combining accent placed on the stressed vowel, or None
+  'divine_name'        — substitution string for the Tetragrammaton
+
+Built-in schemes: brill_simple, sbl_simple, sbl_academic, phonetic_dot.
+
+Greek
+-----
+Consonant mapping delegated to the biblical_transliteration (bt) library.
+When the Hebrew scheme defines syllable_sep and/or stress_marker, those same
+characters are applied to the Greek output via add_greek_syllable_markers(),
+which reads syllable boundaries and accent position from the original Greek
+diacritics.  If the Hebrew scheme has no sep/stress (e.g. a raw bt scheme
+name was passed), Greek output is returned as-is from bt.
+
+Entry point: make_transliterator(hebrew_scheme, greek_scheme) → transliterate(text, lang, is_proper)
 """
 
 import re
@@ -40,7 +59,7 @@ VOWEL_POINTS = {
 }
 
 SHORT_VOWELS = {'\u05B7', '\u05B6', '\u05B4', '\u05BB'}  # patach, segol, hiriq, qibbuts
-LONG_VOWELS  = {'\u05B5', '\u05B9', '\u05BA'}             # tsere, holam, holam haser
+LONG_VOWELS  = {'\u05B5', '\u05B9', '\u05BA', '\u05B8'}   # tsere, holam, holam haser, qamats (gadol)
 
 FINAL_FORMS = {
     '\u05DA': '\u05DB',  # Final Kaf  -> Kaf
@@ -113,6 +132,7 @@ SCHEMES = {
         '\u05E2': '',         # Ayin dropped
         'stress_marker': '\u0301',
         'syllable_sep': '\u00B7',  # middle dot
+        'divine_name': 'Yᵉ·hó·vah',
     },
 
     'sbl_simple': {
@@ -419,6 +439,10 @@ def is_vocal_sheva(chars: list, i: int) -> bool:
         return True
 
     if any(v in SHORT_VOWELS for v in prev_vowels):
+        # Exception: sheva after dagesh forte is always vocal
+        current_marks = get_marks(chars, i)
+        if DAGESH in current_marks and has_preceding_vowel_point(chars, i):
+            return True
         return False
     if any(v in LONG_VOWELS for v in prev_vowels):
         return True
@@ -464,6 +488,9 @@ def is_qamats_qatan(chars: list, i: int) -> bool:
     has_full_vowel = any(v in next_marks for v in FULL_VOWELS)
 
     if has_shewa and not has_full_vowel:
+        # If the shewa is vocal the current syllable is open → qamats must be gadol.
+        if is_vocal_sheva(chars, next_consonant_idx):
+            return False
         for k in range(next_consonant_idx + 1, len(chars)):
             ch = chars[k]
             if ch in (' ', '\t', '\n', MAQAF):
@@ -483,6 +510,10 @@ def is_qamats_qatan(chars: list, i: int) -> bool:
         if not is_next_final:
             return False
         if chars[next_consonant_idx] == '\u05D4' and DAGESH not in next_marks:
+            return False
+        # A stressed syllable cannot be qamats qatan
+        current_marks = get_marks(chars, i)
+        if has_cantillation(current_marks) or METEG in current_marks:
             return False
         consonants_before = 0
         for k in range(i - 1, -1, -1):
@@ -576,7 +607,10 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
                              for m in marks_ahead)
             j = i + 1 + len(marks_ahead)
             has_geresh = j < tlen and chars[j] in {'\u05F3', '\u05F4'}
-            if not has_vowel and not has_geresh:
+            is_standalone = not any(
+                is_hebrew(chars[k]) for k in range(tlen) if k != i
+            )
+            if not has_vowel and not has_geresh and is_standalone:
                 i += 1
                 continue
 
@@ -751,11 +785,13 @@ def _group_syllables(word_units: list) -> list:
                 if syllables:
                     last_text, last_stress = syllables[-1]
                     syllables[-1] = (last_text + closing, last_stress)
+                    pending = []
+                    syllables.append((text, stressed))
                 else:
-                    syllables.append((closing, False))
-                pending = []
-                # Now this unit opens a new syllable (already starts with consonant)
-                syllables.append((text, stressed))
+                    # Word-initial forte: no previous syllable to close.
+                    # Merge the bare consonant into the opening unit (mm·á vs m·má).
+                    pending = []
+                    syllables.append((closing + text, stressed))
                 stressed = False
             else:
                 # Normal case: pending consonants + this vowel-bearing unit
@@ -852,16 +888,236 @@ def lowercase_translit(translit: str) -> str:
 
 
 
+# ================== GREEK SYLLABIFICATION ==================
+
+# Greek vowel base letters (lower-case; upper-case handled by .lower())
+_GK_VOWELS = set('αεηιουω')
+
+# Diphthong pairs that form a single nucleus (first letter, second letter)
+_GK_DIPHTHONGS = {('α', 'ι'), ('α', 'υ'), ('ε', 'ι'), ('ε', 'υ'),
+                  ('ο', 'ι'), ('ο', 'υ'), ('υ', 'ι')}
+
+# Combining iota subscript (ypogegrammeni) — bt renders it as an explicit 'i'
+_YPOGEGRAMMENI = 'ͅ'
+
+# Unicode accent combining characters (after NFD decomposition)
+_GK_ACCENT_COMBINING = {
+    '́',  # combining acute (oxia)
+    '̀',  # combining grave
+    '͂',  # combining Greek perispomeni (circumflex)
+}
+
+# 2-char xlit sequences that come from a SINGLE Greek consonant
+_XLIT_DIGRAPHS = {'th', 'ph', 'ch', 'kh', 'ps', 'ks', 'rh'}
+
+# Greek consonant clusters that can begin a syllable (appear word-initially)
+# Used to find the correct split point in inter-vocalic consonant clusters:
+# the longest suffix in this set goes with the following vowel.
+_GK_INITIAL_CLUSTERS = frozenset({
+    'βλ','βρ','γλ','γν','γρ','δρ','θλ','θν','θρ',
+    'κλ','κν','κρ','κτ','μν','πλ','πν','πρ','πτ',
+    'τλ','τμ','τρ','φθ','φλ','φρ','χθ','χλ','χρ',
+    'σβ','σδ','σκ','σμ','σπ','στ','σφ','σχ',
+    'σκλ','σκρ','σπλ','σπρ','στρ','σφρ','σχρ',
+})
+
+
+def _gk_onset_length(cons_bases: list[str]) -> int:
+    """Return the number of consonants (from the end of cons_bases) that form
+    a valid Greek syllable onset — i.e., the largest suffix that is a single
+    consonant or is in _GK_INITIAL_CLUSTERS."""
+    n = len(cons_bases)
+    for length in range(min(n, 3), 0, -1):
+        suffix = ''.join(cons_bases[-length:])
+        if length == 1 or suffix in _GK_INITIAL_CLUSTERS:
+            return length
+    return 1
+
+
+def _greek_base(ch: str) -> tuple[str, bool]:
+    """Return (base_vowel_or_consonant, has_accent) for a Greek character.
+    Uses NFD decomposition so precomposed diacritics are split off."""
+    nfd = unicodedata.normalize('NFD', ch)
+    base = nfd[0].lower()
+    accented = any(c in _GK_ACCENT_COMBINING for c in nfd[1:])
+    return base, accented
+
+
+def _greek_nuclei(greek: str) -> list[tuple[int, bool, bool, int]]:
+    """Return (char_index, has_accent, consumes_2_xlit_vowels, gk_char_count)
+    for each syllable nucleus.
+
+    consumes_2_xlit_vowels is True for:
+      - Explicit diphthongs (αι, ει, ου, etc.) — 2 Greek chars, 2 xlit vowels
+      - Iota subscript vowels (ᾳ, ῃ, ῳ) — 1 Greek char, bt renders 2 xlit vowels
+
+    gk_char_count is how many Greek source characters the nucleus occupies
+    (2 for explicit diphthongs, 1 for everything else).
+    """
+    chars = list(greek)
+    nuclei: list[tuple[int, bool, bool, int]] = []
+    i = 0
+    while i < len(chars):
+        base, accented = _greek_base(chars[i])
+        if base in _GK_VOWELS:
+            # Iota subscript: one Greek char, bt produces 2 xlit vowels
+            nfd = unicodedata.normalize('NFD', chars[i])
+            if _YPOGEGRAMMENI in nfd:
+                nuclei.append((i, accented, True, 1))
+                i += 1
+                continue
+            # Explicit diphthong: two Greek chars, two xlit vowels
+            if i + 1 < len(chars):
+                next_base, next_acc = _greek_base(chars[i + 1])
+                if (base, next_base) in _GK_DIPHTHONGS:
+                    nuclei.append((i, accented or next_acc, True, 2))
+                    i += 2
+                    continue
+            nuclei.append((i, accented, False, 1))
+        i += 1
+    return nuclei
+
+
+_XLIT_VOWELS = set('aeiouy')  # y covers upsilon in SIMPLE scheme
+
+
+def _xlit_vowel_spans(xlit: str,
+                      nuclei: list[tuple[int, bool, bool, int]]) -> list[tuple[int, int]]:
+    """Return (start, end) index pairs for each vowel span in xlit,
+    driven by the Greek nuclei tuple list (char_index, has_accent,
+    consumes_2_xlit_vowels, gk_char_count).
+
+    Nuclei with consumes_2_xlit_vowels=True consume 2 adjacent xlit vowel
+    chars; others consume 1.  This prevents over-merging hiatus vowels
+    (e.g. θεός → the|o|s not theo|s) while correctly grouping diphthongs
+    and iota-subscript vowels.
+    """
+    vowel_positions: list[int] = []
+    for i, ch in enumerate(xlit):
+        if ch.lower() in _XLIT_VOWELS:
+            vowel_positions.append(i)
+
+    spans: list[tuple[int, int]] = []
+    vp_idx = 0
+
+    for _gk_pos, _has_accent, consumes_2, _gk_len in nuclei:
+        if vp_idx >= len(vowel_positions):
+            break
+        start = vowel_positions[vp_idx]
+        vp_idx += 1
+        if (consumes_2
+                and vp_idx < len(vowel_positions)
+                and vowel_positions[vp_idx] == vowel_positions[vp_idx - 1] + 1):
+            vp_idx += 1
+        end = vowel_positions[vp_idx - 1] + 1
+        spans.append((start, end))
+
+    return spans
+
+
+def add_greek_syllable_markers(greek: str, xlit: str,
+                                sep: str = 'ꞏ',
+                                stress: str = '́') -> str:
+    """Insert syllable separators and stress marker into a Greek transliteration.
+
+    Uses the original Greek (with its accent diacritics) to determine:
+      - syllable boundaries (one per vowel nucleus / diphthong)
+      - which nucleus is stressed
+
+    The nth Greek nucleus maps to the nth vowel span in xlit.
+    Separators are placed before the onset consonant(s) of each syllable,
+    not immediately before the vowel: 'potamos' → 'poꞏtaꞏmos'.
+
+    Single consonant between vowels → goes with following syllable.
+    Two or more consonants → first stays with preceding syllable,
+    rest open the next (reasonable approximation for a casual reader).
+    """
+    nuclei = _greek_nuclei(greek)
+    spans  = _xlit_vowel_spans(xlit, nuclei)
+
+    if not nuclei or not spans:
+        return xlit
+
+    # Find which span is stressed
+    stressed_span_idx: int | None = None
+    for idx, ((_gk_pos, has_accent, _c2, _gl), _span) in enumerate(zip(nuclei, spans)):
+        if has_accent:
+            stressed_span_idx = idx
+            break
+
+    greek_chars = list(greek)
+
+    # For each pair of adjacent spans compute where the sep should go.
+    # Strategy: find the longest suffix of the inter-vocalic Greek consonant
+    # cluster that can begin a syllable (_gk_onset_length), then place sep
+    # after the xlit representation of the coda (prefix) consonants.
+    # This correctly handles digraph xlit sequences (φ→ph, χ→ch, θ→th, …)
+    # and valid Greek onset clusters (φρ, θρ, στρ, …).
+    sep_positions: list[int] = []
+    for i in range(1, len(spans)):
+        prev_end   = spans[i - 1][1]
+        curr_start = spans[i][0]
+
+        # Collect base letters of Greek consonants between the two nuclei
+        prev_gk_end   = nuclei[i - 1][0] + nuclei[i - 1][3]  # pos + gk_char_count
+        curr_gk_start = nuclei[i][0]
+        cons_bases = [
+            _greek_base(greek_chars[k])[0]
+            for k in range(prev_gk_end, curr_gk_start)
+            if _greek_base(greek_chars[k])[0] not in _GK_VOWELS
+        ]
+
+        onset_len = _gk_onset_length(cons_bases) if cons_bases else 0
+        coda_len  = len(cons_bases) - onset_len  # consonants staying with prev syllable
+
+        # Walk the xlit cluster to find sep position after coda_len Greek consonants
+        cluster = xlit[prev_end:curr_start]
+        ci = 0
+        for _ in range(coda_len):
+            if cluster[ci:ci + 2].lower() in _XLIT_DIGRAPHS:
+                ci += 2
+            else:
+                ci += 1
+        sep_positions.append(prev_end + ci)
+
+    # Build a dict: position → list of strings to insert BEFORE that char
+    inserts: dict[int, list[str]] = {}
+    for pos in sep_positions:
+        inserts.setdefault(pos, []).append(sep)
+
+    # Stress goes AFTER the last char of the stressed vowel span
+    stress_after: int | None = None
+    if stressed_span_idx is not None and stressed_span_idx < len(spans):
+        stress_after = spans[stressed_span_idx][1] - 1  # index of last vowel char
+
+    result = []
+    for i, ch in enumerate(xlit):
+        for ins in inserts.get(i, []):
+            result.append(ins)
+        result.append(ch)
+        if stress and i == stress_after:
+            result.append(stress)
+
+    return ''.join(result)
+
+
 # ================== TRANSLITERATOR FACTORY ==================
 
 def make_transliterator(hebrew_scheme: str = "brill_simple",
                         greek_scheme: str = "SIMPLE") -> callable:
     """Return a configured transliterate(text, lang, is_proper) function.
 
-    Hebrew/Aramaic: routed through HebrewTransliterator
-    Greek:          routed through biblical_transliteration library
+    Hebrew/Aramaic: uses our HebrewTransliterator if hebrew_scheme is in SCHEMES,
+                    otherwise delegates to bt.HebrewTransliterator (falling back to
+                    bt.HebrewScheme.SIMPLE if the name isn't a valid bt scheme).
+    Greek:          routed through bt.GreekTransliterator.
     """
-    _hebrew_t = HebrewTransliterator(hebrew_scheme)
+    if hebrew_scheme in SCHEMES:
+        _hebrew_t = HebrewTransliterator(hebrew_scheme)
+    else:
+        bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
+        _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
+        _hebrew_t  = _bt_hebrew.transliterate
 
     _greek_t = bt.GreekTransliterator(bt.GreekOptions(
         scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)
@@ -872,6 +1128,14 @@ def make_transliterator(hebrew_scheme: str = "brill_simple",
             result = _greek_t.transliterate(text)
             if not is_proper:
                 result = lowercase_translit(result)
+            sep    = SCHEMES.get(hebrew_scheme, {}).get('syllable_sep', '')
+            stress = SCHEMES.get(hebrew_scheme, {}).get('stress_marker', None)
+            if sep or stress:
+                result = add_greek_syllable_markers(
+                    text, result,
+                    sep=sep or '',
+                    stress=stress or '',
+                )
             return result
         else:  # H or A
             return _hebrew_t(text)
