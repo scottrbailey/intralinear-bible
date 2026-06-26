@@ -36,6 +36,7 @@ class VerseFormatter(ABC):
       module_name    — human-readable title
       file_extension — output file extension (e.g. ".bbli", ".bbl.mybible")
       description    — freeform text for the Details table
+      publish_date   — date translation was published (YYYY-MM-DD)
       css            — CSS string inserted into the module (empty if not applicable)
       verse_rules    — VerseRules transform string (MySword only; empty otherwise)
     """
@@ -44,6 +45,7 @@ class VerseFormatter(ABC):
     module_name:    str = ""
     file_extension: str = ""
     description:    str = MODULE_DESCRIPTION
+    publish_date:   str = "2020-12-01"
     css:            str = ""
     verse_rules:    str = ""
 

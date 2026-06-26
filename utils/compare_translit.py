@@ -28,18 +28,17 @@ SOURCE_DEFAULT = Path("../../macula-hebrew/WLC/tsv/macula-hebrew.tsv")
 OUTPUT_DEFAULT = Path("../output/translit_compare.tsv")
 
 GENESIS_PREFIX = "o01"   # book number in the xml:id
-
+# Populate to focus on specific words
+WATCHLIST = []
 
 def main():
     source_path = Path(sys.argv[1]) if len(sys.argv) > 1 else SOURCE_DEFAULT
     output_path = Path(sys.argv[2]) if len(sys.argv) > 2 else OUTPUT_DEFAULT
 
-
     brill = make_transliterator('brill_simple', 'SIMPLE')
     sbl_ac = make_transliterator('sbl_academic', 'SIMPLE')
     phon_d = make_transliterator('phonetic_dot', 'SIMPLE')
     phon_bt = make_transliterator('PHONETIC', 'SIMPLE')
-
 
     seen_strongs = set()
     rows = []
@@ -55,6 +54,8 @@ def main():
 
             strongs = row.get('strongnumberx')
             if not strongs or strongs in seen_strongs:
+                continue
+            if WATCHLIST and strongs not in WATCHLIST:
                 continue
 
             seen_strongs.add(strongs)

@@ -27,7 +27,8 @@ SOURCE_DEFAULT = Path("../../macula-greek/Nestle1904/tsv/macula-greek-Nestle1904
 OUTPUT_DEFAULT = Path("../output/translit_compare_greek.tsv")
 
 MATTHEW_PREFIX = "n40"   # book number in the xml:id
-
+# Populate to focus on specific words
+WATCHLIST = ['4863', '4905', '5537', '2090', '1694', '3177', '2962', '1519', '897 ', '2414', '5590', '1484', '3986']
 
 def main():
     source_path = Path(sys.argv[1]) if len(sys.argv) > 1 else SOURCE_DEFAULT
@@ -51,6 +52,8 @@ def main():
 
             strongs = row.get('strong')
             if not strongs or strongs in seen_strongs:
+                continue
+            if WATCHLIST and strongs not in WATCHLIST:
                 continue
 
             seen_strongs.add(strongs)

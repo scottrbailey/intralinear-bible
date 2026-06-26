@@ -44,7 +44,8 @@ class MySwordWriter(SQLiteBibleWriter):
             self.profile.abbreviation,
             self.profile.description,
             4,           # needs 4 to indicate HTML... I know
-            today, today,
+            today,
+            self.profile.publish_date,
             0,
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
