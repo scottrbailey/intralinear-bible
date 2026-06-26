@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased] — claude/youthful-babbage-zca5mj
+
+### Added
+- **Greek syllabification and stress markers**: `add_greek_syllable_markers()` function maps Greek nuclei (vowels, diphthongs, iota subscript) to the bt transliteration output and inserts `ꞏ` syllable separators and combining-acute stress markers derived from original Greek diacritics. Activated automatically for any Hebrew scheme that defines `syllable_sep`/`stress_marker` (e.g. `phonetic_dot`).
+- **Regression test suite** (`tests/test_translit.py`): 50 tests covering qamats gadol/qatan, pe/samekh paragraph markers, doubled-consonant separator, and Greek syllabification.
+
+### Fixed
+- **Monosyllabic qamats qatan over-firing**: qamats in a monosyllabic word is always gadol (ā); added cantillation/meteg guard in `is_qamats_qatan` to prevent it from returning `True` in an inherently accented syllable.
+- **Pe/Samekh paragraph-marker false positives**: ס and פ inside real words were incorrectly skipped as section markers. The skip now only fires when the token contains no other Hebrew consonants.
+- **Greek digraph splits**: φ→ph, χ→ch, θ→th etc. were split across syllable boundaries (e.g. `taphꞏro` instead of `taꞏphro`). Fixed by using Greek consonant count + `_gk_onset_length()` + atomic digraph walk.
+- **Iota subscript phantom syllables**: ᾳ/ῃ/ῳ were counted as single-vowel nuclei, producing an extra syllable. Fixed by detecting the combining ypogegrammeni (U+0345) and marking the nucleus as consuming 2 xlit vowels.
+
 ## [Unreleased] — feature/esword-reverse-interlinear
 
 ### Added
