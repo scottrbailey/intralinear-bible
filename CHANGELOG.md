@@ -14,9 +14,6 @@
 ### Fixed
 - Strong's suffixes (e.g. `H871a`) stripped before normalization so dictionary links resolve correctly
 - Strong's corrected to for Aramaic words 
-- e-Sword `<q>` tag renamed to `<qi>` to avoid conflict with e-Sword's built-in block styling
-- e-Sword `<heb>`/`<grk>` renamed to `<hs>`/`<gs>` to avoid built-in strikethrough styling
-- `<num>`/`<tvm>` spacing: e-Sword replaces these with `<sup>` elements; targeted via `lem sup` in CSS
 - Doubled tail text in verse preview (ET.tostring already includes tail)
 - Monosyllabic qamats qatan over-firing: qamats in a monosyllabic word is always gadol (ā); added cantillation/meteg guard in `is_qamats_qatan` to prevent it from returning `True` in an inherently accented syllable.
 - Pe/Samekh paragraph-marker false positives: ס and פ inside real words were incorrectly skipped as section markers. The skip now only fires when the token contains no other Hebrew consonants.
