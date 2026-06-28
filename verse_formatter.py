@@ -80,6 +80,15 @@ _ESWORD_INTRALINEAR_CSS = (
     'span.stk a{opacity:0 !important;}'
 )
 
+_ESWORD_STACKED_CSS = (
+    '.stk {display:inline-flex; flex-direction:column; align-items:center;vertical-align:super; font-size:0.75em; gap:4px;'
+    'color:#999 !important; line-height:1.3 !important; padding:4px 0; position:relative; height: 2.4em; overflow: hidden}\n'
+    '.stk.xlit{color: blue}\n'
+    '.stk >.heb{font-size:0.9em;}\n'
+    '.stk >.grk {font-size:0.85em;}\n'
+    '.stk.heb ~ *, .stk.grk ~ * {position:absolute; z-index:9999; top:0.5em; bottom:0.5em; left:0; right:0; text-align:center; opacity:0;}'
+)
+
 _ESWORD_INTERLINEAR_CSS = (
     'qi{display:inline-flex;flex-direction:column;align-items:center;'
     'vertical-align:top;margin:0 3px}'
@@ -96,7 +105,7 @@ _ESWORD_INTERLINEAR_CSS = (
 
 class ESwordIntralinearFormatter(VerseFormatter):
     abbreviation   = "BSBi"
-    module_name    = "BSB Intralinear Bible"
+    module_name    = "Berean Standard Bible Intralinear"
     file_extension = ".bbli"
     css            = _ESWORD_INTRALINEAR_CSS
 
@@ -148,6 +157,61 @@ class ESwordIntralinearFormatter(VerseFormatter):
     def _xref_markers(xrefs: list) -> str:
         return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
 
+class ESwordStackedFormatter(VerseFormatter):
+    abbreviation   = "BSBis"
+    module_name    = "Berean Standard Bible Intralinear Stacked"
+    file_extension = ".bbli"
+    css            = _ESWORD_INTRALINEAR_CSS
+
+    def render_verse(self, tokens, header=None, note_id_map=None,
+                     xrefs=None, xref_placement=0) -> str:
+        note_id_map = note_id_map or {}
+        xrefs       = xrefs or []
+        parts       = []
+
+        if header:
+            parts.append(f'<b class="headline">{header}</b><br>')
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(token.english)
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+            else:
+                parts.append(token.english)
+                parts.append(' ')
+                lemmas = []
+                for sw in token.source_words:
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    lang_cls = 'grk' if sw.lang == 'G' else 'heb'
+                    lemmas.append(
+                        f'<span class="stk">'
+                        f'<span class="xlit">{xlit}</span> '
+                        f'<span class="{lang_cls}">{sw.text}</span>'
+                        f'<num>{sw.stem.strongs}</num>'
+                        f'</span>'
+                    )
+                parts.append(' '.join(lemmas))
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
+        return ''.join(parts)
+
+    @staticmethod
+    def _xref_markers(xrefs: list) -> str:
+        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
 
 class ESwordReverseInterlinearFormatter(VerseFormatter):
     abbreviation   = "BSBri"

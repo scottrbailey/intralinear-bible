@@ -7,6 +7,16 @@ The BSB Intralinear Bible combines the **Berean Standard Bible** with inline Heb
 
 ---
 
+### Choosing Between Standard and Stacked
+
+**Standard (`BSBi`)** — transliteration appears as a superscript after the English word. Tap it to open the Strong's lexicon entry.
+
+<img src="assets/MySword_intralinear.jpg" width="480" description="BSB Intralinear on MySword"/>
+
+**Stacked (`BSBis`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word.
+
+<img src="assets/MySword_stacked_intralinear.jpg" width="480" description="BSB Intralinear Stacked on MySword" />
+
 ## MySword (Android)
 
 The MySword application has more features and is more polished and configurable than e-Sword. However, it is only available for Android and can not be installed from the Play Store.
@@ -16,7 +26,7 @@ The application is free, but requires a $25 "donation" to unlock all features.
 ### Step 1 — Install MySword
 
 1. [Download](https://www.mysword.info/download-mysword) the application your Android device.
-2. Click on the downloaded APK package to install it.
+2. Click on the downloaded APK package to install it. 
 3. Open MySword and complete any first-run setup. Click on "Download Modules" and choose from hundreds of Bible translations, commentaries, books and devotionals.
 4. Install at least one Hebrew and Greek lexicon.  See [Lexicon](#lexicondictionary-suggestions) section below for suggestions.
 
@@ -33,20 +43,11 @@ The application is free, but requires a $25 "donation" to unlock all features.
 2. Move to Internal Storage > mysword folder.  
 3. There is no need to unzip or copy to the mysword / bibles folder, MySword will do this for you automatically when you restart.
 
-### Choosing Between Standard and Stacked
-
-**Standard (`BSBi`)** — transliteration appears as a superscript after the English word. Tap it to open the Strong's lexicon entry.
-
-<img src="assets/MySword_intralinear.jpg" width="480" description="BSB Intralinear on MySword"/>
-
-**Stacked (`BSBis`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word.
-
-<img src="assets/MySword_stacked_intralinear.jpg" width="480" description="BSB Intralinear Stacked on MySword" />
-
 ---
 
 ## e-Sword (Android and iOS)
-The e-Sword app is not as full-featured as MySword and there are not as many modules available for it. But it is still quite capable, and on iOS, it is your only option.
+e-Sword is one of the original free Bible study tools with an ecosystem of thousands of downloadable modules and versions targeting Windows, MacOS, Android and iOS phones and tablets.
+If you want to use the Intralinear Bible on iOS, this is your only choice.
 
 ### Step 1 — Install e-Sword
 
@@ -63,15 +64,15 @@ The e-Sword app is not as full-featured as MySword and there are not as many mod
 ### Step 2 — Download the Module
 
 1. On your device, open this link to download the module:
-   **[BSBi.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBi.zip)**
+   **[BSBi.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBi.zip)** - Intralinear version or **[BSBis.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBis.zip)** - Intralinear Stacked
 2. Save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module 
 
 1. Open a file manager app on your device.
-2. Navigate to your **Downloads** folder and extract the `BSBi.zip` file.
-3. You should see a file named `BSBi.bbli`.
-4. Open e-Sword and click General > Import. Navigate to your Downloads folder, select the `BSBi.bbli` file and click `Open` to import the module.
+2. Navigate to your **Downloads** folder and extract the `BSBi.zip` or `BSBis.zip` file.
+3. You should see a file named `BSBi.bbli` or `BSBis.bbli`.
+4. Open e-Sword and click General > Import. Navigate to your Downloads folder, select the `*.bbli` file and click `Open` to import the module.
 
 <img src="assets/eSword_OT.jpg" width="360" description="BSB Intralinear on e-Sword"/>
 
@@ -79,11 +80,13 @@ The e-Sword app is not as full-featured as MySword and there are not as many mod
 
 ## Features
 
-- **Transliteration** — Hebrew and Greek words are shown in Latin script so you can pronounce them without knowing the original alphabets.
-- **Strong's Links** — tap any transliteration to open the corresponding Strong's lexicon entry explaining the word's meaning and usage.
-- **Translator Notes** — footnotes from the BSB translation team are included and accessible by tapping the note markers.
-- **Cross-References** — Treasury of Scripture Knowledge (TSK) cross-references are included (e-Sword only). MySword has a standalone TSK module.
-- **Section Headers** — optional section headings from the BSB are included and can be toggled in app settings.
+- **Transliteration** — Hebrew and Greek words are shown in Latin script so you can pronounce them without knowing the original alphabets. As the target audience for the intralinear Bible is not seminarians and Bible academics, a simple transliteration scheme with syllable separators and stress markers was chosen. If you want academic or phonetic transliterations, you can select a different transliteration scheme in the config file.
+- **Hebrew and Greek** — The "Stacked" version has the original Hebrew, Aramaic and Greek text below the transliteration.  
+- **Strong's Links** — Tap any transliteration to open the corresponding Strong's lexicon entry explaining the word's meaning and usage.
+- **Translator Notes** — Footnotes from the BSB translation team are included and accessible by tapping the note markers.
+- **Cross-References** — Treasury of Scripture Knowledge (TSK) cross-references are available as separate modules in both e-Sword and MySword. They can be toggled on in the config file.
+- **Section Headers** — Because e-Sword and MySword both have their own section headers (called pericopes), the headers from the BSB were not included by default. They can be toggled on in the config file.
+- **Configurable** — To change the transliteration scheme, include section headers or TSK cross-references, clone this repository, change the config.yaml file, and download the sources from [Clear-Bible](https://github.com/Clear-Bible), see notes in [DEVELOPMENT.md](DEVELOPMENT.md)
 
 ---
 
