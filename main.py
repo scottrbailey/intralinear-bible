@@ -30,7 +30,7 @@ from verse_formatter import (
     ESwordReverseInterlinearFormatter,
     MySwordIntralinearFormatter,
     MySwordStackedFormatter,
-    MySwordReverseInterlinearFormatter,
+    MySwordReverseInterlinearFormatter, ESwordStackedFormatter,
 )
 from esword_writer import ESwordWriter
 from mysword_writer import MySwordWriter
@@ -80,7 +80,7 @@ def parse_args():
     )
     parser.add_argument(
         "--mode", dest="render_mode",
-        choices=["intralinear", "interlinear", "intra", "inter"],
+        choices=["intralinear", "interlinear", "stacked", "intra", "inter"],
         default="intralinear",
         help="Render mode (default: intralinear); ignored when --format=all",
     )
@@ -118,8 +118,12 @@ def build_writers(output_format: str, render_mode: str,
         ]
 
     if output_format == 'esword':
-        profile_cls = (ESwordIntralinearFormatter if render_mode == 'intralinear'
-                       else ESwordReverseInterlinearFormatter)
+        if render_mode == 'intralinear':
+            profile_cls = ESwordIntralinearFormatter
+        elif render_mode == 'stacked':
+            profile_cls = ESwordStackedFormatter
+        else:
+            profile_cls = ESwordReverseInterlinearFormatter
         return [esword(profile_cls)]
 
     if output_format == 'mysword':
