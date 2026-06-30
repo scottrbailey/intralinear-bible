@@ -352,18 +352,25 @@ def process_verse(
             for rid in covering:
                 emitted_rec_ids.add(rid)
 
-        # Use the record_id from the first covering record (or construct one)
+        # Use the existing record(s)' target_ids — they correctly include
+        # punctuation/quote tokens that are excluded from BSB span matching.
         if covering:
-            rec_id = next(iter(covering.values())).record_id
+            rec_id     = next(iter(covering.values())).record_id
+            target_ids = []
+            for r in covering.values():
+                for tid in r.target_ids:
+                    if tid not in target_ids:
+                        target_ids.append(tid)
         else:
-            rec_id = f"{verse_id}.new"
+            rec_id     = f"{verse_id}.new"
+            target_ids = list(bsb_ids)
 
         for sid in source_ids:
             used_source_ids.add(sid)
 
         out_records.append({
             'source': source_ids,
-            'target': list(bsb_ids),
+            'target': target_ids,
             'meta':   {'id': rec_id, 'origin': 'esword', 'status': 'created'},
         })
 
