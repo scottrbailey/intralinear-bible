@@ -94,7 +94,7 @@ def normalize_greek(text: str) -> str:
 
 
 # Strip dashes, curly braces, standard + smart punctuation from English.
-_DASH_RE  = re.compile(r'[–—―−\-\-]')  # en, em, minus, hyphen
+_DASH_RE  = re.compile(r'[–—―−]')  # en dash, em dash, horizontal bar, minus sign (NOT ASCII hyphen)
 _PUNCT_RE = re.compile(r"""[.,;:!?()\[\]{}\u201c\u201d\u2018\u2019"'`]""")
 
 
