@@ -18,7 +18,7 @@ sources:
     alignment: "Alignments/data/eng/alignments/BSB/WLCM-BSB-manual.json"
     target:    "Alignments/data/eng/targets/BSB/ot_BSB.tsv"
   nt:
-    source:    "macula-greek/Nestle1904/tsv/macula-greek-Nestle1904.tsv"
+    source:    "macula-greek/SBLGNT/tsv/macula-greek-SBLGNT.tsv"
     alignment: "Alignments/data/eng/alignments/BSB/SBLGNT-BSB-manual.json"
     target:    "Alignments/data/eng/targets/BSB/nt_BSB.tsv"
 

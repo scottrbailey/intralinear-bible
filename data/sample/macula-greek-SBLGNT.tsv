@@ -1,0 +1,9 @@
+xml:id	ref	role	class	type	english	mandarin	gloss	text	after	lemma	normalized	strong	morph	person	number	gender	case	tense	voice	mood	degree	domain	ln	frame	subjref	referent
+n40001001001	MAT 1:1!1		noun	common	book	谱	[The] book	Βίβλος	 	βίβλος	Βίβλος	976	N-NSF		singular	feminine	nominative					033005	33.38			
+n40001001002	MAT 1:1!2		noun	common	genealogy	族	of [the] genealogy	γενέσεως	 	γένεσις	γενέσεως	1078	N-GSF		singular	feminine	genitive					010002 033003	10.24 33.19			
+n40001001003	MAT 1:1!3		noun	proper	Jesus	耶稣	of Jesus	Ἰησοῦ	 	Ἰησοῦς	Ἰησοῦ	2424	N-GSM		singular	masculine	genitive					093001	93.169a			
+n40001001004	MAT 1:1!4		noun	proper	Christ	基督	Christ	χριστοῦ	 	Χριστός	χριστοῦ	5547	N-GSM		singular	masculine	genitive					093001	93.387			
+n40001001005	MAT 1:1!5		noun	common	son	子孙	son	υἱοῦ	 	υἱός	υἱοῦ	5207	N-GSM		singular	masculine	genitive					010002	10.30			
+n40001001006	MAT 1:1!6		noun	proper	David	大卫	of David	Δαυὶδ	 	Δαυίδ	Δαυὶδ	1138	N-PRI		singular	masculine	genitive					093001	93.91			
+n40001001007	MAT 1:1!7		noun	common	son	后裔	son	υἱοῦ	 	υἱός	υἱοῦ	5207	N-GSM		singular	masculine	genitive					010002	10.30			
+n40001001008	MAT 1:1!8		noun	proper	Abraham	亚伯拉罕	of Abraham	Ἀβραάμ	.	Ἀβραάμ	Ἀβραάμ	11	N-PRI		singular	masculine	genitive					093001	93.7			

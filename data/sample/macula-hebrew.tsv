@@ -1,0 +1,12 @@
+xml:id	ref	class	text	transliteration	after	strongnumberx	stronglemma	sensenumber	greek	greekstrong	gloss	english	mandarin	stem	morph	lang	lemma	pos	person	gender	number	state	type	lexdomain	contextualdomain	coredomain	sdbh	extends	frame	subjref	participantref
+o010010010011	GEN 1:1!1	prep	בְּ	bə		0871a	בְּ		ἐν	1722	in	in			R	H	בְּ	preposition													
+o010010010012	GEN 1:1!1	noun	רֵאשִׁ֖ית	rēʾšiyṯ	 	7225	רֵאשִׁית	1	ἀρξῇ	746	beginning	beginning	起初		Ncfsa	H	רֵאשִׁית	noun		feminine	singular	absolute	common	002003003004		168	006653001001000				
+o010010010021	GEN 1:1!2	verb	בָּרָ֣א	bārāʾ	 	1254	בָּרָא	1	ἐποίησεν	4160	he.created	created	创造	qal	Vqp3ms	H	בָּרָא	verb	third	masculine	singular		qatal	002002002005		028 055	001156001002000		A0:010010010031; A1:010010010052;010010010072;		
+o010010010031	GEN 1:1!3	noun	אֱלֹהִ֑ים	ʾĕlōhiym	 	0430	אֱלֹהִים	1	θεὸς	2316	God	God	神/上帝		Ncmpa	H	אֱלֹהִים	noun		masculine	plural	absolute	common	001001001		055	000397001003000				
+o010010010041	GEN 1:1!4	om	אֵ֥ת	ʾēṯ	 	0853	אֵת				(et)				To	H	אֵת	particle					direct object marker	001004001017		027 007	000792003001000				
+o010010010051	GEN 1:1!5	art	הַ	ha		1886a	הַ		τὸν	3588	the	the			Td	H	הַ	particle					definite article								
+o010010010052	GEN 1:1!5	noun	שָּׁמַ֖יִם	ššāmayim	 	8064	שָׁמַיִם	1	οὐρανὸν	3772	heavens	heavens	诸天		Ncmpa	H	שָׁמַיִם	noun		masculine	plural	absolute	common	001005002001		185	007459001001000				
+o010010010061	GEN 1:1!6	cj	וְ	wə		2050b	וְ		καὶ	2532	and	and	和		C	H	וְ	conjunction													
+o010010010062	GEN 1:1!6	om	אֵ֥ת	ʾēṯ	 	0853	אֵת				(et)				To	H	אֵת	particle					direct object marker	001004001017		027 007	000792003001000				
+o010010010071	GEN 1:1!7	art	הָ	hā		1886a	הַ		τὴν	3588	the	the			Td	H	הַ	particle					definite article								
+o010010010072	GEN 1:1!7	noun	אָֽרֶץ	ʾāreṣ:	׃	0776	אֶרֶץ	2	γῆν	1093	earth	earth	大地		Ncbsa	H	אֶרֶץ	noun		both	singular	absolute	common	001005002002001		185 097 007	000715001001000				
