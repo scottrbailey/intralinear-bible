@@ -2,8 +2,16 @@
 """
 build_esword_alignment.py
 
-Build fresh OT and NT alignment NDJSON files from a BibleHub BSB e-sword
-interlinear module (SQLite .bbl database).
+Build corrected OT and NT alignment NDJSON files by verifying each existing
+alignment record against a BibleHub BSB e-sword interlinear SQLite module.
+
+Strategy:
+  1. Drive from the existing alignment file (source of truth for disambiguation).
+  2. For each existing record, find the matching e-sword cell via BSB token text.
+  3. Compare the e-sword Hebrew/Greek script to the record's source tokens.
+  4. If they match → emit the record as-is.
+  5. If not → try to find the correct source token and emit a corrected record.
+  6. Log one entry per verse that has any uncertainty.
 
 Usage:
     python utils/build_esword_alignment.py [--esword PATH] [--books Gen Matt]
@@ -15,68 +23,36 @@ Output:
 """
 
 import argparse
-import csv
 import json
-import logging
 import re
 import sqlite3
+import sys
 import unicodedata
-from collections import defaultdict
 from pathlib import Path
 
 import yaml
-from biblelib.book import Books
 
-# ── Book tables ──────────────────────────────────────────────────────────────
-
-# OSIS book ID → e-sword/BSB book number (int)
-_books = list(Books().values())
-OSIS_TO_BOOKNUM: dict[str, int] = {}
-BOOKNUM_TO_OSIS: dict[int, str] = {}
-for _b in _books:
-    try:
-        _n = int(_b.usfmnumber)
-        OSIS_TO_BOOKNUM[_b.osisID] = _n
-        BOOKNUM_TO_OSIS[_n] = _b.osisID
-    except (ValueError, TypeError):
-        pass
-
-OT_OSIS = {osis for osis, n in OSIS_TO_BOOKNUM.items() if 1 <= n <= 39}
-NT_OSIS = {osis for osis, n in OSIS_TO_BOOKNUM.items() if 40 <= n <= 66}
-
-# Macula source book codes → BSB 2-digit zero-padded number
-MACULA_OT_BOOK = {
-    'GEN': '01', 'EXOD': '02', 'LEV': '03', 'NUM': '04', 'DEUT': '05',
-    'JOSH': '06', 'JUDG': '07', 'RUTH': '08', '1SAM': '09', '2SAM': '10',
-    '1KGS': '11', '2KGS': '12', '1CHR': '13', '2CHR': '14', 'EZRA': '15',
-    'NEH': '16', 'ESTH': '17', 'JOB': '18', 'PS': '19', 'PROV': '20',
-    'ECCL': '21', 'SONG': '22', 'ISA': '23', 'JER': '24', 'LAM': '25',
-    'EZEK': '26', 'DAN': '27', 'HOS': '28', 'JOEL': '29', 'AMOS': '30',
-    'OBAD': '31', 'JONAH': '32', 'MIC': '33', 'NAH': '34', 'HAB': '35',
-    'ZEPH': '36', 'HAG': '37', 'ZECH': '38', 'MAL': '39',
-}
-MACULA_NT_BOOK = {
-    'MAT': '40', 'MRK': '41', 'LUK': '42', 'JHN': '43', 'ACT': '44',
-    'ROM': '45', '1CO': '46', '2CO': '47', 'GAL': '48', 'EPH': '49',
-    'PHP': '50', 'COL': '51', '1TH': '52', '2TH': '53', '1TI': '54',
-    '2TI': '55', 'TIT': '56', 'PHM': '57', 'HEB': '58', 'JAS': '59',
-    '1PE': '60', '2PE': '61', '1JN': '62', '2JN': '63', '3JN': '64',
-    'JUD': '65', 'REV': '66',
-}
-# Reverse: BSB 2-digit book → macula book code
-BSB_TO_MACULA_OT = {v: k for k, v in MACULA_OT_BOOK.items()}
-BSB_TO_MACULA_NT = {v: k for k, v in MACULA_NT_BOOK.items()}
-
+# Reuse loaders and book tables from composer.py
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from composer import (
+    BOOK_NUM_MAP,
+    _OT_ABBREV,
+    _NT_ABBREV,
+    _iter_target_verses,
+    _load_alignment_index,
+    _load_source_index,
+)
 
 # ── HTML cell parser ─────────────────────────────────────────────────────────
 
 _TD_RE   = re.compile(r'<td[^>]*>(.*?)</td>', re.DOTALL | re.IGNORECASE)
 _NUM_RE  = re.compile(r'<num>(.*?)</num>', re.IGNORECASE)
-_FONT_RE = re.compile(r'<font[^>]*color=["\']?(#[0-9a-fA-F]{6})["\']?[^>]*>(.*?)</font>',
-                      re.DOTALL | re.IGNORECASE)
+_FONT_RE = re.compile(
+    r'<font[^>]*color=["\']?(#[0-9a-fA-F]{6})["\']?[^>]*>(.*?)</font>',
+    re.DOTALL | re.IGNORECASE,
+)
 _TAG_RE  = re.compile(r'<[^>]+>')
 _BR_RE   = re.compile(r'<br\s*/?>', re.IGNORECASE)
-_GREY    = '#808080'
 _GREEN   = '#006400'
 
 
@@ -86,8 +62,8 @@ def _strip_tags(html: str) -> str:
 
 def parse_esword_cells(html: str) -> list[dict]:
     """
-    Parse one verse's e-sword HTML into an ordered list of cell dicts.
-    Each dict has: english (str), script (str), strongs (list[str]).
+    Parse one verse's e-sword HTML into ordered cell dicts.
+    Each dict: english (str), script (str), strongs (list[str]).
     """
     cells = []
     for m in _TD_RE.finditer(html):
@@ -101,9 +77,8 @@ def parse_esword_cells(html: str) -> list[dict]:
                 script = _strip_tags(content).strip()
                 break
 
-        # English: the text before the first <br>
         before_br = _BR_RE.split(cell_html, 1)[0]
-        english = _strip_tags(before_br).strip()
+        english   = _strip_tags(before_br).strip()
 
         cells.append({'english': english, 'script': script, 'strongs': strongs})
     return cells
@@ -111,343 +86,292 @@ def parse_esword_cells(html: str) -> list[dict]:
 
 # ── Text normalization ───────────────────────────────────────────────────────
 
-_HEB_LETTERS = re.compile(r'[^א-תיִ-פֿ]')
-
 def normalize_hebrew(text: str) -> str:
-    """Strip all diacritics/cantillation, keep only Hebrew letter codepoints."""
-    return _HEB_LETTERS.sub('', text)
+    """Keep only Hebrew base letter codepoints (strip vowels + cantillation)."""
+    return re.sub(r'[^א-ת]', '', text)
 
 
 def normalize_greek(text: str) -> str:
-    """NFD-decompose, strip combining marks, lowercase."""
+    """NFD-decompose, strip combining diacritics, lowercase."""
     nfd = unicodedata.normalize('NFD', text)
     return ''.join(c for c in nfd if unicodedata.category(c) != 'Mn').lower()
 
 
+# Strip these from e-sword English phrases before word-splitting.
+# Em/en dashes used as separators, not meaningful words.
+_DASH_RE = re.compile(r'[–—―−]')
+
 def _norm_eng_word(w: str) -> str:
     return re.sub(r"[.,;:!?()\[\]\"'`]", '', w).lower().strip()
 
-
-def normalize_eng_words(phrase: str) -> list[str]:
+def phrase_to_words(phrase: str) -> list[str]:
+    phrase = _DASH_RE.sub(' ', phrase)
     return [n for w in phrase.split() if (n := _norm_eng_word(w))]
 
 
-# ── Strong's normalization ───────────────────────────────────────────────────
+def is_untranslated(english: str) -> bool:
+    """True for cells like '~', '~.', or empty."""
+    stripped = re.sub(r'[^\w]', '', english, flags=re.UNICODE)
+    return stripped in ('', '~')
+
+
+# ── Strong's normalization ────────────────────────────────────────────────────
+# Composer.py normalizes macula strongs to e.g. 'H430', 'H871'.
+# We normalize e-sword <num> values the same way.
 
 def norm_strong_esword(s: str, lang: str) -> str | None:
-    """Normalize an e-sword <num> value. Returns None for morphology codes."""
+    """
+    Normalize an e-sword <num> tag value to match composer.py's format.
+    Returns None for morphology codes (no matching prefix) or empty.
+    """
     s = s.strip()
-    prefix = 'H' if lang == 'H' else 'G'
+    prefix = 'H' if lang in ('H', 'A') else 'G'
     if not s.upper().startswith(prefix):
         return None
     digits = re.sub(r'[^0-9]', '', s)
     if not digits:
         return None
-    return str(int(digits))
+    return prefix + str(int(digits))
 
 
-def norm_strong_macula(s: str) -> str:
-    """Normalize a macula strongnumberx / strong value for comparison."""
-    # Strip trailing letter suffix (e.g. '0871a' → '871')
-    base = re.sub(r'[a-zA-Z]+$', '', s.strip())
-    try:
-        return str(int(base))
-    except ValueError:
-        return s.strip()
+# ── Cell → BSB span matching ─────────────────────────────────────────────────
 
-
-# ── Macula loaders ───────────────────────────────────────────────────────────
-
-def _parse_macula_ref(ref: str):
-    """Parse 'GEN 1:1!3' → (book_code='GEN', chapter=1, verse=1, word_num=3)."""
-    verse_part, word_num = ref.rsplit('!', 1)
-    book_code, cv = verse_part.split(' ', 1)
-    chapter, verse = cv.split(':')
-    return book_code, int(chapter), int(verse), int(word_num)
-
-
-def load_macula_ot(path: Path, allowed_book_nums: set[str] | None) -> dict:
+def build_cell_to_bsb_map(
+    cells: list[dict],
+    target_tokens: list,
+) -> tuple[list[tuple[dict, list[str]]], list[str]]:
     """
-    Load OT source tokens.
-    Returns: {(book_num_str, chapter, verse): [word_dict, ...]} in word order.
-    word_dict = {word_num, token_ids, concat_text, strongs_set}
+    Match e-sword cells (English display order) to BSB token ID spans.
+    Skips excluded (punctuation) tokens when matching, but records are still
+    emitted with only the matched content tokens.
+    Returns ([(cell, [bsb_token_ids])], warnings).
     """
-    verses: dict = defaultdict(list)
-    current_word: dict | None = None
-    current_key = None
-
-    with open(path, encoding='utf-8', newline='') as f:
-        reader = csv.DictReader(f, delimiter='\t')
-        for row in reader:
-            book_code, chapter, verse, word_num = _parse_macula_ref(row['ref'])
-            book_num = MACULA_OT_BOOK.get(book_code)
-            if book_num is None:
-                continue
-            if allowed_book_nums and book_num not in allowed_book_nums:
-                continue
-
-            key = (book_num, chapter, verse)
-            word_key = (book_num, chapter, verse, word_num)
-
-            if word_key != current_key:
-                if current_word is not None and current_key is not None:
-                    vk = current_key[:3]
-                    verses[vk].append(current_word)
-                current_key = word_key
-                current_word = {
-                    'word_num':    word_num,
-                    'token_ids':   [],
-                    'concat_text': '',
-                    'strongs_set': set(),
-                }
-
-            current_word['token_ids'].append(row['xml:id'])
-            current_word['concat_text'] += row['text']
-            s = row['strongnumberx'].strip()
-            if s:
-                current_word['strongs_set'].add(s)
-
-    if current_word is not None and current_key is not None:
-        verses[current_key[:3]].append(current_word)
-
-    return dict(verses)
-
-
-def load_macula_nt(path: Path, allowed_book_nums: set[str] | None) -> dict:
-    """
-    Load NT source tokens (one token per word).
-    Returns: {(book_num_str, chapter, verse): [word_dict, ...]} in word order.
-    """
-    verses: dict = defaultdict(list)
-
-    with open(path, encoding='utf-8', newline='') as f:
-        reader = csv.DictReader(f, delimiter='\t')
-        for row in reader:
-            book_code, chapter, verse, word_num = _parse_macula_ref(row['ref'])
-            book_num = MACULA_NT_BOOK.get(book_code)
-            if book_num is None:
-                continue
-            if allowed_book_nums and book_num not in allowed_book_nums:
-                continue
-
-            key = (book_num, chapter, verse)
-            verses[key].append({
-                'word_num':    word_num,
-                'token_ids':   [row['xml:id']],
-                'concat_text': row['text'],
-                'strongs_set': {row['strong'].strip()} if row.get('strong', '').strip() else set(),
-            })
-
-    return dict(verses)
-
-
-# ── BSB target loader ────────────────────────────────────────────────────────
-
-def load_bsb_target(path: Path, allowed_book_nums: set[str] | None) -> dict:
-    """
-    Load BSB target tokens.
-    Returns: {verse_id_8: [token_dict, ...]} where verse_id_8 is 'BBCCCVVV'.
-    token_dict = {id, text, exclude}
-    """
-    verses: dict = defaultdict(list)
-    with open(path, encoding='utf-8', newline='') as f:
-        reader = csv.DictReader(f, delimiter='\t')
-        for row in reader:
-            book_num = row['id'][:2]
-            if allowed_book_nums and book_num not in allowed_book_nums:
-                continue
-            verse_id = row['source_verse']
-            verses[verse_id].append({
-                'id':      row['id'],
-                'text':    row['text'],
-                'exclude': row.get('exclude', '') == 'y',
-            })
-    return dict(verses)
-
-
-# ── Cell → BSB token span matching ──────────────────────────────────────────
-
-def match_cells_to_bsb(cells: list[dict], bsb_tokens: list[dict]) -> tuple[list, list[str]]:
-    """
-    Match e-sword cells (English order) to contiguous BSB token spans.
-    Returns (results, warnings) where results = [(cell, [bsb_token_ids])].
-    Skips excluded (punctuation) tokens.
-    """
-    non_excl = [t for t in bsb_tokens if not t['exclude']]
-    ptr = 0
-    results = []
+    non_excl = [t for t in target_tokens if not t.exclude]
+    ptr      = 0
+    pairs    = []
     warnings = []
 
     for cell in cells:
         eng = cell['english'].strip()
 
-        if eng in ('~', '') or not eng:
-            results.append((cell, []))
+        if is_untranslated(eng):
+            pairs.append((cell, []))
             continue
 
-        cell_words = normalize_eng_words(eng)
+        cell_words = phrase_to_words(eng)
         if not cell_words:
-            results.append((cell, []))
+            pairs.append((cell, []))
             continue
 
-        span_ids = []
-        ok = True
-        saved_ptr = ptr
+        span_ids   = []
+        ok         = True
+        saved_ptr  = ptr
 
         for cw in cell_words:
             if ptr >= len(non_excl):
                 ok = False
                 break
-            bsb_w = _norm_eng_word(non_excl[ptr]['text'])
+            bsb_w = _norm_eng_word(non_excl[ptr].text)
             if bsb_w == cw:
-                span_ids.append(non_excl[ptr]['id'])
+                span_ids.append(non_excl[ptr].id)
                 ptr += 1
             else:
                 ok = False
                 break
 
         if not ok:
-            warnings.append(
-                f"BSB match fail at ptr={saved_ptr}: "
-                f"cell '{eng}' vs BSB '{non_excl[saved_ptr]['text'] if saved_ptr < len(non_excl) else 'EOF'}'"
-            )
-            ptr = saved_ptr  # don't advance; let caller decide
-            results.append((cell, []))
+            bsb_at = non_excl[saved_ptr].text if saved_ptr < len(non_excl) else 'EOF'
+            warnings.append(f"BSB mismatch: cell '{eng}' vs BSB '{bsb_at}'")
+            ptr = saved_ptr
+            pairs.append((cell, []))
         else:
-            results.append((cell, span_ids))
+            pairs.append((cell, span_ids))
 
     if ptr < len(non_excl):
-        remaining = [t['text'] for t in non_excl[ptr:]]
-        warnings.append(f"Unmatched BSB tokens at end: {remaining}")
+        remaining = [t.text for t in non_excl[ptr:]]
+        warnings.append(f"Unmatched BSB tokens: {remaining}")
 
-    return results, warnings
+    return pairs, warnings
 
 
-# ── Cell → source token matching ────────────────────────────────────────────
+# ── Source script matching ───────────────────────────────────────────────────
 
-def match_cell_to_source(
+def source_script(source_tokens: list, lang: str) -> str:
+    """Normalized concatenated script of a list of SourceToken objects."""
+    raw = ''.join(t.text for t in source_tokens)
+    return normalize_hebrew(raw) if lang in ('H', 'A') else normalize_greek(raw)
+
+
+def find_source_for_cell(
     cell: dict,
-    macula_words: list[dict],
-    used_token_ids: set[str],
     lang: str,
-) -> tuple[list[str] | None, str]:
+    all_source_tokens: list,
+    used_ids: set[str],
+) -> tuple[list | None, str]:
     """
-    Find the macula word matching this e-sword cell.
-    Returns (token_ids, confidence_str) or (None, reason_str).
-    Uses script text first, Strong's as tiebreaker.
+    Search all_source_tokens for the word matching this e-sword cell.
+    Groups tokens into display-words by the `after` field (same as composer.py).
+    Returns (token_id_list, confidence) or (None, reason).
     """
-    script = cell['script']
-    raw_strongs = cell['strongs']
+    norm_fn = normalize_hebrew if lang in ('H', 'A') else normalize_greek
+    script  = norm_fn(cell['script']) if cell['script'] else ''
+    esword_strongs = {
+        v for s in cell['strongs']
+        if (v := norm_strong_esword(s, lang))
+    }
 
-    if lang == 'H':
-        norm_fn   = normalize_hebrew
-        strong_fn = lambda s: norm_strong_esword(s, 'H')
-    else:
-        norm_fn   = normalize_greek
-        strong_fn = lambda s: norm_strong_esword(s, 'G')
-
-    norm_script  = norm_fn(script) if script else ''
-    norm_strongs = {v for s in raw_strongs if (v := strong_fn(s))}
+    # Group tokens into display-words (tokens joined by after='')
+    words: list[list] = []
+    current: list = []
+    for tok in all_source_tokens:
+        current.append(tok)
+        if tok.after != '':
+            words.append(current)
+            current = []
+    if current:
+        words.append(current)
 
     candidates = []
-    for word in macula_words:
-        if any(tid in used_token_ids for tid in word['token_ids']):
+    for group in words:
+        if any(t.id in used_ids for t in group):
             continue
 
-        word_norm    = norm_fn(word['concat_text'])
-        word_strongs = {norm_strong_macula(s) for s in word['strongs_set']}
+        word_script  = norm_fn(''.join(t.text for t in group))
+        word_strongs = {t.strongs for t in group if t.strongs}
 
-        script_match = bool(norm_script and word_norm and norm_script == word_norm)
-        strong_match = bool(norm_strongs and norm_strongs & word_strongs)
+        script_match = bool(script and word_script and script == word_script)
+        strong_match = bool(esword_strongs and esword_strongs & word_strongs)
 
         if script_match or strong_match:
-            candidates.append((word, script_match, strong_match))
+            candidates.append((group, script_match, strong_match))
 
     if not candidates:
-        return None, f'no match (script={norm_script!r}, strongs={norm_strongs})'
+        return None, f'no match (script={script!r}, strongs={esword_strongs})'
 
-    # Prefer script+strong > script-only > strong-only
-    both   = [c for c in candidates if c[1] and c[2]]
-    script = [c for c in candidates if c[1]]
+    both        = [c for c in candidates if c[1] and c[2]]
+    script_only = [c for c in candidates if c[1]]
 
-    if len(both) == 1:
-        return both[0][0]['token_ids'], 'script+strong'
-    if len(both) > 1:
-        return None, f'{len(both)} script+strong matches (ambiguous)'
-    if len(script) == 1:
-        return script[0][0]['token_ids'], 'script'
-    if len(script) > 1:
-        return None, f'{len(script)} script matches (ambiguous)'
-    if len(candidates) == 1:
-        return candidates[0][0]['token_ids'], 'strong'
-    return None, f'{len(candidates)} strong-only matches (ambiguous)'
+    def _best(pool, label):
+        if len(pool) == 1:
+            return [t.id for t in pool[0][0]], label
+        return None, f'{len(pool)} {label} matches (ambiguous)'
+
+    if both:
+        return _best(both, 'script+strong')
+    if script_only:
+        return _best(script_only, 'script')
+    return _best(candidates, 'strong')
 
 
 # ── Per-verse processor ──────────────────────────────────────────────────────
 
 def process_verse(
-    verse_key: tuple,         # (book_num_str, chapter, verse)
+    verse_id: str,
     esword_html: str,
-    bsb_tokens: list[dict],
-    macula_words: list[dict],
+    target_tokens: list,
+    alignment_records: list,
+    source_index: dict,
     lang: str,
 ) -> tuple[list[dict], str | None]:
     """
-    Build alignment records for one verse.
+    Produce corrected alignment records for one verse.
     Returns (records, log_message_or_None).
     """
-    book_num, chapter, verse = verse_key
-    verse_id_8 = f"{book_num}{chapter:03d}{verse:03d}"
-
     cells = parse_esword_cells(esword_html)
     if not cells:
-        return [], f"{verse_id_8}: no e-sword cells parsed"
+        return [], f"{verse_id}: no e-sword cells"
 
-    cell_bsb_pairs, bsb_warnings = match_cells_to_bsb(cells, bsb_tokens)
+    cell_bsb_pairs, bsb_warns = build_cell_to_bsb_map(cells, target_tokens)
+
+    # Build lookup: target_token_id → alignment record
+    target_to_rec: dict[str, object] = {}
+    for rec in alignment_records:
+        for tid in rec.target_ids:
+            target_to_rec[tid] = rec
+
+    # All source tokens for this verse (in source-language order)
+    verse_source_ids = []
+    for rec in alignment_records:
+        for sid in rec.source_ids:
+            if sid not in verse_source_ids:
+                verse_source_ids.append(sid)
+    all_source_tokens = [source_index[sid] for sid in verse_source_ids if sid in source_index]
 
     used_source_ids: set[str] = set()
-    records = []
-    issues = []
-    record_seq = 1
+    emitted_rec_ids: set[str] = set()
+    out_records: list[dict]   = []
+    issues: list[str]         = []
 
     for cell, bsb_ids in cell_bsb_pairs:
-        # Skip untranslated cells
-        if not cell['english'].strip() or cell['english'].strip() == '~':
-            continue
-        # Skip cells that failed BSB matching (already in bsb_warnings)
         if not bsb_ids:
-            continue
+            continue  # untranslated or failed BSB match
 
-        source_ids, confidence = match_cell_to_source(
-            cell, macula_words, used_source_ids, lang
+        # Which existing record covers these BSB tokens? (dedupe by record_id)
+        covering_recs_list = list(
+            {target_to_rec[tid].record_id: target_to_rec[tid]
+             for tid in bsb_ids if tid in target_to_rec}.values()
         )
 
-        if source_ids is None:
+        if len(covering_recs_list) != 1:
             issues.append(
-                f"cell '{cell['english']}' (script={cell['script']!r}): {confidence}"
+                f"cell '{cell['english']}': spans {len(covering_recs_list)} existing records"
             )
             continue
 
-        for tid in source_ids:
-            used_source_ids.add(tid)
+        rec = covering_recs_list[0]
+        if rec.record_id in emitted_rec_ids:
+            continue  # already handled (multi-cell cells)
 
-        records.append({
+        # Get source tokens for this existing record
+        rec_source_tokens = [source_index[sid] for sid in rec.source_ids if sid in source_index]
+
+        # Verify: does the e-sword script match the existing record's source?
+        existing_script = source_script(rec_source_tokens, lang)
+        norm_fn = normalize_hebrew if lang in ('H', 'A') else normalize_greek
+        esword_script   = norm_fn(cell['script']) if cell['script'] else ''
+
+        if esword_script and esword_script == existing_script:
+            # Verified — emit as-is
+            source_ids = rec.source_ids
+            for sid in source_ids:
+                used_source_ids.add(sid)
+        else:
+            # Mismatch — try to correct using e-sword script
+            corrected, confidence = find_source_for_cell(
+                cell, lang, all_source_tokens, used_source_ids
+            )
+            if corrected:
+                source_ids = corrected
+                for sid in source_ids:
+                    used_source_ids.add(sid)
+                issues.append(
+                    f"corrected '{cell['english']}': "
+                    f"{rec.source_ids} → {source_ids} ({confidence})"
+                )
+            else:
+                # Can't correct — keep existing record and log
+                source_ids = rec.source_ids
+                for sid in source_ids:
+                    used_source_ids.add(sid)
+                issues.append(
+                    f"kept existing for '{cell['english']}' "
+                    f"(e-sword={esword_script!r} existing={existing_script!r}): {confidence}"
+                )
+
+        emitted_rec_ids.add(rec.record_id)
+        out_records.append({
             'source': source_ids,
-            'target': bsb_ids,
+            'target': list(bsb_ids),
             'meta': {
-                'id':     f"{verse_id_8}.{record_seq:03d}",
+                'id':     rec.record_id,
                 'origin': 'esword',
                 'status': 'created',
             },
         })
-        record_seq += 1
 
-    all_issues = bsb_warnings + issues
-    log_msg = None
-    if all_issues:
-        log_msg = f"{verse_id_8}: " + "; ".join(all_issues)
-
-    return records, log_msg
+    all_issues = bsb_warns + issues
+    log_msg    = f"{verse_id}: " + "; ".join(all_issues) if all_issues else None
+    return out_records, log_msg
 
 
 # ── Config & main ────────────────────────────────────────────────────────────
@@ -458,88 +382,67 @@ def load_config(path='config.yaml') -> dict:
     data_root = Path(cfg.get('data_root', '../'))
     for testament in ('ot', 'nt'):
         src = cfg['sources'][testament]
-        for key in ('source', 'target'):
+        for key in ('source', 'alignment', 'target'):
             src[key] = data_root / src[key]
     return cfg
 
 
-def resolve_books_filter(books_arg: list[str] | None, cfg_books: list | None):
-    """Return set of 2-digit book number strings, or None for all books."""
-    raw = books_arg or cfg_books
-    if not raw:
-        return None
-    nums = set()
-    for osis in raw:
-        n = OSIS_TO_BOOKNUM.get(osis)
-        if n:
-            nums.add(f"{n:02d}")
-        else:
-            print(f"Warning: unknown book '{osis}'")
-    return nums or None
-
-
-def _bsb_verse_ids_for_books(bsb_target: dict, allowed: set[str] | None):
-    """Yield (book_num_str, chapter, verse, verse_id_8) for each BSB verse."""
-    for verse_id_8 in sorted(bsb_target):
-        book_num = verse_id_8[:2]
-        if allowed and book_num not in allowed:
-            continue
-        chapter = int(verse_id_8[2:5])
-        verse   = int(verse_id_8[5:8])
-        yield book_num, chapter, verse, verse_id_8
+def _should_process(testament: str, books_filter: list | None) -> bool:
+    if testament == 'ot':
+        return any(b in _OT_ABBREV for b in (books_filter or ['Gen']))
+    return any(b in _NT_ABBREV for b in (books_filter or ['Matt']))
 
 
 def run_testament(
     testament: str,
     cfg: dict,
-    esword_db: Path,
-    allowed_book_nums: set[str] | None,
+    esword_db: sqlite3.Connection,
+    books_filter: list | None,
     out_dir: Path,
     log_lines: list[str],
 ):
-    src_cfg = cfg['sources'][testament]
-    lang    = 'H' if testament == 'ot' else 'G'
+    src_cfg  = cfg['sources'][testament]
+    lang     = 'H' if testament == 'ot' else 'G'
+    out_name = 'WLCM-BSB-esword.ndjson' if testament == 'ot' else 'SBLGNT-BSB-esword.ndjson'
 
-    print(f"\nLoading {testament.upper()} data...")
-    if testament == 'ot':
-        macula_all = load_macula_ot(src_cfg['source'], allowed_book_nums)
-        out_name   = 'WLCM-BSB-esword.ndjson'
-    else:
-        macula_all = load_macula_nt(src_cfg['source'], allowed_book_nums)
-        out_name   = 'SBLGNT-BSB-esword.ndjson'
+    print(f"\nLoading {testament.upper()} source index...")
+    source_index = _load_source_index(src_cfg['source'], testament)
 
-    bsb_all = load_bsb_target(src_cfg['target'], allowed_book_nums)
-    print(f"  {len(macula_all):,} source verses, {len(bsb_all):,} BSB verses")
+    print(f"Loading {testament.upper()} alignment index...")
+    alignment_index = _load_alignment_index(src_cfg['alignment'])
 
-    conn = sqlite3.connect(esword_db)
-    cur  = conn.cursor()
-
-    out_path    = out_dir / out_name
-    total_recs  = 0
+    out_path     = out_dir / out_name
+    total_recs   = 0
     total_verses = 0
+    cur          = esword_db.cursor()
 
     with open(out_path, 'w', encoding='utf-8') as out_f:
-        for book_num, chapter, verse, verse_id_8 in _bsb_verse_ids_for_books(bsb_all, allowed_book_nums):
-            esword_book = int(book_num)
+        for verse_id, target_tokens in _iter_target_verses(src_cfg['target'], books_filter):
+            book_num = int(verse_id[:2])
+            chapter  = int(verse_id[2:5])
+            verse    = int(verse_id[5:8])
+
             cur.execute(
                 'SELECT Scripture FROM Bible WHERE Book=? AND Chapter=? AND Verse=?',
-                (esword_book, chapter, verse),
+                (book_num, chapter, verse),
             )
             row = cur.fetchone()
             if not row:
-                log_lines.append(f"{verse_id_8}: no e-sword row found")
+                log_lines.append(f"{verse_id}: no e-sword row")
                 continue
 
-            esword_html  = row[0]
-            bsb_tokens   = bsb_all.get(verse_id_8, [])
-            macula_words = macula_all.get((book_num, chapter, verse), [])
-
-            if not macula_words:
-                log_lines.append(f"{verse_id_8}: no macula source tokens")
+            alignment_records = alignment_index.get(verse_id, [])
+            if not alignment_records:
+                log_lines.append(f"{verse_id}: no existing alignment records")
                 continue
 
             records, log_msg = process_verse(
-                (book_num, chapter, verse), esword_html, bsb_tokens, macula_words, lang
+                verse_id,
+                row[0],
+                target_tokens,
+                alignment_records,
+                source_index,
+                lang,
             )
 
             for rec in records:
@@ -550,40 +453,39 @@ def run_testament(
             if log_msg:
                 log_lines.append(log_msg)
 
-    conn.close()
     print(f"  Wrote {total_recs:,} records for {total_verses:,} verses → {out_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Build alignment NDJSON from e-sword interlinear')
-    parser.add_argument('--esword',  default='local/bsbi+.bbl', help='Path to e-sword .bbl SQLite file')
-    parser.add_argument('--books',   nargs='+', metavar='OSIS',  help='Book filter, e.g. Gen Matt')
+    parser = argparse.ArgumentParser(
+        description='Build corrected alignment NDJSON from e-sword interlinear'
+    )
+    parser.add_argument('--esword',  default='local/bsbi+.bbl',
+                        help='Path to e-sword .bbl SQLite file')
+    parser.add_argument('--books',   nargs='+', metavar='OSIS',
+                        help='Book filter e.g. --books Gen Matt')
     parser.add_argument('--config',  default='config.yaml')
     parser.add_argument('--out-dir', default='output')
     args = parser.parse_args()
 
-    cfg = load_config(args.config)
+    cfg     = load_config(args.config)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(exist_ok=True)
 
-    allowed = resolve_books_filter(args.books, cfg.get('books'))
-    if allowed:
-        ot_allowed = allowed & {f"{n:02d}" for n in range(1, 40)}
-        nt_allowed = allowed & {f"{n:02d}" for n in range(40, 67)}
-    else:
-        ot_allowed = None
-        nt_allowed = None
+    books_filter = args.books or cfg.get('books')
 
-    esword_db = Path(args.esword)
-    if not esword_db.exists():
-        raise FileNotFoundError(f"e-sword database not found: {esword_db}")
+    esword_path = Path(args.esword)
+    if not esword_path.exists():
+        raise FileNotFoundError(f"e-sword database not found: {esword_path}")
+    conn = sqlite3.connect(esword_path)
 
     log_lines: list[str] = []
 
-    if ot_allowed is None or ot_allowed:
-        run_testament('ot', cfg, esword_db, ot_allowed, out_dir, log_lines)
-    if nt_allowed is None or nt_allowed:
-        run_testament('nt', cfg, esword_db, nt_allowed, out_dir, log_lines)
+    for testament in ('ot', 'nt'):
+        if _should_process(testament, books_filter):
+            run_testament(testament, cfg, conn, books_filter, out_dir, log_lines)
+
+    conn.close()
 
     log_path = out_dir / 'esword_alignment.log'
     with open(log_path, 'w', encoding='utf-8') as f:
