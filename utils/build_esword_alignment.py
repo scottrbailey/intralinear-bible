@@ -284,7 +284,18 @@ def process_verse(
         esword_script = norm_fn(cell['script']) if cell['script'] else ''
 
         if len(covering) == 0:
-            # BSB tokens not covered by any existing record — search whole verse
+            # BSB tokens may be already covered by a previously-emitted record
+            # (e-sword splits what the existing alignment groups together).
+            # Check if any bsb_id belongs to an already-emitted record — if so,
+            # this cell's content is already accounted for; skip it.
+            already_emitted = any(
+                tid in target_to_rec and target_to_rec[tid].record_id in emitted_rec_ids
+                for tid in bsb_ids
+            )
+            if already_emitted:
+                continue
+
+            # BSB tokens genuinely not covered by any existing record — search whole verse
             source_ids, confidence = find_source_for_cell(
                 cell, lang, verse_source_tokens, used_source_ids
             )
@@ -320,34 +331,54 @@ def process_verse(
             emitted_rec_ids.add(rec.record_id)
 
         else:
-            # Cell spans multiple existing records — merge them
-            merged_source_ids: list[str] = []
-            for r in covering.values():
-                for sid in r.source_ids:
-                    if sid not in merged_source_ids:
-                        merged_source_ids.append(sid)
+            # Cell spans multiple existing records.
+            # First check if any single covering record individually matches the
+            # e-sword script — if so, treat it as a 1-record case and leave the
+            # other records for later cells (avoids nonsense concatenated scripts).
+            single_match = None
+            if esword_script:
+                for r in covering.values():
+                    rec_toks = [source_index[sid] for sid in r.source_ids if sid in source_index]
+                    if concat_script(rec_toks, lang) == esword_script:
+                        if single_match is None:
+                            single_match = r
+                        else:
+                            single_match = None  # ambiguous among covering records
+                            break
 
-            merged_toks    = [source_index[sid] for sid in merged_source_ids if sid in source_index]
-            merged_script  = concat_script(merged_toks, lang)
-
-            if esword_script and esword_script == merged_script:
-                source_ids = merged_source_ids
+            if single_match is not None:
+                # Narrow covering to just this record; others remain for later cells
+                source_ids = single_match.source_ids
+                covering   = {single_match.record_id: single_match}
             else:
-                corrected, confidence = find_source_for_cell(
-                    cell, lang, verse_source_tokens, used_source_ids
-                )
-                if corrected:
-                    source_ids = corrected
-                    issues.append(
-                        f"merged+corrected '{cell['english']}' ({len(covering)} recs): "
-                        f"{merged_source_ids} → {corrected} ({confidence})"
-                    )
-                else:
+                # Fall back to merging all covering records
+                merged_source_ids: list[str] = []
+                for r in covering.values():
+                    for sid in r.source_ids:
+                        if sid not in merged_source_ids:
+                            merged_source_ids.append(sid)
+
+                merged_toks   = [source_index[sid] for sid in merged_source_ids if sid in source_index]
+                merged_script = concat_script(merged_toks, lang)
+
+                if esword_script and esword_script == merged_script:
                     source_ids = merged_source_ids
-                    issues.append(
-                        f"merged '{cell['english']}' ({len(covering)} recs, "
-                        f"e-sword={esword_script!r} merged={merged_script!r}): {confidence}"
+                else:
+                    corrected, confidence = find_source_for_cell(
+                        cell, lang, verse_source_tokens, used_source_ids
                     )
+                    if corrected:
+                        source_ids = corrected
+                        issues.append(
+                            f"merged+corrected '{cell['english']}' ({len(covering)} recs): "
+                            f"{merged_source_ids} → {corrected} ({confidence})"
+                        )
+                    else:
+                        source_ids = merged_source_ids
+                        issues.append(
+                            f"merged '{cell['english']}' ({len(covering)} recs, "
+                            f"e-sword={esword_script!r} merged={merged_script!r}): {confidence}"
+                        )
 
             for rid in covering:
                 emitted_rec_ids.add(rid)
