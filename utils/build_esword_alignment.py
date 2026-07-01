@@ -499,7 +499,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Build corrected alignment NDJSON from e-sword interlinear'
     )
-    parser.add_argument('--esword',  default='local/bsbi+.bbl')
+    parser.add_argument('--esword',  default='local/bsib+.bbli')
     parser.add_argument('--books',   nargs='+', metavar='OSIS')
     parser.add_argument('--config',  default='config.yaml')
     parser.add_argument('--out-dir', default='output')

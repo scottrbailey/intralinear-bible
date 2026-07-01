@@ -9,6 +9,7 @@ import json
 import re
 from pathlib import Path
 
+import dbtk.readers
 from biblelib.book import Books
 
 from models import (
@@ -174,10 +175,14 @@ def _load_source_index(path: Path, testament: str) -> dict:
 
 
 def _load_alignment_index(path: Path) -> dict:
-    with open(path, encoding='utf-8') as f:
-        data = json.load(f)
+    if path.suffix == '.json':
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        rows = data['records']
+    elif path.suffix == '.ndjson':
+        rows = dbtk.readers.get_reader(path)
     index = {}
-    for rec in data['records']:
+    for rec in rows:
         record   = AlignmentRecord(
             source_ids=rec['source'],
             target_ids=rec['target'],
