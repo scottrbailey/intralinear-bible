@@ -351,6 +351,15 @@ def process_verse(
                                 for tid in r.target_ids:
                                     if tid not in fb_target:
                                         fb_target.append(tid)
+                            # Use all source tokens from covering records, not just
+                            # what find_source_for_cell found. This preserves grouped
+                            # number tokens (e.g. tesha+meot+sheloshim for '930')
+                            # that the original alignment correctly combined.
+                            fb_source: list[str] = []
+                            for r in fb_covering.values():
+                                for sid in r.source_ids:
+                                    if sid not in fb_source:
+                                        fb_source.append(sid)
                             rec_id = next(iter(fb_covering.values())).record_id
                             # If an untranslated record was already emitted for
                             # the same target (e.g. allon ~ before Allon-bachuth),
@@ -361,7 +370,7 @@ def process_verse(
                                 if (prev['meta'].get('status') == 'untranslated' and
                                         set(prev['target']) == fb_target_set):
                                     merged_src = list(prev['source']) + [
-                                        s for s in source_ids if s not in prev['source']
+                                        s for s in fb_source if s not in prev['source']
                                     ]
                                     out_records[i] = {
                                         'source': merged_src,
@@ -372,11 +381,11 @@ def process_verse(
                                     break
                             if not merged:
                                 out_records.append({
-                                    'source': source_ids,
+                                    'source': fb_source,
                                     'target': fb_target,
                                     'meta': {'id': rec_id, 'origin': 'esword', 'status': 'created'},
                                 })
-                            for sid in source_ids:
+                            for sid in fb_source:
                                 used_source_ids.add(sid)
                             emitted_rec_ids.update(fb_covering.keys())
                             emitted_target_ids.update(fb_target)
