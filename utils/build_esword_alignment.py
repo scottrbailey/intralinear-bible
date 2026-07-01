@@ -561,11 +561,23 @@ def load_config(path='config.yaml') -> dict:
     data_root = Path(cfg.get('data_root', '../'))
     for testament in ('ot', 'nt'):
         src = cfg['sources'][testament]
-        for key in ('source', 'alignment', 'target'):
+        for key in ('source', 'target'):
             src[key] = data_root / src[key]
-        if 'base_alignment' in src:
-            src['base_alignment'] = data_root / src['base_alignment']
     return cfg
+
+
+# Paths to the manual base alignments (input) and esword output files.
+# These are specific to this script and not part of the main pipeline config.
+_ESWORD_PATHS = {
+    'ot': {
+        'base_alignment': Path('../Alignments/data/eng/alignments/BSB/WLCM-BSB-manual.json'),
+        'out_name':       'WLCM-BSB-esword.ndjson',
+    },
+    'nt': {
+        'base_alignment': Path('../Alignments/data/eng/alignments/BSB/SBLGNT-BSB-manual.json'),
+        'out_name':       'SBLGNT-BSB-esword.ndjson',
+    },
+}
 
 
 def _should_process(testament: str, books_filter) -> bool:
@@ -603,19 +615,18 @@ def _build_verse_source_index(source_index: dict) -> dict:
 
 
 def run_testament(testament, cfg, esword_db, books_filter, out_dir, log_lines):
-    src_cfg  = cfg['sources'][testament]
-    lang     = 'H' if testament == 'ot' else 'G'
-    out_name = 'WLCM-BSB-esword.ndjson' if testament == 'ot' else 'SBLGNT-BSB-esword.ndjson'
+    src_cfg   = cfg['sources'][testament]
+    ep        = _ESWORD_PATHS[testament]
+    lang      = 'H' if testament == 'ot' else 'G'
 
     print(f"\nLoading {testament.upper()} source index...")
     source_index = _load_source_index(src_cfg['source'], testament)
     verse_source  = _build_verse_source_index(source_index)
 
     print(f"Loading {testament.upper()} alignment index...")
-    align_path = src_cfg.get('base_alignment') or src_cfg['alignment']
-    alignment_index = _rekey_by_target(_load_alignment_index(align_path))
+    alignment_index = _rekey_by_target(_load_alignment_index(ep['base_alignment']))
 
-    out_path     = out_dir / out_name
+    out_path     = out_dir / ep['out_name']
     total_recs   = 0
     total_verses = 0
     cur          = esword_db.cursor()
