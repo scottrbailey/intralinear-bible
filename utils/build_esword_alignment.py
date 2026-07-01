@@ -626,12 +626,24 @@ def run_testament(testament, cfg, esword_db, books_filter, out_dir, log_lines):
                 log_lines.append(f"{verse_id}: no e-sword row")
                 continue
 
-            alignment_records  = alignment_index.get(verse_id, [])
-            verse_source_toks  = verse_source.get(verse_id, [])
+            alignment_records = alignment_index.get(verse_id, [])
 
             if not alignment_records:
                 log_lines.append(f"{verse_id}: no existing alignment records")
                 continue
+
+            # Derive source verse(s) from alignment records, not from the BSB verse
+            # number, to handle versification mismatches (e.g. Gen 32 where BSB
+            # verse 5 corresponds to Hebrew verse 6).
+            src_verse_ids: set[str] = set()
+            for rec in alignment_records:
+                for sid in rec.source_ids:
+                    src_verse_ids.add(sid[1:9])  # strip 'o'/'n' prefix → BBCCCVVV
+            if not src_verse_ids:
+                src_verse_ids = {verse_id}
+            verse_source_toks: list = []
+            for svid in sorted(src_verse_ids):
+                verse_source_toks.extend(verse_source.get(svid, []))
 
             records, log_msg = process_verse(
                 verse_id, row[0], target_tokens, alignment_records,
