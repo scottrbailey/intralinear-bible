@@ -148,7 +148,9 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
     for cell in cells:
         eng = cell['english'].strip()
         if is_untranslated(eng):
-            pairs.append((cell, []))
+            # Store adjacent token for position anchoring in alignment output
+            adj = non_excl[ptr].id if ptr < len(non_excl) else None
+            pairs.append(({**cell, 'adjacent_id': adj}, []))
             continue
 
         cell_words = phrase_to_words(eng)
@@ -291,6 +293,29 @@ def process_verse(
                     covering[r.record_id] = r
 
         esword_script = norm_fn(cell['script']) if cell['script'] else ''
+
+        if not bsb_ids:
+            # Untranslated cell (~ or empty) — emit source-only record if we
+            # have a script and an adjacent BSB token to anchor position.
+            adj = cell.get('adjacent_id')
+            if adj and cell.get('script'):
+                source_ids, _ = find_source_for_cell(
+                    cell, lang, verse_source_tokens, used_source_ids
+                )
+                if source_ids:
+                    new_rec_counter += 1
+                    out_records.append({
+                        'source': source_ids,
+                        'target': [adj],
+                        'meta': {
+                            'id': f"{verse_id}.new{new_rec_counter}",
+                            'origin': 'esword',
+                            'status': 'untranslated',
+                        },
+                    })
+                    for sid in source_ids:
+                        used_source_ids.add(sid)
+            continue
 
         if len(covering) == 0:
             # covering is empty either because:
