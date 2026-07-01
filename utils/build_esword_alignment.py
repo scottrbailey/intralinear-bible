@@ -265,10 +265,11 @@ def process_verse(
         for tid in rec.target_ids:
             target_to_rec[tid] = rec
 
-    used_source_ids: set[str] = set()
-    emitted_rec_ids: set[str] = set()
-    out_records: list[dict]   = []
-    issues: list[str]         = []
+    used_source_ids:    set[str] = set()
+    emitted_rec_ids:    set[str] = set()
+    emitted_target_ids: set[str] = set()   # BSB token IDs put into output records
+    out_records: list[dict]      = []
+    issues: list[str]            = []
 
     norm_fn = normalize_hebrew if lang in ('H', 'A') else normalize_greek
 
@@ -287,18 +288,17 @@ def process_verse(
         esword_script = norm_fn(cell['script']) if cell['script'] else ''
 
         if len(covering) == 0:
-            # BSB tokens may be already covered by a previously-emitted record
-            # (e-sword splits what the existing alignment groups together).
-            # Check if any bsb_id belongs to an already-emitted record — if so,
-            # this cell's content is already accounted for; skip it.
-            already_emitted = any(
-                tid in target_to_rec and target_to_rec[tid].record_id in emitted_rec_ids
-                for tid in bsb_ids
-            )
-            if already_emitted:
-                continue
+            # covering is empty either because:
+            #   (a) the existing record was already emitted AND we put these
+            #       tokens into that output record → truly covered, skip
+            #   (b) the existing record was already emitted but it was emitted
+            #       for a different e-sword cell (e-sword re-groups tokens) →
+            #       these tokens are NOT yet in any output record, need new one
+            # Distinguish by checking emitted_target_ids, not emitted_rec_ids.
+            if all(tid in emitted_target_ids for tid in bsb_ids):
+                continue  # case (a): tokens already in an output record
 
-            # BSB tokens genuinely not covered by any existing record — search whole verse
+            # case (b): tokens not yet output — search whole verse for source
             source_ids, confidence = find_source_for_cell(
                 cell, lang, verse_source_tokens, used_source_ids
             )
@@ -386,21 +386,17 @@ def process_verse(
             for rid in covering:
                 emitted_rec_ids.add(rid)
 
-        # Use the existing record(s)' target_ids — they correctly include
-        # punctuation/quote tokens that are excluded from BSB span matching.
-        if covering:
-            rec_id     = next(iter(covering.values())).record_id
-            target_ids = []
-            for r in covering.values():
-                for tid in r.target_ids:
-                    if tid not in target_ids:
-                        target_ids.append(tid)
-        else:
-            rec_id     = f"{verse_id}.new"
-            target_ids = list(bsb_ids)
+        # Use the e-sword cell's BSB span as the output target.
+        # This ensures the annotation attaches to exactly the English words the
+        # e-sword cell covers, avoiding off-by-one errors when the existing
+        # alignment grouped tokens differently than the e-sword does.
+        rec_id     = next(iter(covering.values())).record_id if covering else f"{verse_id}.new"
+        target_ids = list(bsb_ids)
 
         for sid in source_ids:
             used_source_ids.add(sid)
+        for tid in target_ids:
+            emitted_target_ids.add(tid)
 
         out_records.append({
             'source': source_ids,
