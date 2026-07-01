@@ -170,9 +170,7 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
                 ok = False
                 break
             bsb_w = _norm_eng_word(scannable[ptr].text)
-            if bsb_w == cw or (
-                len(cw) > 5 and cw.replace('h', '') == bsb_w.replace('h', '')
-            ):
+            if bsb_w == cw:
                 span_ids.append(scannable[ptr].id)
                 ptr += 1
             else:
