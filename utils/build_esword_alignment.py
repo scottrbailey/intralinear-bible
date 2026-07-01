@@ -79,7 +79,7 @@ def parse_esword_cells(html: str) -> list[dict]:
         if script and script[-1] in ('ס', 'פ'):
             script = script[:-1].strip()
         before_br = _BR_RE.split(cell_html, 1)[0]
-        english   = html_module.unescape(_strip_tags(before_br)).strip()
+        english   = _strip_tags(html_module.unescape(before_br)).strip()
         # Strip BSB variant/footnote anchor marker that appears in some cells
         english   = re.sub(r'^vvv\s*', '', english).strip()
         cells.append({'english': english, 'script': script, 'strongs': strongs})
