@@ -140,9 +140,9 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
     Match e-sword cells (English display order) to BSB token ID spans.
     Returns ([(cell, [bsb_ids])], warnings).
     """
-    # Scan all tokens that contain at least one letter — this includes excluded
-    # proper-name tokens like "Deborah" and "Allon-bachuth" (exclude='y' but
-    # alphabetic) while still skipping purely-punctuation tokens like "," and ".".
+    # All alphabetic tokens (excl or not); punctuation-only tokens skipped entirely.
+    # Excluded tokens (proper names, brackets) are matched when the e-sword cell
+    # mentions them, but silently skipped when it doesn't.
     scannable = [t for t in target_tokens if any(c.isalpha() for c in t.text)]
     ptr       = 0
     pairs     = []
@@ -166,14 +166,24 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
         saved_ptr = ptr
 
         for cw in cell_words:
-            if ptr >= len(scannable):
-                ok = False
-                break
-            bsb_w = _norm_eng_word(scannable[ptr].text)
-            if bsb_w == cw:
-                span_ids.append(scannable[ptr].id)
-                ptr += 1
-            else:
+            # Advance past excluded tokens that don't match; stop on non-excluded
+            # mismatch. This lets "Now Deborah," match ["Now"(non-excl),
+            # "Deborah"(excl)] while silently skipping "[Jacob]"(excl) when the
+            # e-sword cell doesn't mention it.
+            look    = ptr
+            matched = False
+            while look < len(scannable):
+                bsb_w = _norm_eng_word(scannable[look].text)
+                if bsb_w == cw:
+                    span_ids.append(scannable[look].id)
+                    ptr     = look + 1
+                    matched = True
+                    break
+                elif scannable[look].exclude:
+                    look += 1  # skip excluded non-matching token
+                else:
+                    break      # non-excluded mismatch → scan failure
+            if not matched:
                 ok = False
                 break
 
