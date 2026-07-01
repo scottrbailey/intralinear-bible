@@ -561,7 +561,8 @@ def run_testament(testament, cfg, esword_db, books_filter, out_dir, log_lines):
     verse_source  = _build_verse_source_index(source_index)
 
     print(f"Loading {testament.upper()} alignment index...")
-    alignment_index = _load_alignment_index(src_cfg['alignment'])
+    align_path = src_cfg.get('base_alignment') or src_cfg['alignment']
+    alignment_index = _load_alignment_index(align_path)
 
     out_path     = out_dir / out_name
     total_recs   = 0
