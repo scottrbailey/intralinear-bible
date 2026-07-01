@@ -178,7 +178,7 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
                 break
 
         if not ok:
-            bsb_at = non_excl[saved_ptr].text if saved_ptr < len(scannable) else 'EOF'
+            bsb_at = scannable[saved_ptr].text if saved_ptr < len(scannable) else 'EOF'
             warnings.append(f"BSB mismatch: cell '{eng}' vs BSB '{bsb_at}'")
             ptr = saved_ptr
             pairs.append((cell, []))
@@ -186,7 +186,7 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
             pairs.append((cell, span_ids))
 
     if ptr < len(scannable):
-        warnings.append(f"Unmatched BSB tokens: {[t.text for t in non_excl[ptr:]]}")
+        warnings.append(f"Unmatched BSB tokens: {[t.text for t in scannable[ptr:]]}")
 
     return pairs, warnings
 
