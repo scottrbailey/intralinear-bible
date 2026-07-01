@@ -530,6 +530,8 @@ def load_config(path='config.yaml') -> dict:
         src = cfg['sources'][testament]
         for key in ('source', 'alignment', 'target'):
             src[key] = data_root / src[key]
+        if 'base_alignment' in src:
+            src['base_alignment'] = data_root / src['base_alignment']
     return cfg
 
 
