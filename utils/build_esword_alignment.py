@@ -74,6 +74,9 @@ def parse_esword_cells(html: str) -> list[dict]:
             if color.upper() == _GREEN.upper():
                 script = _strip_tags(content).strip()
                 break
+        # Strip Masoretic paragraph markers (ס setuma, פ petucha) from script end
+        if script and script[-1] in ('ס', 'פ'):
+            script = script[:-1].strip()
         before_br = _BR_RE.split(cell_html, 1)[0]
         english   = _strip_tags(before_br).strip()
         cells.append({'english': english, 'script': script, 'strongs': strongs})
