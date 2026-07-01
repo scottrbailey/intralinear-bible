@@ -166,7 +166,10 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
             if ptr >= len(non_excl):
                 ok = False
                 break
-            if _norm_eng_word(non_excl[ptr].text) == cw:
+            bsb_w = _norm_eng_word(non_excl[ptr].text)
+            if bsb_w == cw or (
+                len(cw) > 5 and cw.replace('h', '') == bsb_w.replace('h', '')
+            ):
                 span_ids.append(non_excl[ptr].id)
                 ptr += 1
             else:
