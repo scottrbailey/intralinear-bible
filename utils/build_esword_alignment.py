@@ -265,11 +265,14 @@ def process_verse(
 
     cell_bsb_pairs, bsb_warns = build_cell_to_bsb_map(cells, target_tokens)
 
-    # Build lookup: target_token_id → alignment record
+    # Build lookups: target_token_id → record, source_token_id → record
     target_to_rec: dict[str, object] = {}
+    source_to_rec: dict[str, object] = {}
     for rec in alignment_records:
         for tid in rec.target_ids:
             target_to_rec[tid] = rec
+        for sid in rec.source_ids:
+            source_to_rec[sid] = rec
 
     used_source_ids:    set[str] = set()
     emitted_rec_ids:    set[str] = set()
@@ -281,7 +284,73 @@ def process_verse(
     norm_fn = normalize_hebrew if lang in ('H', 'A') else normalize_greek
 
     for cell, bsb_ids in cell_bsb_pairs:
+        esword_script = norm_fn(cell['script']) if cell['script'] else ''
+
         if not bsb_ids:
+            if is_untranslated(cell['english']):
+                # Untranslated cell (~) — emit with adjacent BSB anchor if possible.
+                adj = cell.get('adjacent_id')
+                if adj and cell.get('script'):
+                    source_ids, _ = find_source_for_cell(
+                        cell, lang, verse_source_tokens, used_source_ids
+                    )
+                    if source_ids:
+                        new_rec_counter += 1
+                        out_records.append({
+                            'source': source_ids,
+                            'target': [adj],
+                            'meta': {
+                                'id': f"{verse_id}.new{new_rec_counter}",
+                                'origin': 'esword',
+                                'status': 'untranslated',
+                            },
+                        })
+                        for sid in source_ids:
+                            used_source_ids.add(sid)
+            else:
+                # BSB text scan failed (e.g. spelling variant like Allon-bacuth vs
+                # Allon-bachuth). Try finding source via Strong's, then fall back to
+                # the existing alignment's target IDs so the record isn't lost.
+                if cell.get('script') or cell.get('strongs'):
+                    source_ids, confidence = find_source_for_cell(
+                        cell, lang, verse_source_tokens, used_source_ids
+                    )
+                    if source_ids:
+                        # Find existing record(s) for these source tokens
+                        fb_covering = {
+                            source_to_rec[sid].record_id: source_to_rec[sid]
+                            for sid in source_ids if sid in source_to_rec
+                        }
+                        if fb_covering:
+                            fb_target: list[str] = []
+                            for r in fb_covering.values():
+                                for tid in r.target_ids:
+                                    if tid not in fb_target:
+                                        fb_target.append(tid)
+                            rec_id = next(iter(fb_covering.values())).record_id
+                            out_records.append({
+                                'source': source_ids,
+                                'target': fb_target,
+                                'meta': {'id': rec_id, 'origin': 'esword', 'status': 'created'},
+                            })
+                            for sid in source_ids:
+                                used_source_ids.add(sid)
+                            emitted_rec_ids.update(fb_covering.keys())
+                            emitted_target_ids.update(fb_target)
+                            issues.append(
+                                f"BSB text mismatch for '{cell['english']}': "
+                                f"used existing target (Strong's fallback, {confidence})"
+                            )
+                        else:
+                            issues.append(
+                                f"BSB text mismatch for '{cell['english']}': "
+                                f"no existing record for source ({confidence})"
+                            )
+                    else:
+                        issues.append(
+                            f"BSB text mismatch for '{cell['english']}': "
+                            f"source not found ({confidence})"
+                        )
             continue
 
         # Which un-emitted existing records cover these BSB tokens?
@@ -291,31 +360,6 @@ def process_verse(
                 r = target_to_rec[tid]
                 if r.record_id not in emitted_rec_ids:
                     covering[r.record_id] = r
-
-        esword_script = norm_fn(cell['script']) if cell['script'] else ''
-
-        if not bsb_ids:
-            # Untranslated cell (~ or empty) — emit source-only record if we
-            # have a script and an adjacent BSB token to anchor position.
-            adj = cell.get('adjacent_id')
-            if adj and cell.get('script'):
-                source_ids, _ = find_source_for_cell(
-                    cell, lang, verse_source_tokens, used_source_ids
-                )
-                if source_ids:
-                    new_rec_counter += 1
-                    out_records.append({
-                        'source': source_ids,
-                        'target': [adj],
-                        'meta': {
-                            'id': f"{verse_id}.new{new_rec_counter}",
-                            'origin': 'esword',
-                            'status': 'untranslated',
-                        },
-                    })
-                    for sid in source_ids:
-                        used_source_ids.add(sid)
-            continue
 
         if len(covering) == 0:
             # covering is empty either because:
