@@ -26,6 +26,7 @@ Output:
 """
 
 import argparse
+import html as html_module
 import json
 import re
 import sqlite3
@@ -78,7 +79,9 @@ def parse_esword_cells(html: str) -> list[dict]:
         if script and script[-1] in ('ס', 'פ'):
             script = script[:-1].strip()
         before_br = _BR_RE.split(cell_html, 1)[0]
-        english   = _strip_tags(before_br).strip()
+        english   = html_module.unescape(_strip_tags(before_br)).strip()
+        # Strip BSB variant/footnote anchor marker that appears in some cells
+        english   = re.sub(r'^vvv\s*', '', english).strip()
         cells.append({'english': english, 'script': script, 'strongs': strongs})
     return cells
 
@@ -91,9 +94,10 @@ def normalize_hebrew(text: str) -> str:
 
 
 def normalize_greek(text: str) -> str:
-    """NFD-decompose, strip combining diacritics, lowercase."""
+    """NFD-decompose, strip combining diacritics and non-letter chars, lowercase."""
     nfd = unicodedata.normalize('NFD', text)
-    return ''.join(c for c in nfd if unicodedata.category(c) != 'Mn').lower()
+    # Keep only letters (strips Mn combining diacritics, undertie ‿, apostrophes, etc.)
+    return ''.join(c for c in nfd if c.isalpha() and unicodedata.category(c) != 'Mn').lower()
 
 
 # Strip dashes, curly braces, standard + smart punctuation from English.
