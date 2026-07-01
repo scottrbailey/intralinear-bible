@@ -1,8 +1,8 @@
 # Intralinear Bible Pipeline Configuration
-# Run: python main.py [--format esword|mysword|osis] [--mode intralinear|interlinear]
+# Run: python main.py [--format esword|mysword|osis] [--mode intralinear|stacked|interlinear]
 
 # ── Module identity ──────────────────────────────────────────
-version: "1.0.1"
+version: "1.0.2"
 translation: "BSB"                    # Module abbreviations derived as:
                                       #   intralinear:         {translation}i
                                       #   intralinear stacked: {translation}is
@@ -36,7 +36,7 @@ output:
   dir:     "output"
   headers: 0             # section headers
   notes:   1             # translator notes
-  xref:    0             # cross ref 0: none, 1: beginning of verse, 2: end of verse
+  xref:    1             # cross ref 0: none, 1: beginning of verse, 2: end of verse
 
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]

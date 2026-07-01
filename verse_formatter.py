@@ -16,7 +16,7 @@ never emits the corresponding tags and the CSS for them is never exercised.
 import re
 from abc import ABC, abstractmethod
 from textwrap import dedent
-
+from collections.abc import Callable
 from translit import make_transliterator
 
 
@@ -49,7 +49,7 @@ class VerseFormatter(ABC):
     css:            str = ""
     verse_rules:    str = ""
 
-    def __init__(self, transliterate: callable = None):
+    def __init__(self, transliterate: Callable = None):
         self.transliterate = transliterate or make_transliterator()
 
     @abstractmethod
@@ -257,18 +257,16 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
 
 # ============================================================ MySword profiles
 
-_MYSWORD_INTRALINEAR_CSS = """
-sup { font-size: 75%; }
-.xlit a { color: blue; text-decoration: none; }
-.ref { font-size: 0.65em; color: #333; background-color: #e8e8e8;
-       border-radius: 3px; padding: 0 2px; text-decoration: none; }
-"""
+_MYSWORD_INTRALINEAR_CSS = dedent("""\
+    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
+        padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
+    ruby {color: blue; display:block}
+    ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 0;}
+	ruby a {text-decoration: none;}
+""")
 
 # Tab between pattern and replacement is required by MySword.
-_MYSWORD_INTRALINEAR_RULES = (
-    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlit"><a href="s$1">$3</a></sup>\n'
-)
+_MYSWORD_INTRALINEAR_RULES = ''
 
 class MySwordIntralinearFormatter(VerseFormatter):
     abbreviation   = "BSBi"
@@ -298,7 +296,8 @@ class MySwordIntralinearFormatter(VerseFormatter):
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     lemmas.append(
-                        f'<lemma sn="{sw.stem.strongs}" o="{sw.text}">{xlit}</lemma>'
+                        f'<span class="ilb"><ruby><a href="s{sw.stem.strongs}">{xlit}</a>'
+                        f'<rt>{sw.text}</rt></ruby></span>'
                     )
                 parts.append(' '.join(lemmas))
                 for note in token.notes:
@@ -312,20 +311,15 @@ class MySwordIntralinearFormatter(VerseFormatter):
     def preview_transform(self, scripture: str) -> str:
         return self._apply_rules(scripture, self.verse_rules)
 
-_MYSWORD_STACKED_CSS = """
-ruby { display: inline-flex; flex-direction: column-reverse; align-items: center;
-  color: #888; gap: 0px; font-size: 80%; vertical-align: middle; margin: 0 3px;
-  padding: 3px 0; line-height: 0.9}
-ruby > rt { font-size: 1.0em; }
-ruby > rt a { color: blue; text-decoration: none; }
-.ref {font-size: 0.65em; color: #333; background-color: #e8e8e8;
-       border-radius: 3px; padding: 0 2px; text-decoration: none; }
-"""
+_MYSWORD_STACKED_CSS = dedent("""\
+    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
+        padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
+    ruby {color: blue; display:block}
+    ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 1;}
+	ruby a {text-decoration: none;}
+""")
 
-_MYSWORD_STACKED_RULES = (
-    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<ruby>$2<rt><a href="s$1">$3</a></rt></ruby>'
-)
+_MYSWORD_STACKED_RULES = ''
 
 class MySwordStackedFormatter(MySwordIntralinearFormatter):
     """Stacked variant: same <lemma> verse content, different CSS/VerseRules."""
