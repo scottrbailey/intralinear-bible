@@ -274,6 +274,7 @@ def process_verse(
     emitted_target_ids: set[str] = set()   # BSB token IDs put into output records
     out_records: list[dict]      = []
     issues: list[str]            = []
+    new_rec_counter: int         = 0
 
     norm_fn = normalize_hebrew if lang in ('H', 'A') else normalize_greek
 
@@ -394,7 +395,11 @@ def process_verse(
         # This ensures the annotation attaches to exactly the English words the
         # e-sword cell covers, avoiding off-by-one errors when the existing
         # alignment grouped tokens differently than the e-sword does.
-        rec_id     = next(iter(covering.values())).record_id if covering else f"{verse_id}.new"
+        if covering:
+            rec_id = next(iter(covering.values())).record_id
+        else:
+            new_rec_counter += 1
+            rec_id = f"{verse_id}.new{new_rec_counter}"
         target_ids = list(bsb_ids)
 
         for sid in source_ids:
