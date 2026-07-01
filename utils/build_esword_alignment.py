@@ -140,16 +140,19 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
     Match e-sword cells (English display order) to BSB token ID spans.
     Returns ([(cell, [bsb_ids])], warnings).
     """
-    non_excl = [t for t in target_tokens if not t.exclude]
-    ptr      = 0
-    pairs    = []
-    warnings = []
+    # Scan all tokens that contain at least one letter — this includes excluded
+    # proper-name tokens like "Deborah" and "Allon-bachuth" (exclude='y' but
+    # alphabetic) while still skipping purely-punctuation tokens like "," and ".".
+    scannable = [t for t in target_tokens if any(c.isalpha() for c in t.text)]
+    ptr       = 0
+    pairs     = []
+    warnings  = []
 
     for cell in cells:
         eng = cell['english'].strip()
         if is_untranslated(eng):
             # Store adjacent token for position anchoring in alignment output
-            adj = non_excl[ptr].id if ptr < len(non_excl) else None
+            adj = scannable[ptr].id if ptr < len(scannable) else None
             pairs.append(({**cell, 'adjacent_id': adj}, []))
             continue
 
@@ -163,28 +166,28 @@ def build_cell_to_bsb_map(cells, target_tokens) -> tuple[list, list[str]]:
         saved_ptr = ptr
 
         for cw in cell_words:
-            if ptr >= len(non_excl):
+            if ptr >= len(scannable):
                 ok = False
                 break
-            bsb_w = _norm_eng_word(non_excl[ptr].text)
+            bsb_w = _norm_eng_word(scannable[ptr].text)
             if bsb_w == cw or (
                 len(cw) > 5 and cw.replace('h', '') == bsb_w.replace('h', '')
             ):
-                span_ids.append(non_excl[ptr].id)
+                span_ids.append(scannable[ptr].id)
                 ptr += 1
             else:
                 ok = False
                 break
 
         if not ok:
-            bsb_at = non_excl[saved_ptr].text if saved_ptr < len(non_excl) else 'EOF'
+            bsb_at = non_excl[saved_ptr].text if saved_ptr < len(scannable) else 'EOF'
             warnings.append(f"BSB mismatch: cell '{eng}' vs BSB '{bsb_at}'")
             ptr = saved_ptr
             pairs.append((cell, []))
         else:
             pairs.append((cell, span_ids))
 
-    if ptr < len(non_excl):
+    if ptr < len(scannable):
         warnings.append(f"Unmatched BSB tokens: {[t.text for t in non_excl[ptr:]]}")
 
     return pairs, warnings
