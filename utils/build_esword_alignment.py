@@ -551,6 +551,22 @@ def _should_process(testament: str, books_filter) -> bool:
     return any(b in _NT_ABBREV for b in (books_filter or ['Matt']))
 
 
+def _rekey_by_target(alignment_index: dict) -> dict:
+    """
+    Re-key alignment index by the verse of the first target token instead of
+    the record ID prefix. Fixes versification mismatches where BSB and the
+    source language number verses differently (e.g. Gen 32:32-33).
+    """
+    out: dict[str, list] = {}
+    for recs in alignment_index.values():
+        for rec in recs:
+            if not rec.target_ids:
+                continue
+            verse_id = rec.target_ids[0][:8]
+            out.setdefault(verse_id, []).append(rec)
+    return out
+
+
 def _build_verse_source_index(source_index: dict) -> dict:
     """
     Group source tokens by verse.
@@ -574,7 +590,7 @@ def run_testament(testament, cfg, esword_db, books_filter, out_dir, log_lines):
 
     print(f"Loading {testament.upper()} alignment index...")
     align_path = src_cfg.get('base_alignment') or src_cfg['alignment']
-    alignment_index = _load_alignment_index(align_path)
+    alignment_index = _rekey_by_target(_load_alignment_index(align_path))
 
     out_path     = out_dir / out_name
     total_recs   = 0
