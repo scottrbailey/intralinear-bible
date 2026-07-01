@@ -16,12 +16,12 @@ sources:
   ot:
     source:    "macula-hebrew/WLC/tsv/macula-hebrew.tsv"
     base_alignment: "Alignments/data/eng/alignments/BSB/WLCM-BSB-manual.json"
-    alignment: "intralinear-bible/output/WLCM-BSB-esword.ndjson"
+    alignment: "intralinear-bible/data/WLCM-BSB-esword.ndjson"
     target:    "Alignments/data/eng/targets/BSB/ot_BSB.tsv"
   nt:
     source:    "macula-greek/SBLGNT/tsv/macula-greek-SBLGNT.tsv"
     base_alignment: "Alignments/data/eng/alignments/BSB/SBLGNT-BSB-manual.json"
-    alignment: "intralinear-bible/output/SBLGNT-BSB-esword.ndjson"
+    alignment: "intralinear-bible/data/SBLGNT-BSB-esword.ndjson"
     target:    "Alignments/data/eng/targets/BSB/nt_BSB.tsv"
 
 # ── Transliteration ──────────────────────────────────────────
