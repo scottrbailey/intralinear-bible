@@ -220,6 +220,11 @@ def find_source_for_cell(cell, lang, verse_source_tokens, used_ids) -> tuple:
         v for s in cell['strongs'] if (v := norm_strong_esword(s, lang))
     }
 
+    # Build position index and find last-used position for proximity tiebreak.
+    tok_pos = {t.id: i for i, t in enumerate(verse_source_tokens)}
+    used_positions = [tok_pos[tid] for tid in used_ids if tid in tok_pos]
+    last_used = max(used_positions) if used_positions else -1
+
     # Group tokens into display-words by the `after` field.
     words: list[list] = []
     current: list = []
@@ -251,7 +256,12 @@ def find_source_for_cell(cell, lang, verse_source_tokens, used_ids) -> tuple:
     def _pick(pool, label):
         if len(pool) == 1:
             return [t.id for t in pool[0][0]], label
-        return None, f'{len(pool)} {label} matches (ambiguous)'
+        # Ambiguous — pick the candidate closest to where we last matched.
+        def _dist(c):
+            pos = tok_pos.get(c[0][0].id, 0)
+            return abs(pos - last_used)
+        best = min(pool, key=_dist)
+        return [t.id for t in best[0]], f'{label} (proximity)'
 
     if both:        return _pick(both, 'script+strong')
     if script_only: return _pick(script_only, 'script')
