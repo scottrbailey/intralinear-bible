@@ -15,6 +15,19 @@ class MySwordWriter(SQLiteBibleWriter):
 
     _table_name = 'Bible'
 
+    def add_verse(self, osis_ref: str, tokens: list,
+                  header: str = None, xrefs: dict = None) -> None:
+        verse_xrefs = []
+        if self.xref and xrefs:
+            verse_xrefs = [{'key': k, 'text': v} for k, v in xrefs.items()]
+
+        self._add_verse_impl(
+            osis_ref, tokens,
+            header=header,
+            xrefs=verse_xrefs,
+            xref_placement=self.xref,
+        )
+
     def insert_details(self):
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS Details (

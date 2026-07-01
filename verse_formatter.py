@@ -262,10 +262,9 @@ _MYSWORD_INTRALINEAR_CSS = dedent("""\
         padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
     ruby {color: blue; display:block}
     ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 0;}
-	ruby a {text-decoration: none;}
+    ruby a {text-decoration: none;}
 """)
 
-# Tab between pattern and replacement is required by MySword.
 _MYSWORD_INTRALINEAR_RULES = ''
 
 class MySwordIntralinearFormatter(VerseFormatter):
@@ -277,10 +276,13 @@ class MySwordIntralinearFormatter(VerseFormatter):
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
-        """Render tokens with <lemma sn="..."> tags; MySword VerseRules transforms them."""
+        """Render tokens with <span class="ilb"><ruby> markup for lemma display."""
+        xrefs = xrefs or []
         parts = []
         if header:
             parts.append(f"<TS>{header}<Ts>")
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
 
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -306,23 +308,30 @@ class MySwordIntralinearFormatter(VerseFormatter):
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
 
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
         return ''.join(parts)
 
     def preview_transform(self, scripture: str) -> str:
         return self._apply_rules(scripture, self.verse_rules)
+
+    @staticmethod
+    def _xref_markers(xrefs: list) -> str:
+        return ''.join(f"<RF q=R{vx['key']}>{vx['text']}<Rf>" for vx in xrefs)
 
 _MYSWORD_STACKED_CSS = dedent("""\
     .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
         padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
     ruby {color: blue; display:block}
     ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 1;}
-	ruby a {text-decoration: none;}
+    ruby a {text-decoration: none;}
 """)
 
 _MYSWORD_STACKED_RULES = ''
 
 class MySwordStackedFormatter(MySwordIntralinearFormatter):
-    """Stacked variant: same <lemma> verse content, different CSS/VerseRules."""
+    """Stacked variant: same verse content, different CSS."""
     abbreviation = "BSBis"
     module_name  = "BSB Intralinear Bible (Stacked)"
     css          = _MYSWORD_STACKED_CSS
@@ -345,9 +354,12 @@ class MySwordReverseInterlinearFormatter(VerseFormatter):
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
         """Render tokens with GBF tags for MySword interlinear display."""
+        xrefs = xrefs or []
         parts = []
         if header:
             parts.append(f"<TS>{header}<Ts>")
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
 
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -373,4 +385,11 @@ class MySwordReverseInterlinearFormatter(VerseFormatter):
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
 
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
         return ''.join(parts)
+
+    @staticmethod
+    def _xref_markers(xrefs: list) -> str:
+        return ''.join(f"<RF q=R{vx['key']}>{vx['text']}<Rf>" for vx in xrefs)
