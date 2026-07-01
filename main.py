@@ -53,7 +53,7 @@ def load_config(path: str = "config.yaml") -> dict:
             src[key] = data_root / src[key]
 
     cfg["annotations"] = Path(cfg.get("annotations", "data/bsb_annotations.json"))
-    cfg["tsk"]         = Path(cfg.get("tsk", "data/tsk_xrefs.json"))
+    cfg["crossrefs"]   = Path(cfg.get("crossrefs", "data/bsb_xrefs.json"))
     cfg["output"]["dir"] = Path(cfg["output"]["dir"])
 
     cfg["abbrev"] = {

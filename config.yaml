@@ -29,7 +29,7 @@ transliteration:
 
 # ── Annotations ──────────────────────────────────────────────
 annotations: "data/bsb_annotations.json"
-tsk:         "data/tsk_xrefs.json"
+crossrefs:   "data/bsb_xrefs.json"
 
 # ── Output ───────────────────────────────────────────────────
 output:
