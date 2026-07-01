@@ -429,7 +429,14 @@ def process_verse(
             rec_toks = [source_index[sid] for sid in rec.source_ids if sid in source_index]
             existing_script = concat_script(rec_toks, lang)
 
-            if esword_script and esword_script == existing_script:
+            script_match = bool(
+                esword_script and existing_script and (
+                    esword_script == existing_script or
+                    esword_script in existing_script or
+                    existing_script in esword_script
+                )
+            )
+            if script_match:
                 source_ids = rec.source_ids
             else:
                 corrected, confidence = find_source_for_cell(
@@ -481,7 +488,14 @@ def process_verse(
                 merged_toks   = [source_index[sid] for sid in merged_source_ids if sid in source_index]
                 merged_script = concat_script(merged_toks, lang)
 
-                if esword_script and esword_script == merged_script:
+                merged_script_match = bool(
+                    esword_script and merged_script and (
+                        esword_script == merged_script or
+                        esword_script in merged_script or
+                        merged_script in esword_script
+                    )
+                )
+                if merged_script_match:
                     source_ids = merged_source_ids
                 else:
                     corrected, confidence = find_source_for_cell(
