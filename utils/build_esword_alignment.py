@@ -332,11 +332,30 @@ def process_verse(
                                     if tid not in fb_target:
                                         fb_target.append(tid)
                             rec_id = next(iter(fb_covering.values())).record_id
-                            out_records.append({
-                                'source': source_ids,
-                                'target': fb_target,
-                                'meta': {'id': rec_id, 'origin': 'esword', 'status': 'created'},
-                            })
+                            # If an untranslated record was already emitted for
+                            # the same target (e.g. allon ~ before Allon-bachuth),
+                            # merge into one record rather than emitting a duplicate.
+                            merged = False
+                            fb_target_set = set(fb_target)
+                            for i, prev in enumerate(out_records):
+                                if (prev['meta'].get('status') == 'untranslated' and
+                                        set(prev['target']) == fb_target_set):
+                                    merged_src = list(prev['source']) + [
+                                        s for s in source_ids if s not in prev['source']
+                                    ]
+                                    out_records[i] = {
+                                        'source': merged_src,
+                                        'target': fb_target,
+                                        'meta': {'id': rec_id, 'origin': 'esword', 'status': 'created'},
+                                    }
+                                    merged = True
+                                    break
+                            if not merged:
+                                out_records.append({
+                                    'source': source_ids,
+                                    'target': fb_target,
+                                    'meta': {'id': rec_id, 'origin': 'esword', 'status': 'created'},
+                                })
                             for sid in source_ids:
                                 used_source_ids.add(sid)
                             emitted_rec_ids.update(fb_covering.keys())
