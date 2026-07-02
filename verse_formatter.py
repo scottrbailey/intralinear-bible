@@ -262,10 +262,16 @@ _XREF_REF_RE = re.compile(r'^(\S+)\s+(\d+):(\d+)(?:-(\d+))?$')
 
 
 def _mysword_rx_tags(text: str) -> str:
-    """Convert 'Joh 1:1-5; Heb 11:1-3' style refs to MySword <RX b.c.v-v> tags."""
+    """Convert 'Joh 1:1-5; Heb 11:1-3' style refs to '<RX b.c.v-v>label' pairs.
+
+    RX is a bare milestone tag with no visible label of its own, so each tag
+    is followed by its own ref text — a note popup containing only RX tags
+    and nothing else renders as blank.
+    """
     tags = []
     for ref in text.split(';'):
-        m = _XREF_REF_RE.match(ref.strip())
+        ref = ref.strip()
+        m = _XREF_REF_RE.match(ref)
         if not m:
             continue
         abbrev, chapter, verse, verse_end = m.groups()
@@ -275,8 +281,8 @@ def _mysword_rx_tags(text: str) -> str:
         loc = f"{book_num}.{chapter}.{verse}"
         if verse_end:
             loc += f"-{verse_end}"
-        tags.append(f"<RX{loc}>")
-    return ''.join(tags)
+        tags.append(f"<RX{loc}>{ref}")
+    return '; '.join(tags)
 
 
 def _mysword_xref_markers(xrefs: list) -> str:
