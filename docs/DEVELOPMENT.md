@@ -10,14 +10,15 @@ transliteration linked to Strong's concordance.
 
 ## Output Targets
 
-| Format   | Mode                | Abbreviation | File              |
-|----------|---------------------|--------------|-------------------|
-| e-Sword  | Intralinear         | `BSBi`       | `BSBi.bbli`       |
-| e-Sword  | Reverse interlinear | `BSBri`      | `BSBri.bbli`      |
-| MySword  | Intralinear         | `BSBi`       | `BSBi.bbl.mybible`  |
-| MySword  | Intralinear stacked | `BSBis`      | `BSBis.bbl.mybible` |
-| MySword  | Reverse interlinear | `BSBri`      | `BSBri.bbl.mybible` |
-| OSIS XML | Intralinear         | `BSBi`       | `BSBi.osis.xml`   |
+| Format   | Mode                 | Abbreviation | File                 |
+|----------|----------------------|--------------|----------------------|
+| e-Sword  | Intralinear          | `BSTB`       | `BSTB.bbli`          |
+| e-Sword  | Intralinear stacked  | `BSXB`       | `BSXB.bbli`          |
+| e-Sword  | Reverse interlinear  | `BSBri`      | `BSBri.bbli`         |
+| MySword  | Intralinear          | `BSTB`       | `BSTB.bbl.mybible`   |
+| MySword  | Intralinear stacked  | `BSXB`       | `BSXB.bbl.mybible`   |
+| MySword  | Reverse interlinear  | `BSBri`      | `BSBri.bbl.mybible`  |
+| OSIS XML | Intralinear          | `BSBi`       | `BSBi.osis.xml`      |
 
 ---
 
@@ -60,7 +61,7 @@ Output files are written to the directory set in `config.yaml → output.dir`.
 ```yaml
 # Module identity
 version:     "1.0.1"
-translation: "BSB"          # drives module abbreviations (BSBi, BSBis, BSBri)
+translation: "BSB"
 
 # Source data (paths relative to data_root)
 data_root: "../"

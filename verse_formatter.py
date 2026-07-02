@@ -148,7 +148,7 @@ _ESWORD_STACKED_CSS = dedent('''\
 )
 
 class ESwordStackedFormatter(ESwordIntralinearFormatter):
-    abbreviation   = "BSXB+"
+    abbreviation   = "BSXB"
     module_name    = "Berean Standard Translinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_STACKED_CSS
@@ -370,7 +370,7 @@ _MYSWORD_STACKED_RULES = ''
 
 class MySwordStackedFormatter(MySwordIntralinearFormatter):
     """Stacked variant: same verse content, different CSS."""
-    abbreviation = "BSXB+"
+    abbreviation = "BSXB"
     module_name  = "Berean Standard Translinear Bible"
     css          = _MYSWORD_STACKED_CSS
     verse_rules  = _MYSWORD_STACKED_RULES
