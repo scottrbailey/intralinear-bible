@@ -84,9 +84,9 @@ If you want to use the Intralinear Bible on iOS, this is your only choice.
 - **Hebrew and Greek** — The "Stacked" version has the original Hebrew, Aramaic and Greek text below the transliteration.  
 - **Strong's Links** — Tap any transliteration to open the corresponding Strong's lexicon entry explaining the word's meaning and usage.
 - **Translator Notes** — Footnotes from the BSB translation team are included and accessible by tapping the note markers.
-- **Cross-References** — Treasury of Scripture Knowledge (TSK) cross-references are available as separate modules in both e-Sword and MySword. They can be toggled on in the config file.
+- **Cross-References** — BSB parallel-passage cross-references are available as separate modules in both e-Sword and MySword. They can be toggled on in the config file.
 - **Section Headers** — Because e-Sword and MySword both have their own section headers (called pericopes), the headers from the BSB were not included by default. They can be toggled on in the config file.
-- **Configurable** — To change the transliteration scheme, include section headers or TSK cross-references, clone this repository, change the config.yaml file, and download the sources from [Clear-Bible](https://github.com/Clear-Bible), see notes in [DEVELOPMENT.md](DEVELOPMENT.md)
+- **Configurable** — To change the transliteration scheme, include section headers or cross-references, clone this repository, change the config.yaml file, and download the sources from [Clear-Bible](https://github.com/Clear-Bible), see notes in [DEVELOPMENT.md](DEVELOPMENT.md)
 
 ---
 

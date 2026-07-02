@@ -9,6 +9,7 @@ import json
 import re
 from pathlib import Path
 
+import dbtk.readers
 from biblelib.book import Books
 
 from models import (
@@ -68,7 +69,8 @@ class BibleComposer:
         headers_index = annotations.get('headers', {}) if need_headers else {}
         notes_index   = annotations.get('notes',   {}) if need_notes   else {}
 
-        tsk = _load_tsk(self.config['tsk']) if need_xref and self.config.get('tsk') else {}
+        crossrefs = (_load_crossrefs(self.config['crossrefs'])
+                     if need_xref and self.config.get('crossrefs') else {})
 
         for testament in ('ot', 'nt'):
             if testament not in sources:
@@ -76,7 +78,7 @@ class BibleComposer:
             if not self._should_process(testament):
                 continue
             yield from self._iter_testament(
-                testament, sources[testament], headers_index, notes_index, tsk
+                testament, sources[testament], headers_index, notes_index, crossrefs
             )
 
     # --------------------------------------------------------------- internals
@@ -87,7 +89,7 @@ class BibleComposer:
             return any(b in _OT_ABBREV for b in (books_filter or ['Gen']))
         return any(b in _NT_ABBREV for b in (books_filter or ['Matt']))
 
-    def _iter_testament(self, testament, tcfg, headers_index, notes_index, tsk):
+    def _iter_testament(self, testament, tcfg, headers_index, notes_index, crossrefs):
         print(f"\n{'='*60}")
         print(f"Processing {testament.upper()}")
         print(f"{'='*60}")
@@ -102,7 +104,7 @@ class BibleComposer:
                                         alignment_records, source_index, notes_index)
             osis_ref = verse_id_to_osis(verse_id)
             header   = headers_index.get(osis_ref)
-            xrefs    = tsk.get(verse_id, {})
+            xrefs    = crossrefs.get(verse_id, {})
             verse_count += 1
             yield osis_ref, tokens, header, xrefs
 
@@ -131,13 +133,13 @@ def _load_annotations(path: Path) -> dict:
     return data
 
 
-def _load_tsk(path: Path) -> dict:
+def _load_crossrefs(path: Path) -> dict:
     if not path.exists():
-        print(f"  Warning: TSK file not found at {path}, skipping")
+        print(f"  Warning: cross-reference file not found at {path}, skipping")
         return {}
     with open(path, encoding='utf-8') as f:
         data = json.load(f)
-    print(f"  Loaded TSK cross references from {path.name}")
+    print(f"  Loaded cross references from {path.name}")
     return data
 
 
@@ -174,10 +176,14 @@ def _load_source_index(path: Path, testament: str) -> dict:
 
 
 def _load_alignment_index(path: Path) -> dict:
-    with open(path, encoding='utf-8') as f:
-        data = json.load(f)
+    if path.suffix == '.json':
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        rows = data['records']
+    elif path.suffix == '.ndjson':
+        rows = dbtk.readers.get_reader(path)
     index = {}
-    for rec in data['records']:
+    for rec in rows:
         record   = AlignmentRecord(
             source_ids=rec['source'],
             target_ids=rec['target'],

@@ -81,7 +81,7 @@ transliteration:
 
 # Annotation sources
 annotations: "data/bsb_annotations.json"
-tsk:         "data/tsk_xrefs.json"
+crossrefs:   "data/bsb_xrefs.json"
 
 # Output options
 output:
@@ -118,7 +118,7 @@ intralinear-bible/
 ├── config.yaml          # default pipeline configuration
 └── data/
     ├── bsb_annotations.json   # section headers and translator footnotes
-    └── tsk_xrefs.json         # Treasury of Scripture Knowledge cross-references
+    └── bsb_xrefs.json         # BSB parallel-passage cross-references
 ```
 
 ---

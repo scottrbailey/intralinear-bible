@@ -53,7 +53,7 @@ def load_config(path: str = "config.yaml") -> dict:
             src[key] = data_root / src[key]
 
     cfg["annotations"] = Path(cfg.get("annotations", "data/bsb_annotations.json"))
-    cfg["tsk"]         = Path(cfg.get("tsk", "data/tsk_xrefs.json"))
+    cfg["crossrefs"]   = Path(cfg.get("crossrefs", "data/bsb_xrefs.json"))
     cfg["output"]["dir"] = Path(cfg["output"]["dir"])
 
     cfg["abbrev"] = {
@@ -119,7 +119,7 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'esword':
         if render_mode == 'intralinear':
-            profile_cls = ESwordIntralinearFormatter
+            return [esword(ESwordIntralinearFormatter), esword(ESwordStackedFormatter)]
         elif render_mode == 'stacked':
             profile_cls = ESwordStackedFormatter
         else:

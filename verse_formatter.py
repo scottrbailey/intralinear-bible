@@ -16,7 +16,8 @@ never emits the corresponding tags and the CSS for them is never exercised.
 import re
 from abc import ABC, abstractmethod
 from textwrap import dedent
-
+from collections.abc import Callable
+from bible_books import ABBREV_TO_BOOK_NUM
 from translit import make_transliterator
 
 
@@ -49,7 +50,7 @@ class VerseFormatter(ABC):
     css:            str = ""
     verse_rules:    str = ""
 
-    def __init__(self, transliterate: callable = None):
+    def __init__(self, transliterate: Callable = None):
         self.transliterate = transliterate or make_transliterator()
 
     @abstractmethod
@@ -72,22 +73,87 @@ class VerseFormatter(ABC):
             result = re.sub(pattern, replacement, result)
         return result
 
-# ============================================================ e-Sword CSS
 
-_ESWORD_INTRALINEAR_CSS = (
-    '.stk{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:super;font-size:0.65em;color:blue;line-height:0.9}'
-    'span.stk a{opacity:0 !important;}'
+# ============================================================ e-Sword profiles
+_ESWORD_INTRALINEAR_CSS = dedent('''\
+    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
+        padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
+    ruby {color: blue; display:block}
+    ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 0;}
+    .ilb ruby ~ * {position: absolute; z-index:9999; top:0.5em; left:0; right: 0; text-align: center; opacity: 0;}'''
 )
 
-_ESWORD_STACKED_CSS = (
-    '.stk {display:inline-flex; flex-direction:column; align-items:center;vertical-align:super; font-size:0.75em; gap:4px;'
-    'color:#999 !important; line-height:1.3 !important; padding:4px 0; position:relative; height: 2.4em; overflow: hidden}\n'
-    '.stk.xlit{color: blue}\n'
-    '.stk >.heb{font-size:0.9em;}\n'
-    '.stk >.grk {font-size:0.85em;}\n'
-    '.stk.heb ~ *, .stk.grk ~ * {position:absolute; z-index:9999; top:0.5em; bottom:0.5em; left:0; right:0; text-align:center; opacity:0;}'
+class ESwordIntralinearFormatter(VerseFormatter):
+    abbreviation   = "BSTB"
+    module_name    = "Berean Standard Transliterated Bible"
+    file_extension = ".bbli"
+    css            = _ESWORD_INTRALINEAR_CSS
+
+    def render_verse(self, tokens, header=None, note_id_map=None,
+                     xrefs=None, xref_placement=0) -> str:
+        note_id_map = note_id_map or {}
+        xrefs       = xrefs or []
+        parts       = []
+
+        if header:
+            parts.append(f'<b class="headline">{header}</b><br>')
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(token.english)
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+            else:
+                parts.append(token.english)
+                parts.append(' ')
+                lemmas = []
+                for sw in token.source_words:
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    # yes I know the ruby / rt tags are semantically inverted - easier to hide rt
+                    lemmas.append(
+                        f'<span class="ilb">'
+                        f'<ruby>{xlit}<rt>{sw.text}</rt></ruby>'
+                        f'<num>{sw.stem.strongs}</num>'
+                        f'</span>'
+                    )
+                parts.append(' '.join(lemmas))
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
+        return ''.join(parts)
+
+    @staticmethod
+    def _xref_markers(xrefs: list) -> str:
+        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
+
+
+_ESWORD_STACKED_CSS = dedent('''\
+    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
+        padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
+    ruby {color: blue; display:block}
+    ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 1;}
+    .ilb ruby ~ * {position: absolute; z-index:9999; top:0.5em; left:0; right: 0; text-align: center; opacity: 0;}'''
 )
+
+class ESwordStackedFormatter(ESwordIntralinearFormatter):
+    abbreviation   = "BSXB+"
+    module_name    = "Berean Standard Translinear Bible"
+    file_extension = ".bbli"
+    css            = _ESWORD_STACKED_CSS
+
+
 
 _ESWORD_INTERLINEAR_CSS = (
     'qi{display:inline-flex;flex-direction:column;align-items:center;'
@@ -100,118 +166,6 @@ _ESWORD_INTERLINEAR_CSS = (
     '.xlit{color:#2244aa}'
     'tvm{color:#666}'
 )
-
-# ============================================================ e-Sword profiles
-
-class ESwordIntralinearFormatter(VerseFormatter):
-    abbreviation   = "BSBi"
-    module_name    = "Berean Standard Bible Intralinear"
-    file_extension = ".bbli"
-    css            = _ESWORD_INTRALINEAR_CSS
-
-    def render_verse(self, tokens, header=None, note_id_map=None,
-                     xrefs=None, xref_placement=0) -> str:
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-
-        if header:
-            parts.append(f'<b class="headline">{header}</b><br>')
-        if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                parts.append(token.english)
-                parts.append(' ')
-                lemmas = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    lemmas.append(
-                        f'<span class="stk">'
-                        f'{xlit} '
-                        f'<num>{sw.stem.strongs}</num>'
-                        f'</span>'
-                    )
-                parts.append(' '.join(lemmas))
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
-
-        return ''.join(parts)
-
-    @staticmethod
-    def _xref_markers(xrefs: list) -> str:
-        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
-
-class ESwordStackedFormatter(VerseFormatter):
-    abbreviation   = "BSBis"
-    module_name    = "Berean Standard Bible Intralinear Stacked"
-    file_extension = ".bbli"
-    css            = _ESWORD_INTRALINEAR_CSS
-
-    def render_verse(self, tokens, header=None, note_id_map=None,
-                     xrefs=None, xref_placement=0) -> str:
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-
-        if header:
-            parts.append(f'<b class="headline">{header}</b><br>')
-        if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                parts.append(token.english)
-                parts.append(' ')
-                lemmas = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    lang_cls = 'grk' if sw.lang == 'G' else 'heb'
-                    lemmas.append(
-                        f'<span class="stk">'
-                        f'<span class="xlit">{xlit}</span> '
-                        f'<span class="{lang_cls}">{sw.text}</span>'
-                        f'<num>{sw.stem.strongs}</num>'
-                        f'</span>'
-                    )
-                parts.append(' '.join(lemmas))
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
-
-        return ''.join(parts)
-
-    @staticmethod
-    def _xref_markers(xrefs: list) -> str:
-        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
 
 class ESwordReverseInterlinearFormatter(VerseFormatter):
     abbreviation   = "BSBri"
@@ -302,58 +256,71 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
     def _xref_markers(xrefs: list) -> str:
         return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
 
-# ============================================================ MySword CSS / VerseRules
-
-_MYSWORD_INTRALINEAR_CSS = """
-sup { font-size: 75%; }
-.xlit a { color: blue; text-decoration: none; }
-.ref { font-size: 0.65em; color: #333; background-color: #e8e8e8;
-       border-radius: 3px; padding: 0 2px; text-decoration: none; }
-"""
-
-# Tab between pattern and replacement is required by MySword.
-_MYSWORD_INTRALINEAR_RULES = (
-    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlit"><a href="s$1">$3</a></sup>\n'
-)
-
-_MYSWORD_STACKED_CSS = """
-ruby { display: inline-flex; flex-direction: column-reverse; align-items: center;
-  color: #888; gap: 0px; font-size: 80%; vertical-align: middle; margin: 0 3px;
-  padding: 3px 0; line-height: 0.9}
-ruby > rt { font-size: 1.0em; }
-ruby > rt a { color: blue; text-decoration: none; }
-.ref {font-size: 0.65em; color: #333; background-color: #e8e8e8;
-       border-radius: 3px; padding: 0 2px; text-decoration: none; }
-"""
-
-_MYSWORD_STACKED_RULES = (
-    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<ruby>$2<rt><a href="s$1">$3</a></rt></ruby>'
-)
-
-_MYSWORD_INTERLINEAR_CSS = """
-sup { font-size: 70%; }
-.xlit a { color: blue; text-decoration: none; }
-"""
-
-_MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
-
 # ============================================================ MySword profiles
 
+_XREF_REF_RE = re.compile(r'^(\S+)\s+(\d+):(\d+)(?:-(\d+))?$')
+
+
+def _mysword_rx_tags(text: str) -> str:
+    """Convert 'Joh 1:1-5; Heb 11:1-3' style refs to '<RX b.c.v-v>label' pairs.
+
+    RX is a bare milestone tag with no visible label of its own, so each tag
+    is followed by its own ref text — a note popup containing only RX tags
+    and nothing else renders as blank.
+    """
+    tags = []
+    for ref in text.split(';'):
+        ref = ref.strip()
+        m = _XREF_REF_RE.match(ref)
+        if not m:
+            continue
+        abbrev, chapter, verse, verse_end = m.groups()
+        book_num = ABBREV_TO_BOOK_NUM.get(abbrev)
+        if not book_num:
+            continue
+        loc = f"{book_num}.{chapter}.{verse}"
+        if verse_end:
+            loc += f"-{verse_end}"
+        tags.append(f"<RX{loc}>{ref}")
+    return '; '.join(tags)
+
+
+def _mysword_xref_markers(xrefs: list) -> str:
+    """One <RF q=R{key}>...<Rf> per xref group, nesting each group's <RX> tags."""
+    parts = []
+    for vx in xrefs:
+        rx_tags = _mysword_rx_tags(vx['text'])
+        if rx_tags:
+            parts.append(f"<RF q=R{vx['key']}>{rx_tags}<Rf>")
+    return ''.join(parts)
+
+
+_MYSWORD_INTRALINEAR_CSS = dedent("""\
+	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; 
+	    padding:2px 0; position:relative; font-size:0.8em;}
+    ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 0;}
+    ruby > rt {display:block; font-size: 1.1em; color: blue;}
+    ruby a {text-decoration: none;}
+""")
+
+_MYSWORD_INTRALINEAR_RULES = ''
+
 class MySwordIntralinearFormatter(VerseFormatter):
-    abbreviation   = "BSBi"
-    module_name    = "BSB Intralinear Bible"
+    abbreviation   = "BSTB"
+    module_name    = "Berean Standard Transliterated Bible"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTRALINEAR_CSS
     verse_rules    = _MYSWORD_INTRALINEAR_RULES
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
-        """Render tokens with <lemma sn="..."> tags; MySword VerseRules transforms them."""
+        """Render tokens with <span class="ilb"><ruby> markup for lemma display."""
+        xrefs = xrefs or []
         parts = []
         if header:
             parts.append(f"<TS>{header}<Ts>")
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
 
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -369,7 +336,8 @@ class MySwordIntralinearFormatter(VerseFormatter):
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     lemmas.append(
-                        f'<lemma sn="{sw.stem.strongs}" o="{sw.text}">{xlit}</lemma>'
+                        f'<span class="ilb"><ruby><rt><a href="s{sw.stem.strongs}">{xlit}</a></rt>'
+                        f'<ro>{sw.text}</ro></ruby></span>'
                     )
                 parts.append(' '.join(lemmas))
                 for note in token.notes:
@@ -378,19 +346,41 @@ class MySwordIntralinearFormatter(VerseFormatter):
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
 
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
         return ''.join(parts)
 
     def preview_transform(self, scripture: str) -> str:
         return self._apply_rules(scripture, self.verse_rules)
 
+    @staticmethod
+    def _xref_markers(xrefs: list) -> str:
+        return _mysword_xref_markers(xrefs)
+
+_MYSWORD_STACKED_CSS = dedent("""\
+	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; 
+	    padding:4px 0; position:relative; font-size:0.8em; line-height: 1;}
+    ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 1;}
+    ruby > rt {display:block; font-size: 1.1em; color: blue;}
+    ruby a {text-decoration: none;}
+""")
+
+_MYSWORD_STACKED_RULES = ''
 
 class MySwordStackedFormatter(MySwordIntralinearFormatter):
-    """Stacked variant: same <lemma> verse content, different CSS/VerseRules."""
-    abbreviation = "BSBis"
-    module_name  = "BSB Intralinear Bible (Stacked)"
+    """Stacked variant: same verse content, different CSS."""
+    abbreviation = "BSXB+"
+    module_name  = "Berean Standard Translinear Bible"
     css          = _MYSWORD_STACKED_CSS
     verse_rules  = _MYSWORD_STACKED_RULES
 
+_MYSWORD_INTERLINEAR_CSS = """
+sup { font-size: 70%; }
+.xlit a { color: blue; text-decoration: none; }
+"""
+
+_MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 class MySwordReverseInterlinearFormatter(VerseFormatter):
     abbreviation   = "BSBri"
@@ -402,9 +392,12 @@ class MySwordReverseInterlinearFormatter(VerseFormatter):
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
         """Render tokens with GBF tags for MySword interlinear display."""
+        xrefs = xrefs or []
         parts = []
         if header:
             parts.append(f"<TS>{header}<Ts>")
+        if xref_placement == 1:
+            parts.append(self._xref_markers(xrefs))
 
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -430,4 +423,11 @@ class MySwordReverseInterlinearFormatter(VerseFormatter):
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
 
+        if xref_placement == 2:
+            parts.append(self._xref_markers(xrefs))
+
         return ''.join(parts)
+
+    @staticmethod
+    def _xref_markers(xrefs: list) -> str:
+        return _mysword_xref_markers(xrefs)

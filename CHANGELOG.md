@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.2] - 2026-07-02
+
+### Added
+- **BSB parallel-passage cross-references** (`utils/extract_bsb_xrefs.py`, `data/bsb_xrefs.json`): replaces the ~500,000-entry TSK cross-reference set with a much smaller, more useful set extracted directly from BSB USX source files' `<para style="r">` section references. Each is attached to the next verse encountered after it in the file.
+- **`bible_books.py`**: canonical USX-code / display-abbreviation / book-number (1-66) table shared by the extraction script and the verse formatters, so the abbreviation scheme is defined once and book numbers are derived from `biblelib` rather than hand-counted.
+- **MySword cross-reference rendering**: cross-references now render as real, tappable links using MySword's `<RX b.c.v[-v]>` tag, with each verse's group of references nested inside one `<RF q=R{key}>...<Rf>` popup (plus the reference's own display text, since bare `RX` tags have no visible label of their own).
+- **MySword lemma rendering reworked to match e-Sword**: both now emit `<span class="ilb"><ruby>...` markup directly (previously MySword emitted `<lemma sn="...">` tags transformed by a VerseRules regex at render time).
+
+### Changed
+- Config key `tsk` renamed to the generic `crossrefs`, now pointing at `data/bsb_xrefs.json` by default.
+- `output.xref` defaults to `1` (cross-references shown at the start of the verse) instead of `0`.
+
+### Fixed
+- MySword builds were silently dropping cross-references entirely: `MySwordWriter` never forwarded `xref_placement` to the renderer, and none of the MySword formatters referenced their `xrefs` parameter at all.
+- `textwrap.dedent()` was a no-op on the MySword CSS blocks because one line was tab-indented while its siblings used spaces, so the dedent call found no common prefix to strip.
+- MySword cross-reference popups rendered blank on-device: the popup content was nothing but bare `<RX>` milestone tags with no accompanying visible text for the popup to display.
+
 ## [1.0.1] - 2026-06-25
 
 ### Added
