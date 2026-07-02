@@ -257,6 +257,52 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
 
 # ============================================================ MySword profiles
 
+# Display abbreviation -> book number (1-66), matching the canonical order used
+# by utils/extract_bsb_xrefs.py. MySword's <RX b.c.v> tag addresses books by
+# this numeric index, not by abbreviation.
+_XREF_BOOK_NUM = {
+    abbrev: n for n, abbrev in enumerate((
+        'Gen', 'Exo', 'Lev', 'Num', 'Deu', 'Jos', 'Jdg', 'Rut', '1Sa', '2Sa',
+        '1Ki', '2Ki', '1Ch', '2Ch', 'Ezr', 'Neh', 'Est', 'Job', 'Psa', 'Pro',
+        'Ecc', 'Sol', 'Isa', 'Jer', 'Lam', 'Eze', 'Dan', 'Hos', 'Joe', 'Amo',
+        'Oba', 'Jon', 'Mic', 'Nah', 'Hab', 'Zep', 'Hag', 'Zec', 'Mal',
+        'Mat', 'Mar', 'Luk', 'Joh', 'Act', 'Rom', '1Co', '2Co', 'Gal', 'Eph',
+        'Php', 'Col', '1Th', '2Th', '1Ti', '2Ti', 'Tit', 'Phm', 'Heb', 'Jas',
+        '1Pe', '2Pe', '1Jo', '2Jo', '3Jo', 'Jude', 'Rev',
+    ), start=1)
+}
+
+_XREF_REF_RE = re.compile(r'^(\S+)\s+(\d+):(\d+)(?:-(\d+))?$')
+
+
+def _mysword_rx_tags(text: str) -> str:
+    """Convert 'Joh 1:1-5; Heb 11:1-3' style refs to MySword <RX b.c.v-v> tags."""
+    tags = []
+    for ref in text.split(';'):
+        m = _XREF_REF_RE.match(ref.strip())
+        if not m:
+            continue
+        abbrev, chapter, verse, verse_end = m.groups()
+        book_num = _XREF_BOOK_NUM.get(abbrev)
+        if not book_num:
+            continue
+        loc = f"{book_num}.{chapter}.{verse}"
+        if verse_end:
+            loc += f"-{verse_end}"
+        tags.append(f"<RX{loc}>")
+    return ''.join(tags)
+
+
+def _mysword_xref_markers(xrefs: list) -> str:
+    """One <RF q=R{key}>...<Rf> per xref group, nesting each group's <RX> tags."""
+    parts = []
+    for vx in xrefs:
+        rx_tags = _mysword_rx_tags(vx['text'])
+        if rx_tags:
+            parts.append(f"<RF q=R{vx['key']}>{rx_tags}<Rf>")
+    return ''.join(parts)
+
+
 _MYSWORD_INTRALINEAR_CSS = dedent("""\
 	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; padding:2px 0; position:relative; font-size:0.8em;}
     ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 0;}
@@ -317,7 +363,7 @@ class MySwordIntralinearFormatter(VerseFormatter):
 
     @staticmethod
     def _xref_markers(xrefs: list) -> str:
-        return ''.join(f"<RF q=R{vx['key']}>{vx['text']}<Rf>" for vx in xrefs)
+        return _mysword_xref_markers(xrefs)
 
 _MYSWORD_STACKED_CSS = dedent("""\
 	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; 
@@ -391,4 +437,4 @@ class MySwordReverseInterlinearFormatter(VerseFormatter):
 
     @staticmethod
     def _xref_markers(xrefs: list) -> str:
-        return ''.join(f"<RF q=R{vx['key']}>{vx['text']}<Rf>" for vx in xrefs)
+        return _mysword_xref_markers(xrefs)
