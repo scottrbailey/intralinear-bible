@@ -17,6 +17,7 @@ import re
 from abc import ABC, abstractmethod
 from textwrap import dedent
 from collections.abc import Callable
+from bible_books import ABBREV_TO_BOOK_NUM
 from translit import make_transliterator
 
 
@@ -257,21 +258,6 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
 
 # ============================================================ MySword profiles
 
-# Display abbreviation -> book number (1-66), matching the canonical order used
-# by utils/extract_bsb_xrefs.py. MySword's <RX b.c.v> tag addresses books by
-# this numeric index, not by abbreviation.
-_XREF_BOOK_NUM = {
-    abbrev: n for n, abbrev in enumerate((
-        'Gen', 'Exo', 'Lev', 'Num', 'Deu', 'Jos', 'Jdg', 'Rut', '1Sa', '2Sa',
-        '1Ki', '2Ki', '1Ch', '2Ch', 'Ezr', 'Neh', 'Est', 'Job', 'Psa', 'Pro',
-        'Ecc', 'Sol', 'Isa', 'Jer', 'Lam', 'Eze', 'Dan', 'Hos', 'Joe', 'Amo',
-        'Oba', 'Jon', 'Mic', 'Nah', 'Hab', 'Zep', 'Hag', 'Zec', 'Mal',
-        'Mat', 'Mar', 'Luk', 'Joh', 'Act', 'Rom', '1Co', '2Co', 'Gal', 'Eph',
-        'Php', 'Col', '1Th', '2Th', '1Ti', '2Ti', 'Tit', 'Phm', 'Heb', 'Jas',
-        '1Pe', '2Pe', '1Jo', '2Jo', '3Jo', 'Jude', 'Rev',
-    ), start=1)
-}
-
 _XREF_REF_RE = re.compile(r'^(\S+)\s+(\d+):(\d+)(?:-(\d+))?$')
 
 
@@ -283,7 +269,7 @@ def _mysword_rx_tags(text: str) -> str:
         if not m:
             continue
         abbrev, chapter, verse, verse_end = m.groups()
-        book_num = _XREF_BOOK_NUM.get(abbrev)
+        book_num = ABBREV_TO_BOOK_NUM.get(abbrev)
         if not book_num:
             continue
         loc = f"{book_num}.{chapter}.{verse}"
