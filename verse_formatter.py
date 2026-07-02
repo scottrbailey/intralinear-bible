@@ -258,18 +258,17 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
 # ============================================================ MySword profiles
 
 _MYSWORD_INTRALINEAR_CSS = dedent("""\
-    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
-        padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
-    ruby {color: blue; display:block}
-    ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 0;}
+	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; padding:2px 0; position:relative; font-size:0.8em;}
+    ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 0;}
+    ruby > rt {display:block; font-size: 1.1em; color: blue;}
     ruby a {text-decoration: none;}
 """)
 
 _MYSWORD_INTRALINEAR_RULES = ''
 
 class MySwordIntralinearFormatter(VerseFormatter):
-    abbreviation   = "BSBi"
-    module_name    = "BSB Intralinear Bible"
+    abbreviation   = "BSTB"
+    module_name    = "Berean Standard Transliterated Bible"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTRALINEAR_CSS
     verse_rules    = _MYSWORD_INTRALINEAR_RULES
@@ -298,8 +297,8 @@ class MySwordIntralinearFormatter(VerseFormatter):
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     lemmas.append(
-                        f'<span class="ilb"><ruby><a href="s{sw.stem.strongs}">{xlit}</a>'
-                        f'<rt>{sw.text}</rt></ruby></span>'
+                        f'<span class="ilb"><ruby><rt><a href="s{sw.stem.strongs}">{xlit}</a></rt>'
+                        f'<ro>{sw.text}</ro></ruby></span>'
                     )
                 parts.append(' '.join(lemmas))
                 for note in token.notes:
@@ -321,10 +320,10 @@ class MySwordIntralinearFormatter(VerseFormatter):
         return ''.join(f"<RF q=R{vx['key']}>{vx['text']}<Rf>" for vx in xrefs)
 
 _MYSWORD_STACKED_CSS = dedent("""\
-    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
-        padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
-    ruby {color: blue; display:block}
-    ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 1;}
+	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; 
+	    padding:2px 0; position:relative; font-size:0.8em; line-height: 1;}
+    ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 1;}
+    ruby > rt {display:block; font-size: 1.1em; color: blue;}
     ruby a {text-decoration: none;}
 """)
 
@@ -332,8 +331,8 @@ _MYSWORD_STACKED_RULES = ''
 
 class MySwordStackedFormatter(MySwordIntralinearFormatter):
     """Stacked variant: same verse content, different CSS."""
-    abbreviation = "BSBis"
-    module_name  = "BSB Intralinear Bible (Stacked)"
+    abbreviation = "BSXB+"
+    module_name  = "Berean Standard Translinear Bible"
     css          = _MYSWORD_STACKED_CSS
     verse_rules  = _MYSWORD_STACKED_RULES
 
