@@ -119,7 +119,7 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'esword':
         if render_mode == 'intralinear':
-            profile_cls = ESwordIntralinearFormatter
+            return [esword(ESwordIntralinearFormatter), esword(ESwordStackedFormatter)]
         elif render_mode == 'stacked':
             profile_cls = ESwordStackedFormatter
         else:

@@ -84,8 +84,8 @@ _ESWORD_INTRALINEAR_CSS = dedent('''\
 )
 
 class ESwordIntralinearFormatter(VerseFormatter):
-    abbreviation   = "BSBi"
-    module_name    = "Berean Standard Intralinear Bible"
+    abbreviation   = "BSTB"
+    module_name    = "Berean Standard Transliterated Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTRALINEAR_CSS
 
@@ -148,8 +148,8 @@ _ESWORD_STACKED_CSS = dedent('''\
 )
 
 class ESwordStackedFormatter(ESwordIntralinearFormatter):
-    abbreviation   = "BSBis"
-    module_name    = "Berean Standard Intralinear Bible  (Stacked)"
+    abbreviation   = "BSXB+"
+    module_name    = "Berean Standard Translinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_STACKED_CSS
 
@@ -296,7 +296,8 @@ def _mysword_xref_markers(xrefs: list) -> str:
 
 
 _MYSWORD_INTRALINEAR_CSS = dedent("""\
-	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; padding:2px 0; position:relative; font-size:0.8em;}
+	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; 
+	    padding:2px 0; position:relative; font-size:0.8em;}
     ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 0;}
     ruby > rt {display:block; font-size: 1.1em; color: blue;}
     ruby a {text-decoration: none;}
@@ -359,7 +360,7 @@ class MySwordIntralinearFormatter(VerseFormatter):
 
 _MYSWORD_STACKED_CSS = dedent("""\
 	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; 
-	    padding:2px 0; position:relative; font-size:0.8em; line-height: 1;}
+	    padding:4px 0; position:relative; font-size:0.8em; line-height: 1;}
     ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 1;}
     ruby > rt {display:block; font-size: 1.1em; color: blue;}
     ruby a {text-decoration: none;}
