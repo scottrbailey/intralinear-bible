@@ -192,6 +192,12 @@ def _clean_header_text(text: str) -> str:
     return html.unescape(text).strip()
 
 
+# Header classes MySword/e-Sword's own built-in pericope display doesn't
+# cover — see VerseFormatter.render_header(). 'hdg' and 'suphdg' are real
+# section headings, which those native pericopes already show.
+_INLINE_HEADER_CLASSES = {'acrostic', 'ihdg', 'subhdg'}
+
+
 # ================================================================ base class
 
 class VerseFormatter(ABC):
@@ -270,11 +276,21 @@ class VerseFormatter(ABC):
     def render_header(self, raw: str) -> str:
         """Raw Hdg cell (or plain heading text) -> this format's heading markup.
 
-        Default: no markup, segments joined with a space. Override to key off
-        segment class (see parse_headers()) for differentiated styling, e.g.
-        rendering 'subhdg' smaller than 'hdg'.
+        MySword and e-Sword both have their own built-in pericope (section
+        heading) display, on by default and not something module data can
+        suppress — so rendering the main 'hdg'/'suphdg' segments here would
+        double them up, and for e-Sword there's no way to make our version
+        render above the verse the way its native pericopes do anyway.
+        Default: skip those, and render only the classes native pericopes
+        don't cover — 'acrostic' (Psalm 119 stanza letters), 'ihdg' (Song of
+        Solomon speaker labels), 'subhdg' (nested headings) — inline, in
+        italics. Override to change this policy or the markup.
         """
-        return ' '.join(text for _, text in parse_headers(raw))
+        return ''.join(
+            f'<i>{text}</i><br/>'
+            for cls, text in parse_headers(raw)
+            if cls in _INLINE_HEADER_CLASSES
+        )
 
     # ------------------------------------------------------- cross-references
 
@@ -325,9 +341,6 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
     module_name    = "Berean Standard Transliterated Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTRALINEAR_CSS
-
-    def render_header(self, raw: str) -> str:
-        return ''.join(f'<b class="headline">{text}</b><br>' for _, text in parse_headers(raw))
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -408,9 +421,6 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTERLINEAR_CSS
-
-    def render_header(self, raw: str) -> str:
-        return ''.join(f'<b class="headline">{text}</b><br>' for _, text in parse_headers(raw))
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -551,9 +561,6 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
     css            = _MYSWORD_INTRALINEAR_CSS
     verse_rules    = _MYSWORD_INTRALINEAR_RULES
 
-    def render_header(self, raw: str) -> str:
-        return ''.join(f"<TS>{text}<Ts>" for _, text in parse_headers(raw))
-
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
         """Render tokens with <span class="ilb"><ruby> markup for lemma display."""
@@ -626,9 +633,6 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
     verse_rules    = _MYSWORD_INTERLINEAR_RULES
-
-    def render_header(self, raw: str) -> str:
-        return ''.join(f"<TS>{text}<Ts>" for _, text in parse_headers(raw))
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:

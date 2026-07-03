@@ -37,12 +37,18 @@ architecture; this doc tracks the newer, still-settling parts.
    `verse_formatter.py` splits the cell into `(class, text)` segments,
    drops empty-text and `pshdg` segments (confirmed misfiled `Par` content —
    see `BSB_TABLES_SOURCE_ERRORS.md`), decodes HTML entities, and strips
-   `<br>` with no replacement (left to the caller's own tag structure). Each
-   `VerseFormatter.render_header()` turns that into its own markup; the base
-   class default just joins segment text with spaces for formats that don't
-   override it. A plain string with no wrapper (`AlignmentComposer`'s
-   `bsb_annotations.json` headers) is treated as a single `hdg` segment, so
-   both Composers' header shapes go through the same code path.
+   `<br>` with no replacement (left to the caller's own tag structure). A
+   plain string with no wrapper (`AlignmentComposer`'s `bsb_annotations.json`
+   headers) is treated as a single `hdg` segment, so both Composers' header
+   shapes go through the same code path.
+
+   `VerseFormatter.render_header()`'s shared default policy: skip `hdg`/
+   `suphdg` (the main section headings) entirely — MySword and e-Sword both
+   have their own built-in pericope display, on by default and not
+   suppressible from module data, so rendering those here doubles them up,
+   and e-Sword has no way to make ours render above the verse the way its
+   native pericopes do. Only `acrostic`/`ihdg`/`subhdg` — classes native
+   pericopes don't cover — render, inline as `<i>{text}</i><br/>`.
 
 5. **Supplied-word bracket/brace stripping.** Moved off `TableComposer`
    (which now always preserves `[brackets]`/`{braces}` verbatim) and onto

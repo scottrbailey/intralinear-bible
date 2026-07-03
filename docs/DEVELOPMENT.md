@@ -209,7 +209,13 @@ verse data exactly once regardless of how many output targets are active.
   plain string from `AlignmentComposer`'s `bsb_annotations.json`, or a raw
   `<p class=|hdg|>...` wrapper cell from `TableComposer`'s `bsb_tables.db`)
   into this format's heading markup; both shapes go through the same
-  `parse_headers()` parsing
+  `parse_headers()` parsing. Default policy: skip the main `hdg`/`suphdg`
+  segments entirely — MySword and e-Sword both have their own built-in
+  pericope (section heading) display, on by default and not suppressible
+  from module data, so rendering those here would double them up (and for
+  e-Sword there's no way to make ours render above the verse the way native
+  pericopes do anyway). Only render the classes native pericopes don't
+  cover — `acrostic`, `ihdg`, `subhdg` — inline as `<i>{text}</i><br/>`.
 - `transform_english()` / `bracket_replacement` / `brace_replacement` —
   strip, keep, or restyle the BSB text's two independent translator-supplied-
   word markers: `[brackets]` (broadly supplied words — pronouns, articles,
@@ -258,9 +264,11 @@ These are per-`VerseFormatter` overrides, not composer-level changes — both
 composers feed the same raw shapes through `parse_headers()`/`parse_reference()`,
 so a new format only needs to override the render/transform side:
 
-- Headings: override `render_header()` (default just joins segment text with
-  no markup); key off each segment's class (`hdg`, `subhdg`, `ihdg`, `acrostic`,
-  `suphdg` — see `parse_headers()`'s docstring) for differentiated styling.
+- Headings: override `render_header()` (default skips `hdg`/`suphdg` to avoid
+  doubling up with MySword/e-Sword's own pericope display, renders
+  `acrostic`/`ihdg`/`subhdg` inline in italics); key off each segment's class
+  (see `parse_headers()`'s docstring, or `_INLINE_HEADER_CLASSES`) for
+  different policy or styling.
 - Supplied words: set `bracket_replacement`/`brace_replacement` class vars,
   or override `transform_english()` directly for more control.
 - Cross-references: override `transform_reference()` for this format's link
