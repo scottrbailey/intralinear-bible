@@ -71,12 +71,17 @@ architecture; this doc tracks the newer, still-settling parts.
    again later. Alternative considered and deferred: precompute both a
    bracketed and stripped column at import time.
 
-6. **`verses.crossref` is captured but not wired into the `xrefs` output.**
-   It holds raw HTML (`<br /><span class=|cross|>(<a href=...>John
-   1:1-5</a>...)`), not the plain `"Joh 1:1-5; Heb 11:1-3"` shape
-   `AlignmentComposer`'s xref pipeline (and the MySword/e-Sword formatters'
-   `_mysword_rx_tags` etc.) expect. `TableComposer.iter_verses()` always
-   yields `{}` for xrefs. Turning one into the other is unbuilt.
+6. **`verses.crossref` is captured but not wired into the `xrefs` output** —
+   `TableComposer.iter_verses()` always yields `{}`. Worth doing: this could
+   replace `bsb_xrefs.json` entirely for table mode (one less external data
+   dependency), not just feed the same shape `AlignmentComposer` uses. Needs
+   cleanup first — the raw value is HTML (`<br /><span class=|cross|>(<a
+   href=...>John 1:1-5</a>...)`), not the plain `"Joh 1:1-5; Heb 11:1-3"`
+   shape the MySword/e-Sword formatters' `_mysword_rx_tags` etc. expect:
+   strip the wrapper markup, pull the `<a>` tag text out, convert each
+   verse's book name to our abbreviation via `books.db`. Unexplored: whether
+   the raw HTML has its own edge cases the way `Crossref`/`Hdg`/the
+   ellipsis marker did — check before assuming a straightforward parse.
 
 7. **The `Space` column's meaning is still unconfirmed** — blank in every
    row seen so far across all investigation in this session. Not used for
