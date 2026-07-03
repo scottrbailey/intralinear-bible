@@ -18,6 +18,7 @@ from composer import Composer
 from models import AlignedToken, MappingDirection, SourceToken, SourceWord
 
 _STRONGS_RE = re.compile(r'^0*(\d+)[a-z]*$')
+_SUPPLIED_WORD_BRACKETS_RE = re.compile(r'[\[\]]')
 
 
 def _prefixed_strongs(bare: str | None, language: str) -> str:
@@ -137,16 +138,16 @@ class TableComposer(Composer):
         for row in cur:
             if row['verse_id'] != current_verse_id:
                 if verse_rows:
-                    yield self._build_verse(verse_info[current_verse_id], verse_rows)
+                    yield self._build_verse(verse_info[current_verse_id], verse_rows, self.direction)
                 current_verse_id, verse_rows = row['verse_id'], []
             verse_rows.append(row)
         if verse_rows:
-            yield self._build_verse(verse_info[current_verse_id], verse_rows)
+            yield self._build_verse(verse_info[current_verse_id], verse_rows, self.direction)
 
         conn.close()
 
     @staticmethod
-    def _build_verse(verse_info, rows):
+    def _build_verse(verse_info, rows, direction):
         osis_ref = f"{verse_info['book']}.{verse_info['chapter']}.{verse_info['verse']}"
         header   = verse_info['heading']
 
@@ -181,6 +182,15 @@ class TableComposer(Composer):
             members   = groups[owner]
             owner_row = next(r for r in members if r['bsb_sort'] == owner)
             english   = _assemble_group_text(members, owner_row)
+            if direction == MappingDirection.TARGET_TO_SOURCE:
+                # Square brackets mark translator-supplied words ("[Jesus]
+                # answered") — worth keeping for a source-primary forward
+                # interlinear (the traditional KJV-italics-style convention),
+                # but just clutter for the English-primary intralinear
+                # display. Confirmed no square brackets appear anywhere else
+                # in the BSB text, so this is unambiguously the file's own
+                # supplied-word markup, not incidental punctuation.
+                english = _SUPPLIED_WORD_BRACKETS_RE.sub('', english)
             notes     = [{'noteId': f"F{r['bsb_sort']}", 'text': r['footnote']}
                          for r in members if r['footnote']]
             source_words = [_to_source_word(r) for r in members]

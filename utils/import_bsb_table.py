@@ -95,14 +95,17 @@ _VERSE_ID_RE  = re.compile(r'^(.+?)\s+(\d+):(\d+)$')
 
 # The BSB version column has occasional typographical inconsistencies of its
 # own — e.g. Exodus 12:42's "[is to be a vigil ]" (space before the closing
-# bracket) and Leviticus 7:9's "Likewise , every" (space before the comma).
+# bracket), Leviticus 1:17's "[ the bird ]" (space after the opening one
+# too), and Leviticus 7:9's "Likewise , every" (space before the comma).
 # Not a pipeline bug, just the source data; cleaned up on the way in.
 _SPACE_BEFORE_PUNCT_RE = re.compile(r'\s+([,.;:!?)\]’”])')
+_SPACE_AFTER_OPEN_RE = re.compile(r'([(\[])\s+')
 _INTERNAL_WHITESPACE_RE = re.compile(r'\s{2,}')
 
 
 def _normalize_english(text: str) -> str:
     text = _SPACE_BEFORE_PUNCT_RE.sub(r'\1', text)
+    text = _SPACE_AFTER_OPEN_RE.sub(r'\1', text)
     return _INTERNAL_WHITESPACE_RE.sub(' ', text)
 
 
