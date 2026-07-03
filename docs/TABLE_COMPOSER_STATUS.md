@@ -18,11 +18,16 @@ architecture; this doc tracks the newer, still-settling parts.
   producing actual `.bbli` files (2,601 verses, Genesis + Matthew).
 - Full-Bible pass (all 31,085 verses with real content): zero exceptions,
   zero double-spaces, zero stray supplied-word brackets.
-- `main.py --composer table` (or `composer: table` in config.yaml) now
-  selects `TableComposer` through the normal CLI entry point — verified
-  against real Genesis output via both the CLI flag and the config key
-  (1,533 verses, matching the known count); the default `alignment` path
-  is unchanged.
+- `main.py --composer table` (or `composer: table` in config.yaml) selects
+  `TableComposer` through the normal CLI entry point — verified against real
+  Genesis output via both the CLI flag and the config key (1,533 verses,
+  matching the known count); the `alignment` path is unchanged.
+- `composer` is now auto-detected when not set explicitly (config key or
+  `--composer` flag): `table_db` existing on disk means `table`, otherwise
+  `alignment` — so a built database is picked up with zero config changes,
+  and the `sources` block (macula-hebrew/macula-greek/Alignments paths) is
+  never touched in that case either. An explicit `composer` still forces
+  one path over the other regardless of what's on disk.
 
 ## Resolved this session
 

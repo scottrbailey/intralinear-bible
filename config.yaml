@@ -10,13 +10,16 @@ translation: "BSB"                    # Module abbreviations derived as:
 description: "Berean Standard Bible"
 
 # ── Composer ─────────────────────────────────────────────────
-# alignment: live join across macula-hebrew/macula-greek/Alignments (below)
-# table:     read data/bsb_tables.db (built by utils/import_bsb_table.py)
-composer: alignment
+# table_db points at a precomputed database (built by utils/import_bsb_table.py).
+# If that file exists, it's used automatically and the text sources below are
+# never loaded — no need to touch anything else in this file. Set "composer"
+# explicitly (alignment|table) only to force one path regardless of whether
+# table_db exists (e.g. to rebuild from live sources for comparison).
 table_db: "data/bsb_tables.db"
+# composer: alignment
 
 # ── Source data ──────────────────────────────────────────────
-# Only used when composer: alignment
+# Only used when composer resolves to "alignment" (see above)
 data_root: "../"
 
 sources:

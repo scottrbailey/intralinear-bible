@@ -13,10 +13,13 @@ Usage:
                 interlinear   reverse interlinear (source-primary columns)
 
     --composer  alignment  live join across macula-hebrew/macula-greek/
-                           Alignments                              [default]
-                table      read data/bsb_tables.db (built by
-                           utils/import_bsb_table.py) instead — overrides
-                           config.yaml's "composer" key if given
+                           Alignments
+                table      read table_db (built by utils/import_bsb_table.py)
+                           instead
+                Default: config.yaml's "composer" key if set, otherwise
+                auto-detected from whether table_db exists on disk — so with
+                a database built, no config change is needed at all. Either
+                config key or this flag forces one path over the other.
 
 Examples:
     python main.py
@@ -53,9 +56,17 @@ def load_config(path: str = "config.yaml", composer_override: str = None) -> dic
         cfg = yaml.safe_load(f)
 
     translation = cfg["translation"]
-    cfg.setdefault("composer", "alignment")
-    if composer_override:
-        cfg["composer"] = composer_override
+    cfg["table_db"] = Path(cfg.get("table_db", "data/bsb_tables.db"))
+
+    composer = composer_override or cfg.get("composer")
+    if not composer:
+        # Auto-detect: prefer the precomputed database when it's actually
+        # there — far cheaper than a live source/alignment/target join —
+        # and only fall back to 'alignment' when no database has been built
+        # yet. An explicit 'composer' key (or --composer) always wins over
+        # this, so you can still force 'alignment' with a database present.
+        composer = "table" if cfg["table_db"].exists() else "alignment"
+    cfg["composer"] = composer
 
     if cfg["composer"] == "alignment":
         data_root = Path(cfg.get("data_root", "../"))
@@ -63,8 +74,9 @@ def load_config(path: str = "config.yaml", composer_override: str = None) -> dic
             src = cfg["sources"][testament]
             for key in ("source", "alignment", "target"):
                 src[key] = data_root / src[key]
-    else:
-        cfg["table_db"] = Path(cfg.get("table_db", "data/bsb_tables.db"))
+    # else: table_db is already resolved above, and the 'sources' block
+    # (macula-hebrew/macula-greek/Alignments paths) is left untouched, so
+    # nothing downstream ever reads or loads those text sources.
 
     cfg["annotations"] = Path(cfg.get("annotations", "data/bsb_annotations.json"))
     cfg["crossrefs"]   = Path(cfg.get("crossrefs", "data/bsb_xrefs.json"))
@@ -100,8 +112,9 @@ def parse_args():
     )
     parser.add_argument(
         "--composer", dest="composer", choices=["alignment", "table"], default=None,
-        help="Data source (default: config.yaml's 'composer' key, itself "
-             "defaulting to 'alignment'); overrides the config file if given",
+        help="Data source (default: config.yaml's 'composer' key if set, "
+             "otherwise auto-detected from whether table_db exists on disk); "
+             "overrides both if given",
     )
     args = parser.parse_args()
 
