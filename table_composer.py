@@ -54,11 +54,13 @@ def _assemble_group_text(members: list, owner_row) -> str:
     """Build one group's display phrase from its member rows, in bsb_sort order.
 
     Each row can contribute a leading quote (beg_quote), the owner's English
-    text (only the owner has one), and trailing punctuation/quote. Source
-    values pad `english` with spaces for word separation, so that padding is
-    stripped here and punctuation/quotes are glued on directly with no
-    inserted space — confirmed against cases where a comma lands on a
-    continuation row, not the owner (e.g. Genesis 40:1).
+    text (only the owner has one), and trailing punctuation/quote. Some of
+    these fields carry their own accidental padding (Exodus 18:4's beg_quote
+    is " “", not "“" — confirmed against the raw data), so the whole
+    assembled result is stripped rather than trusting any one field's edges.
+    Punctuation/quotes still glue on with no inserted space between parts —
+    confirmed against cases where a comma lands on a continuation row, not
+    the owner (e.g. Genesis 40:1).
     """
     parts = []
     for row in members:
@@ -70,7 +72,7 @@ def _assemble_group_text(members: list, owner_row) -> str:
             parts.append(row['punctuation'])
         if row['end_quote']:
             parts.append(row['end_quote'])
-    return ''.join(parts)
+    return ''.join(parts).strip()
 
 
 class TableComposer(Composer):
@@ -166,15 +168,14 @@ class TableComposer(Composer):
         # empty or punctuation-only — is folded into a neighbor instead of
         # becoming its own token: trailing marks glue onto the previous real
         # token, everything else (leading marks, or nothing at all) carries
-        # forward onto the next one. skip_space_after is always recomputed
-        # from the token's actual trailing character rather than assumed,
-        # since some punctuation values embed their own spacing (the file's
-        # em-dash is stored as " — ", not "—").
+        # forward onto the next one. _assemble_group_text() strips every
+        # group's result, so a non-empty combined_text is always whitespace-
+        # clean at both ends and just needs one normal space after it.
         tokens = []
         pending_prefix, pending_words, pending_notes = '', [], []
 
         def needs_space_after(text: str) -> bool:
-            return bool(text) and not text[-1].isspace()
+            return bool(text)
 
         for owner in order:
             members   = groups[owner]

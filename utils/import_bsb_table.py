@@ -93,6 +93,18 @@ COL_END_TEXT      = 22
 _LANGUAGE_MAP = {'Hebrew': 'H', 'Aramaic': 'A', 'Greek': 'G'}
 _VERSE_ID_RE  = re.compile(r'^(.+?)\s+(\d+):(\d+)$')
 
+# The BSB version column has occasional typographical inconsistencies of its
+# own — e.g. Exodus 12:42's "[is to be a vigil ]" (space before the closing
+# bracket) and Leviticus 7:9's "Likewise , every" (space before the comma).
+# Not a pipeline bug, just the source data; cleaned up on the way in.
+_SPACE_BEFORE_PUNCT_RE = re.compile(r'\s+([,.;:!?)\]’”])')
+_INTERNAL_WHITESPACE_RE = re.compile(r'\s{2,}')
+
+
+def _normalize_english(text: str) -> str:
+    text = _SPACE_BEFORE_PUNCT_RE.sub(r'\1', text)
+    return _INTERNAL_WHITESPACE_RE.sub(' ', text)
+
 # heading and crossref are verse-level facts, not token-level ones — moved
 # to their own `verses` table rather than living on whichever token happens
 # to be first in bsb_sort order (that "first" token isn't meaningful once
@@ -247,7 +259,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
             elif bsb_version == 'vvv':
                 gloss_type, english = 'continuation_before', None
             else:
-                gloss_type, english = 'text', bsb_version
+                gloss_type, english = 'text', _normalize_english(bsb_version)
 
             params = dict(
                 bsb_sort=bsb_sort, verse_id=verse_id,
