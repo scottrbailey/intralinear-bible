@@ -9,7 +9,14 @@ translation: "BSB"                    # Module abbreviations derived as:
                                       #   interlinear:         {translation}ri+
 description: "Berean Standard Bible"
 
+# ── Composer ─────────────────────────────────────────────────
+# alignment: live join across macula-hebrew/macula-greek/Alignments (below)
+# table:     read data/bsb_tables.db (built by utils/import_bsb_table.py)
+composer: alignment
+table_db: "data/bsb_tables.db"
+
 # ── Source data ──────────────────────────────────────────────
+# Only used when composer: alignment
 data_root: "../"
 
 sources:
