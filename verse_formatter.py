@@ -578,6 +578,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
         """Render tokens with <span class="ilb"><ruby> markup for lemma display."""
+        note_id_map = note_id_map or {}
         xrefs = xrefs or []
         parts = []
         if header:
@@ -591,7 +592,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
             if token.is_plain_text or not token.source_words:
                 parts.append(self.transform_english(token.english))
                 for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
                 parts.append(self.transform_english(token.english))
                 parts.append(' ')
@@ -604,7 +605,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     )
                 parts.append(' '.join(lemmas))
                 for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
@@ -646,6 +647,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
         """Render tokens with GBF tags for MySword interlinear display."""
+        note_id_map = note_id_map or {}
         xrefs = xrefs or []
         parts = []
         if header:
@@ -659,7 +661,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
             if token.is_plain_text or not token.source_words:
                 parts.append(self.transform_english(token.english))
                 for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
                 segments = []
                 for sw in token.source_words:
@@ -673,7 +675,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     f"<Q>{''.join(segments)}<E>{english}<e><q>"
                 )
                 for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
