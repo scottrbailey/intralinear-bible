@@ -26,7 +26,7 @@ See [INSTALL.md](docs/INSTALL.md) for step-by-step instructions for **MySword** 
 
 ## About the Text
 
-The English translation is the [Berean Standard Bible](https://bereanbible.com) (BSB). The BSB was chosen for several reasons: it aims to be both **accurate and readable** — more literal than the NIV but more accessible than the NASB — and it is released under a Creative Commons license that allows this kind of derivative work. Practically speaking, the [Clear Bible Alignments](https://github.com/Clear-Bible/Alignments) project has done the painstaking work of mapping every BSB English word to its Hebrew or Greek source word, which is what makes the intralinear display possible. Without that alignment data, this project wouldn't exist.
+The English translation is the [Berean Standard Bible](https://bereanbible.com) (BSB). The BSB was chosen for several reasons: it aims to be both **accurate and readable** — more literal than the NIV but more accessible than the NASB — and it is released under a Creative Commons license that allows this kind of derivative work. The word-by-word mapping that makes the intralinear display possible comes from Bible Hub's own [BSB interlinear tables](https://berean.bible/downloads.htm), which pair every BSB English word directly with its Hebrew or Greek source word. Without that mapping, this project wouldn't exist. (An alternate build path exists using the [Clear Bible Alignments](https://github.com/Clear-Bible/Alignments) project's independent alignment data instead — see [DEVELOPMENT.md](docs/DEVELOPMENT.md).)
 
 Hebrew source text is the Westminster Leningrad Codex (WLC). Greek source text is the SBLGNT. Alignment data is CC BY 4.0.
 
@@ -41,6 +41,7 @@ This work is licensed under [CC BY-SA 4.0](http://creativecommons.org/licenses/b
 ### Attribution
 
 - **Berean Standard Bible** © 2022 Bible Hub — [bereanbible.com](https://bereanbible.com) — CC BY-SA 4.0
+- **BSB Interlinear Tables** © Bible Hub — [berean.bible/downloads.htm](https://berean.bible/downloads.htm) — CC BY-SA 4.0
 - **Macula Hebrew** © Clear Bible / unfoldingWord — [github.com/Clear-Bible/macula-hebrew](https://github.com/Clear-Bible/macula-hebrew) — CC BY 4.0
 - **Macula Greek** © Clear Bible / unfoldingWord — [github.com/Clear-Bible/macula-greek](https://github.com/Clear-Bible/macula-greek) — CC BY 4.0
 - **Clear Bible Alignments** © Clear Bible — [github.com/Clear-Bible/Alignments](https://github.com/Clear-Bible/Alignments) — CC BY 4.0
