@@ -41,3 +41,28 @@ BOOK_NUMBER = {book.usfmname: book.usfmnumber
 # biblelib's own numbering ever changes.
 ABBREV_TO_BOOK_NUM = {abbrev: int(BOOK_NUMBER[usx])
                       for usx, abbrev in USX_TO_ABBREV.items()}
+
+# Full English book name, as cited in bsb_tables.tsv's VerseId column
+# (e.g. "Genesis 1:1", "1 Samuel 3:2") -> OSIS book id, in canonical order.
+# Verified against the actual file: exactly these 66 names, in exactly this
+# order, appear as VerseId prefixes (including singular "Psalm").
+_FULL_NAMES_IN_CANONICAL_ORDER = [
+    'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
+    'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel',
+    '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra',
+    'Nehemiah', 'Esther', 'Job', 'Psalm', 'Proverbs',
+    'Ecclesiastes', 'Song of Solomon', 'Isaiah', 'Jeremiah', 'Lamentations',
+    'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos',
+    'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk',
+    'Zephaniah', 'Haggai', 'Zechariah', 'Malachi', 'Matthew',
+    'Mark', 'Luke', 'John', 'Acts', 'Romans',
+    '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians', 'Philippians',
+    'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy', '2 Timothy',
+    'Titus', 'Philemon', 'Hebrews', 'James', '1 Peter',
+    '2 Peter', '1 John', '2 John', '3 John', 'Jude',
+    'Revelation',
+]
+_OSIS_BY_USX = {book.usfmname: book.osisID
+                for book in Books().values() if book.usfmname in USX_TO_ABBREV}
+FULL_NAME_TO_OSIS = dict(zip(_FULL_NAMES_IN_CANONICAL_ORDER,
+                             (_OSIS_BY_USX[usx] for usx in BOOK_ORDER)))

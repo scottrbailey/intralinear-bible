@@ -11,7 +11,6 @@ import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import dbtk.readers
 from biblelib.book import Books
 
 from models import (
@@ -197,6 +196,7 @@ def _load_alignment_index(path: Path) -> dict:
             data = json.load(f)
         rows = data['records']
     elif path.suffix == '.ndjson':
+        import dbtk.readers  # optional dependency, only needed for this format
         rows = dbtk.readers.get_reader(path)
     index = {}
     for rec in rows:
