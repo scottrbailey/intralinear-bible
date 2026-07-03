@@ -102,7 +102,7 @@ books: null     # e.g. [Gen, Exod, Matt, John]
 ```
 intralinear-bible/
 ├── main.py              # entry point: CLI, config, writer factory
-├── composer.py          # BibleComposer — loads sources, yields aligned tokens
+├── composer.py          # Composer ABC + AlignmentComposer — loads sources, yields aligned tokens
 ├── models.py            # data classes: SourceToken, SourceWord, AlignedToken, …
 ├── verse_formatter.py   # VerseFormatter ABC + one concrete class per output target × style
 │                        #   ESwordIntralinearFormatter
@@ -129,7 +129,7 @@ intralinear-bible/
 ```
                           config.yaml
                                │
-                        BibleComposer
+                        AlignmentComposer
                                │  yields (osis_ref, [AlignedToken], header, xrefs)
                  ┌─────────────┼─────────────┐
                  ▼             ▼             ▼
@@ -142,7 +142,7 @@ intralinear-bible/
           verse_rules     verse_rules
 ```
 
-**`BibleComposer`** reads source TSVs and alignment JSON once and streams
+**`AlignmentComposer`** reads source TSVs and alignment JSON once and streams
 `(osis_ref, tokens, header, xrefs)` tuples. Multiple writers consume the same
 stream, so `--format all` reads the source data exactly once regardless of how
 many output targets are active.

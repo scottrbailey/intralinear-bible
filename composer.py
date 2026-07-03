@@ -1,12 +1,14 @@
 """
 composer.py
 
-BibleComposer: loads source data and yields aligned verse tokens.
+Composer: ABC for anything that yields aligned verse tokens.
+AlignmentComposer: loads source/alignment/target files and joins them live.
 """
 
 import csv
 import json
 import re
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 import dbtk.readers
@@ -35,8 +37,22 @@ def verse_id_to_osis(verse_id: str) -> str:
     return f"{book_name}.{chapter}.{verse}"
 
 
-class BibleComposer:
-    """Loads source data and yields (osis_ref, tokens, header, xrefs) per verse.
+class Composer(ABC):
+    """Yields (osis_ref, [AlignedToken], header, xrefs) per verse.
+
+    Implementations differ in where the joined data comes from — a live
+    join across source/alignment/target files (AlignmentComposer) or a
+    precomputed table (TableComposer) — but writers and formatters only
+    ever see this interface.
+    """
+
+    @abstractmethod
+    def iter_verses(self):
+        """Yield (osis_ref, [AlignedToken], header, xrefs) across all testaments."""
+
+
+class AlignmentComposer(Composer):
+    """Loads source/alignment/target files and joins them live, per verse.
 
     direction controls the join strategy:
       TARGET_TO_SOURCE — English-primary tokens (current, used for intralinear

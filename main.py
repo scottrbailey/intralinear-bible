@@ -24,7 +24,7 @@ from pathlib import Path
 import yaml
 
 from translit import make_transliterator
-from composer import BibleComposer
+from composer import AlignmentComposer
 from verse_formatter import (
     ESwordIntralinearFormatter,
     ESwordReverseInterlinearFormatter,
@@ -168,7 +168,7 @@ def main():
     for writer in writers:
         writer.open(output_dir)
 
-    composer = BibleComposer(config)
+    composer = AlignmentComposer(config)
     for osis_ref, tokens, header, xrefs in composer.iter_verses():
         for writer in writers:
             writer.add_verse(osis_ref, tokens, header=header, xrefs=xrefs)
