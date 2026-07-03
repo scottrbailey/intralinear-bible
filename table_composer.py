@@ -1,241 +1,24 @@
 """
 table_composer.py
 
-Parses bsb_tables.tsv into a normalized SQLite `tokens` table, and
-TableComposer reads that table back out as (osis_ref, [AlignedToken],
-header, xrefs) — the same shape AlignmentComposer produces from a live
+TableComposer reads a `tokens` table (built once via
+utils/import_bsb_table.py) and yields (osis_ref, [AlignedToken], header,
+xrefs) — the same shape AlignmentComposer produces from a live
 source/alignment/target join, so writers and formatters can't tell which
 Composer produced the stream.
 
-See docs/DEVELOPMENT.md for the column-mapping rationale (why positional
-indexing instead of csv.DictReader, the gloss_type states, etc.) — this
-schema was worked out against the real file, not guessed.
+See docs/DEVELOPMENT.md for the schema rationale.
 """
 
-import csv
 import re
 import sqlite3
 from pathlib import Path
 
-from bible_books import FULL_NAME_TO_OSIS
 from composer import Composer
 from models import AlignedToken, MappingDirection, SourceToken, SourceWord
 
-# ------------------------------------------------------------- column layout
-#
-# bsb_tables.tsv has two columns both literally named "Parsing" (short code
-# and full description), and one header with embedded spaces (" BSB version
-# "). csv.DictReader collapses duplicate header names to the last one seen —
-# confirmed empirically to silently drop the short-code column — so this
-# module indexes columns positionally instead of trusting header text.
+_STRONGS_RE = re.compile(r'^0*(\d+)[a-z]*$')
 
-COL_HEB_SORT      = 0
-COL_GRK_SORT      = 1
-COL_BSB_SORT      = 2
-COL_VERSE_NUM     = 3
-COL_LANGUAGE      = 4
-COL_SOURCE_TEXT   = 5
-# COL 6 is the apparatus-annotated WLC/Nestle text ({TR} etc.) — deliberately
-# not modeled; see DEVELOPMENT.md.
-COL_TRANSLIT      = 7
-COL_PARSING_SHORT = 8
-COL_PARSING_FULL  = 9
-COL_STR_HEB       = 10
-COL_STR_GRK       = 11
-COL_VERSE_ID      = 12
-COL_HDG           = 13
-COL_CROSSREF      = 14
-COL_PAR           = 15
-COL_SPACE         = 16
-COL_BEGQ          = 17
-COL_BSB_VERSION   = 18
-COL_PNC           = 19
-COL_ENDQ          = 20
-COL_FOOTNOTES     = 21
-COL_END_TEXT      = 22
-
-_LANGUAGE_MAP = {'Hebrew': 'H', 'Aramaic': 'A', 'Greek': 'G'}
-_VERSE_ID_RE  = re.compile(r'^(.+?)\s+(\d+):(\d+)$')
-_STRONGS_RE   = re.compile(r'^0*(\d+)[a-z]*$')
-
-_INSERT_COLUMNS = [
-    'bsb_sort', 'book', 'chapter', 'verse', 'source_sort', 'language',
-    'source_text', 'translit', 'strongs', 'parsing_short', 'parsing_full',
-    'gloss_type', 'english', 'parent_id',
-    'beg_quote', 'end_quote', 'punctuation', 'space',
-    'heading', 'prefix_html', 'suffix_html', 'par_class', 'footnote',
-]
-
-DDL = f"""
-CREATE TABLE tokens (
-    bsb_sort      INTEGER PRIMARY KEY,
-    book          TEXT NOT NULL,
-    chapter       INTEGER NOT NULL,
-    verse         INTEGER NOT NULL,
-    source_sort   REAL NOT NULL,
-    language      TEXT NOT NULL CHECK(language IN ('H','A','G')),
-    source_text   TEXT NOT NULL,
-    translit      TEXT,
-    strongs       TEXT,
-    parsing_short TEXT,
-    parsing_full  TEXT,
-    gloss_type    TEXT NOT NULL
-                  CHECK(gloss_type IN ('text','untranslated',
-                                       'continuation_after','continuation_before')),
-    english       TEXT,
-    parent_id     INTEGER REFERENCES tokens(bsb_sort),
-    beg_quote     TEXT,
-    end_quote     TEXT,
-    punctuation   TEXT,
-    space         TEXT,
-    heading       TEXT,
-    prefix_html   TEXT,
-    suffix_html   TEXT,
-    par_class     TEXT,
-    footnote      TEXT
-);
-CREATE INDEX tokens_book       ON tokens (book, bsb_sort);
-CREATE INDEX tokens_source_sort ON tokens (source_sort);
-"""
-
-_INSERT_SQL = (
-    "INSERT INTO tokens (" + ", ".join(_INSERT_COLUMNS) + ") VALUES ("
-    + ", ".join("?" for _ in _INSERT_COLUMNS) + ")"
-)
-
-
-# ================================================================= import
-
-def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> None:
-    """Parse bsb_tables.tsv into a fresh SQLite database at db_path.
-
-    Single forward pass over the file (already in bsb_sort order). Rows with
-    gloss_type 'continuation_before' ("vvv") are buffered until the next
-    'text'/'untranslated' owner is found; rows with gloss_type
-    'continuation_after' (". . .") resolve immediately against the current
-    owner — except when a vvv buffer is already open, in which case the
-    ". . ." is actually part of that same forward-looking group (confirmed
-    against 7 real cases in the file where "vvv" is immediately followed by
-    ". . ." with no owner between them).
-    """
-    db_path = Path(db_path)
-    if db_path.exists():
-        db_path.unlink()
-    conn = sqlite3.connect(db_path)
-    conn.executescript(DDL)
-    cur = conn.cursor()
-
-    batch: list = []
-
-    def flush():
-        if batch:
-            cur.executemany(_INSERT_SQL, batch)
-            batch.clear()
-
-    def row_tuple(params: dict) -> tuple:
-        return tuple(params[c] for c in _INSERT_COLUMNS)
-
-    pending_vvv: list = []
-    current_owner_bsb_sort = None
-    book = chapter = verse = None
-    prev_verse_col = None
-    discarded_at_boundary = 0
-
-    with open(tsv_path, encoding='utf-8', newline='') as f:
-        reader = csv.reader(f, delimiter='\t')
-        next(reader)  # header
-
-        for cols in reader:
-            src_text = cols[COL_SOURCE_TEXT].strip()
-            if not src_text:
-                discarded_at_boundary += len(pending_vvv)
-                pending_vvv = []
-                current_owner_bsb_sort = None
-                continue
-
-            verse_col = cols[COL_VERSE_NUM].strip()
-            if verse_col != prev_verse_col:
-                prev_verse_col = verse_col
-                vid = cols[COL_VERSE_ID].strip()
-                if vid:
-                    m = _VERSE_ID_RE.match(vid)
-                    book_name, chap_s, verse_s = m.groups()
-                    book, chapter, verse = FULL_NAME_TO_OSIS[book_name], int(chap_s), int(verse_s)
-                discarded_at_boundary += len(pending_vvv)
-                pending_vvv = []
-                current_owner_bsb_sort = None
-
-            language = _LANGUAGE_MAP.get(cols[COL_LANGUAGE])
-            if language is None:
-                continue  # stray/garbage Language value; only seen paired with blank source text
-
-            bsb_sort    = int(cols[COL_BSB_SORT])
-            source_sort = float(cols[COL_GRK_SORT]) if language == 'G' else float(cols[COL_HEB_SORT])
-            strongs     = (cols[COL_STR_GRK] if language == 'G' else cols[COL_STR_HEB]).strip() or None
-
-            bsb_version = cols[COL_BSB_VERSION].strip()
-            if bsb_version == '-':
-                gloss_type, english = 'untranslated', None
-            elif bsb_version == '. . .':
-                gloss_type, english = 'continuation_after', None
-            elif bsb_version == 'vvv':
-                gloss_type, english = 'continuation_before', None
-            else:
-                gloss_type, english = 'text', bsb_version
-
-            params = dict(
-                bsb_sort=bsb_sort, book=book, chapter=chapter, verse=verse,
-                source_sort=source_sort, language=language,
-                source_text=cols[COL_SOURCE_TEXT],
-                translit=cols[COL_TRANSLIT] or None,
-                strongs=strongs,
-                parsing_short=cols[COL_PARSING_SHORT] or None,
-                parsing_full=cols[COL_PARSING_FULL] or None,
-                gloss_type=gloss_type,
-                english=english,
-                parent_id=None,
-                beg_quote=cols[COL_BEGQ] or None,
-                end_quote=cols[COL_ENDQ] or None,
-                punctuation=cols[COL_PNC] or None,
-                space=cols[COL_SPACE] or None,
-                heading=cols[COL_HDG] or None,
-                prefix_html=cols[COL_CROSSREF] or None,
-                suffix_html=cols[COL_END_TEXT] or None,
-                par_class=cols[COL_PAR] or None,
-                footnote=cols[COL_FOOTNOTES] or None,
-            )
-
-            if gloss_type in ('text', 'untranslated'):
-                for pending in pending_vvv:
-                    pending['parent_id'] = bsb_sort
-                    batch.append(row_tuple(pending))
-                pending_vvv = []
-                current_owner_bsb_sort = bsb_sort
-                batch.append(row_tuple(params))
-            elif gloss_type == 'continuation_before':
-                pending_vvv.append(params)
-            elif gloss_type == 'continuation_after':
-                if pending_vvv:
-                    pending_vvv.append(params)
-                else:
-                    params['parent_id'] = current_owner_bsb_sort
-                    batch.append(row_tuple(params))
-
-            if len(batch) >= batch_size:
-                flush()
-
-        discarded_at_boundary += len(pending_vvv)  # trailing, at EOF
-
-    flush()
-    conn.commit()
-    conn.close()
-
-    if discarded_at_boundary:
-        print(f"Warning: {discarded_at_boundary} 'vvv' row(s) discarded unresolved "
-              f"at a verse/blank-row boundary — unexpected, worth investigating.")
-
-
-# ================================================================ Composer
 
 def _prefixed_strongs(bare: str | None, language: str) -> str:
     """Match AlignmentComposer's Strong's number convention: letter prefix, no leading zeros."""
@@ -291,8 +74,8 @@ def _assemble_group_text(members: list, owner_row) -> str:
 
 
 class TableComposer(Composer):
-    """Reads a token table built by import_bsb_table() and yields the same
-    (osis_ref, [AlignedToken], header, xrefs) shape as AlignmentComposer.
+    """Reads a token table built by utils/import_bsb_table.py and yields the
+    same (osis_ref, [AlignedToken], header, xrefs) shape as AlignmentComposer.
 
     Notes on fidelity to AlignmentComposer's contract:
       - xrefs: bsb_tables.tsv carries no cross-reference data; always {}.
