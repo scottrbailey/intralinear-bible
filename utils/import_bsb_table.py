@@ -61,6 +61,8 @@ _FULL_NAMES_IN_CANONICAL_ORDER = [
 with sqlite3.connect(BOOKS_DB) as _conn:
     _osis_in_canon_order = [r[0] for r in
         _conn.execute("SELECT osis_id FROM books ORDER BY canon_order")]
+    _OSIS_TO_ABBREV = {r[0]: r[1] for r in
+        _conn.execute("SELECT osis_id, display_abbrev FROM books")}
 FULL_NAME_TO_OSIS = dict(zip(_FULL_NAMES_IN_CANONICAL_ORDER, _osis_in_canon_order))
 
 # ------------------------------------------------------------- column layout
@@ -156,6 +158,71 @@ def _strip_ellipsis_artifact(bsb_sort: int, text: str) -> str:
 # ("<br /><span class=|cross|>..."), and belong on that token's own
 # par_class, not on the verse's crossref.
 _CROSSREF_MISFILED_PREFIX = '<p class='
+
+# The raw Crossref cell is HTML: '<br /><span class=|cross|>(<a href
+# =|../john/1.htm|>John 1:1–5</a>; <a href =|../hebrews/11.htm|>Hebrews
+# 1:1-3</a>)</span>' — pull out each <a> tag's label text and convert it to
+# the same plain "Joh 1:1-5; Heb 11:1-3" shape AlignmentComposer's own
+# bsb_xrefs.json already uses, so TableComposer needs no special-casing to
+# feed VerseFormatter.render_crossref(). Verified against all 2,033 <a>
+# labels across the file's 1,325 cross-reference cells: every one parses as
+# either a normal book/chapter:verse[-verse] reference (2,028, including one
+# cross-chapter range, "1 Chronicles 15:29–16:3"), a whole-chapter range with
+# no verse (4: "Genesis 4–9", "Genesis 15–22", "Genesis 27–50", "Exodus
+# 2–15"), or a book-only span (1: "Joshua–Malachi") — zero unparseable
+# labels, zero unknown book names.
+_XREF_LABEL_RE      = re.compile(r'<a[^>]*>([^<]+)</a>')
+_XREF_VERSE_RE      = re.compile(r'^(.+?)\s+(\d+):(\d+)(?:-(?:(\d+):)?(\d+))?$')
+_XREF_CHAP_RANGE_RE = re.compile(r'^(.+?)\s+(\d+)-(\d+)$')
+_XREF_BOOK_SPAN_RE  = re.compile(r'^(.+?)-(.+)$')
+
+
+def _abbrev_book(full_name: str) -> str | None:
+    osis = FULL_NAME_TO_OSIS.get(full_name)
+    return _OSIS_TO_ABBREV.get(osis) if osis else None
+
+
+def _convert_xref_label(label: str) -> str:
+    """One <a> tag's label text ("John 1:1–5", "Genesis 4–9", "Joshua–
+    Malachi") -> our abbreviated plain-text shape ("Joh 1:1-5", "Gen 4-9",
+    "Jos-Mal"). Falls back to the original label, verbatim, if a book name
+    doesn't resolve — defensive only; not expected given the verification
+    above.
+    """
+    label = label.replace('–', '-').strip()
+
+    m = _XREF_VERSE_RE.match(label)
+    if m:
+        book, chap, verse, end_chap, end_verse = m.groups()
+        abbrev = _abbrev_book(book)
+        if abbrev:
+            ref = f"{abbrev} {chap}:{verse}"
+            if end_verse:
+                ref += f"-{end_chap}:{end_verse}" if end_chap else f"-{end_verse}"
+            return ref
+
+    m = _XREF_CHAP_RANGE_RE.match(label)
+    if m:
+        book, chap, end_chap = m.groups()
+        abbrev = _abbrev_book(book)
+        if abbrev:
+            return f"{abbrev} {chap}-{end_chap}"
+
+    m = _XREF_BOOK_SPAN_RE.match(label)
+    if m:
+        book1, book2 = m.groups()
+        a1, a2 = _abbrev_book(book1), _abbrev_book(book2)
+        if a1 and a2:
+            return f"{a1}-{a2}"
+
+    return label
+
+
+def _parse_crossref_cell(raw: str) -> str | None:
+    labels = _XREF_LABEL_RE.findall(raw)
+    if not labels:
+        return None
+    return '; '.join(_convert_xref_label(lbl) for lbl in labels)
 
 _INSERT_COLUMNS = [
     'bsb_sort', 'verse_id', 'source_sort', 'language',
@@ -278,6 +345,8 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                         par_correction = crossref
                         crossref = None
                         misfiled_crossref_count += 1
+                    elif crossref:
+                        crossref = _parse_crossref_cell(crossref)
                     cur.execute(_INSERT_VERSE_SQL, (verse_id, book, chapter, verse, heading, crossref))
                 discarded_at_boundary += len(pending_vvv)
                 pending_vvv = []

@@ -12,7 +12,7 @@ Responsibilities beyond SQLiteBibleWriter:
 from pathlib import Path
 
 from sqlite_writer import SQLiteBibleWriter
-from verse_formatter import VerseFormatter
+from verse_formatter import VerseFormatter, parse_reference
 
 
 class ESwordWriter(SQLiteBibleWriter):
@@ -81,7 +81,8 @@ class ESwordWriter(SQLiteBibleWriter):
             )
         for vx in verse_xrefs:
             note_text = ' ; '.join(
-                f"<ref>{r.strip()}</ref>" for r in vx['text'].split(';') if r.strip()
+                self.profile.transform_reference(parse_reference(r.strip()))
+                for r in vx['text'].split(';') if r.strip()
             )
             self.conn.execute(
                 "INSERT INTO Notes (Book, Chapter, Verse, ID, Note) VALUES (?,?,?,?,?)",

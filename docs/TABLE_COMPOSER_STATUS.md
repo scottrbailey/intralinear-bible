@@ -24,19 +24,74 @@ architecture; this doc tracks the newer, still-settling parts.
   (1,533 verses, matching the known count); the default `alignment` path
   is unchanged.
 
+## Resolved this session
+
+1. **Verse headings.** `verses.heading` stays raw (the `<p class=|hdg|>`
+   wrapper, possibly several segments back to back) — parsing is now owned
+   by `VerseFormatter`, not the import step. `parse_headers(raw)` in
+   `verse_formatter.py` splits the cell into `(class, text)` segments,
+   drops empty-text and `pshdg` segments (confirmed misfiled `Par` content —
+   see `BSB_TABLES_SOURCE_ERRORS.md`), decodes HTML entities, and strips
+   `<br>` with no replacement (left to the caller's own tag structure). Each
+   `VerseFormatter.render_header()` turns that into its own markup; the base
+   class default just joins segment text with spaces for formats that don't
+   override it. A plain string with no wrapper (`AlignmentComposer`'s
+   `bsb_annotations.json` headers) is treated as a single `hdg` segment, so
+   both Composers' header shapes go through the same code path.
+
+5. **Supplied-word bracket/brace stripping.** Moved off `TableComposer`
+   (which now always preserves `[brackets]`/`{braces}` verbatim) and onto
+   `VerseFormatter.transform_english()`, controlled by two independent class
+   vars: `bracket_replacement` for `[...]`, `brace_replacement` for `{...}`
+   — each `('', '')` strips (default), `None` leaves untouched, any other
+   `(prefix, suffix)` pair wraps the word instead (e.g. `('<i>', '</i>')`).
+   Called from every `render_verse()` wherever `token.english` is emitted.
+   The two markers turned out to be genuinely different categories, not one
+   — see "Resolved" item 7 below — hence separate controls rather than one
+   shared `bracket_replacement`.
+
+6. **Cross-references.** `verses.crossref` is now parsed into the same plain
+   `"Joh 1:1-5; Heb 11:1-3"` shape `AlignmentComposer`'s `bsb_xrefs.json`
+   already uses (converted from the raw `<span class=|cross|>...` HTML at
+   import time — book full names to our abbreviation via `books.db`, en-dash
+   to hyphen), and `TableComposer.iter_verses()` yields it as `{'1': text}`.
+   New `VerseFormatter` methods: `Reference` dataclass +
+   module-level `parse_reference()` (format-agnostic parsing, handles exact
+   verse refs, cross-chapter ranges, whole-chapter ranges, and book spans),
+   `transform_reference(ref)` (one reference -> this format's link/tag
+   syntax), `render_crossref(xrefs)` (a verse's full xref data -> this
+   format's inline/note placement). Whole-chapter-range and book-span
+   references (verified: 1 cross-chapter range, 4 whole-chapter ranges, 1
+   book span, out of 2,033 total `<a>` labels) have no single verse target —
+   MySword's `<RX>` tag anchors these to the range's first chapter (verse 1)
+   while still *displaying* the full range as the label, since RX supports a
+   separate label/target; e-Sword's `<ref>` tag doesn't, so those render as
+   plain non-linked text instead of risking a broken/absurd native-parsed
+   link (e-Sword's own `esword_writer.py` note-table building was updated to
+   use `transform_reference()` too, replacing its old blind `<ref>` wrap).
+
+7. **Curly-brace supplied-word marker turned out to be a second, distinct
+   category from `[brackets]`.** Surfaced during end-to-end testing of the
+   work above: the BSB text uses *two* markers, not one. `[brackets]`
+   (18,688 rows) skew toward substantive, broadly-supplied content —
+   articles, conjunctions, pronouns, referents/proper nouns ("[Jesus]
+   answered") — words with no source-language counterpart at all.
+   `{braces}` (1,270 rows) skew overwhelmingly toward English auxiliary/
+   modal/copula verbs ("do/does/did", "will/shall/would/should/may/can",
+   "is/are/was/were/am/be", "let") plus phrasal-verb/idiom particles
+   ("away", "down", "up", "back", "over", "again", "together", "out",
+   "about", "with", "from") — words that read as grammatically implied by
+   the source verb's own tense/mood/aspect marking rather than freely-added
+   content. Confirmed independent of brackets (both can appear in the same
+   cell, e.g. `'[and] it {will} become'`, 40 such rows), never nested in one
+   another, and always balanced (0 unmatched `{`/`}` across all 1,270). Given
+   two different categories, `transform_english()` got a second, independent
+   `brace_replacement` control rather than reusing `bracket_replacement` —
+   see item 5 above.
+
 ## Known issues (not yet fixed)
 
-1. **Verse headings still have their raw wrapper tag.** `verses.heading`
-   comes straight from the file's `Hdg` column without stripping its
-   `<p class=|hdg|>` / `<p class=|subhdg|>` prefix — confirmed present on
-   100% of the 3,148 non-null headings, zero exceptions. Surfaced during
-   the end-to-end render test: e-Sword's headline rendered as literal
-   `<p class=|hdg|>The Creation` instead of `The Creation`. Same pollution
-   pattern already fixed for `Crossref`; just never checked on `Hdg`. Fix:
-   strip the `<p class=|...|>` prefix when populating `verses.heading` in
-   `import_bsb_table.py`.
-
-2. **Pre-owner punctuation in `vvv`-led groups** — exactly 10 verses, verified:
+1. **Pre-owner punctuation in `vvv`-led groups** — exactly 10 verses, verified:
    1Chr.8.34, 1Kgs.12.8, 2Cor.13.2, Acts.26.25, Dan.6.20, Ezek.47.4,
    Gen.26.13, John.7.35, Matt.14.29, Matt.19.3. When a `vvv` (continuation-
    before) row also carries its own punctuation/end_quote, that mark has no
@@ -47,13 +102,13 @@ architecture; this doc tracks the newer, still-settling parts.
    of "until"). Real fix needs punctuation timing decoupled from
    word-alignment grouping; not attempted.
 
-3. **~18 more `space_before_punct` cases, not individually diagnosed.** A
+2. **~18 more `space_before_punct` cases, not individually diagnosed.** A
    crude regex scan (` [,.;:!?'"'")\]]`) currently flags 28 verses; only the
    10 above have been traced to a specific mechanism. The rest (`'...you' ?'`-
    style patterns in 2Chr.32.11, Ezek.13.12, Job.6.23, etc.) haven't been
    looked at — could be the same mechanism, could be something new.
 
-4. **`SOURCE_TO_TARGET` (forward interlinear) not implemented** —
+3. **`SOURCE_TO_TARGET` (forward interlinear) not implemented** —
    `TableComposer.__init__` raises `NotImplementedError`, same gap as
    `AlignmentComposer`. Blocked on a real design question: groups are only
    guaranteed contiguous in `bsb_sort` order, not `source_sort` order (the
@@ -62,34 +117,12 @@ architecture; this doc tracks the newer, still-settling parts.
    direction currently uses won't directly reorder — forward interlinear
    likely needs a per-row (ungrouped) rendering strategy instead.
 
-5. **Supplied-word bracket stripping (`[Jesus]` → `Jesus`) happens at
-   `TableComposer` render time, gated on direction**, not at import — doing
-   it at import would destroy the bracket info forward interlinear will
-   need once #4 is built. Discussed trade-off: leaving it at render time
-   costs nothing extra within a single `main.py` run (composer is shared
-   across all writers in one pass), only re-runs if you invoke `main.py`
-   again later. Alternative considered and deferred: precompute both a
-   bracketed and stripped column at import time.
-
-6. **`verses.crossref` is captured but not wired into the `xrefs` output** —
-   `TableComposer.iter_verses()` always yields `{}`. Worth doing: this could
-   replace `bsb_xrefs.json` entirely for table mode (one less external data
-   dependency), not just feed the same shape `AlignmentComposer` uses. Needs
-   cleanup first — the raw value is HTML (`<br /><span class=|cross|>(<a
-   href=...>John 1:1-5</a>...)`), not the plain `"Joh 1:1-5; Heb 11:1-3"`
-   shape the MySword/e-Sword formatters' `_mysword_rx_tags` etc. expect:
-   strip the wrapper markup, pull the `<a>` tag text out, convert each
-   verse's book name to our abbreviation via `books.db`. Unexplored: whether
-   the raw HTML has its own edge cases the way `Crossref`/`Hdg`/the
-   ellipsis marker did — check before assuming a straightforward parse.
-
-7. **The `Space` column's meaning is still unconfirmed** — blank in every
+4. **The `Space` column's meaning is still unconfirmed** — blank in every
    row seen so far across all investigation in this session. Not used for
    anything; flagged in `TableComposer`'s docstring.
 
 ## Where to pick this back up
 
-Item 1 (heading prefix) is the smallest, most clearly-scoped fix and
-probably the next thing worth doing — it's a one-line addition to
-`import_bsb_table.py` alongside the existing `Crossref` misfiled-prefix
-handling, same pattern, already-verified 100%-consistent data.
+Item 1 (pre-owner punctuation) is the most concrete of the remaining issues
+— a real architectural limitation, already scoped down to exactly 10 verses,
+just needs punctuation timing decoupled from word-alignment grouping.

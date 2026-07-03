@@ -18,7 +18,6 @@ from composer import Composer
 from models import AlignedToken, MappingDirection, SourceToken, SourceWord
 
 _STRONGS_RE = re.compile(r'^0*(\d+)[a-z]*$')
-_SUPPLIED_WORD_BRACKETS_RE = re.compile(r'[\[\]]')
 
 
 def _prefixed_strongs(bare: str | None, language: str) -> str:
@@ -81,12 +80,16 @@ class TableComposer(Composer):
     same (osis_ref, [AlignedToken], header, xrefs) shape as AlignmentComposer.
 
     Notes on fidelity to AlignmentComposer's contract:
-      - xrefs: verses.crossref holds the raw HTML cross-reference markup
-        (e.g. "<br /><span class=|cross|>(<a href=...>John 1:1-5</a>...)"),
-        not the plain "Joh 1:1-5; Heb 11:1-3" shape AlignmentComposer's xref
-        pipeline expects — turning one into the other is its own parsing
-        task, not done here, so this always yields {} for now. The raw text
-        is preserved in the verses table for whenever that's built.
+      - xrefs: verses.crossref is already the plain "Joh 1:1-5; Heb 11:1-3"
+        shape (converted from the file's raw Crossref HTML at import time,
+        see utils/import_bsb_table.py) — same shape AlignmentComposer's own
+        bsb_xrefs.json uses, wrapped here as {'1': text} to match the
+        {key: text} dict both Composers yield (bsb_tables.tsv never has more
+        than one cross-reference group per verse, confirmed on all 1,325).
+      - Supplied-word brackets ("[Jesus] answered") are preserved as-is;
+        VerseFormatter.transform_english() decides whether to strip, wrap, or
+        keep them at render time (same as AlignmentComposer's target text,
+        which happens to have none, so this is a no-op there).
       - suffix_html/par_class (trailing markup/content, poetry indent, etc.)
         are preserved in the tokens table but not yet surfaced on
         AlignedToken — no formatter consumes them yet, so they aren't wired
@@ -122,7 +125,7 @@ class TableComposer(Composer):
         # per-verse, since heading/book/chapter/verse are facts about the
         # verse (looked up by verse_id), not about whichever token happens
         # to be first in a given sort order.
-        cur.execute("SELECT verse_id, book, chapter, verse, heading FROM verses")
+        cur.execute("SELECT verse_id, book, chapter, verse, heading, crossref FROM verses")
         verse_info = {r['verse_id']: r for r in cur}
 
         where, params = "", ()
@@ -138,18 +141,19 @@ class TableComposer(Composer):
         for row in cur:
             if row['verse_id'] != current_verse_id:
                 if verse_rows:
-                    yield self._build_verse(verse_info[current_verse_id], verse_rows, self.direction)
+                    yield self._build_verse(verse_info[current_verse_id], verse_rows)
                 current_verse_id, verse_rows = row['verse_id'], []
             verse_rows.append(row)
         if verse_rows:
-            yield self._build_verse(verse_info[current_verse_id], verse_rows, self.direction)
+            yield self._build_verse(verse_info[current_verse_id], verse_rows)
 
         conn.close()
 
     @staticmethod
-    def _build_verse(verse_info, rows, direction):
+    def _build_verse(verse_info, rows):
         osis_ref = f"{verse_info['book']}.{verse_info['chapter']}.{verse_info['verse']}"
         header   = verse_info['heading']
+        xrefs    = {'1': verse_info['crossref']} if verse_info['crossref'] else {}
 
         groups, order = {}, []
         for row in rows:
@@ -182,15 +186,6 @@ class TableComposer(Composer):
             members   = groups[owner]
             owner_row = next(r for r in members if r['bsb_sort'] == owner)
             english   = _assemble_group_text(members, owner_row)
-            if direction == MappingDirection.TARGET_TO_SOURCE:
-                # Square brackets mark translator-supplied words ("[Jesus]
-                # answered") — worth keeping for a source-primary forward
-                # interlinear (the traditional KJV-italics-style convention),
-                # but just clutter for the English-primary intralinear
-                # display. Confirmed no square brackets appear anywhere else
-                # in the BSB text, so this is unambiguously the file's own
-                # supplied-word markup, not incidental punctuation.
-                english = _SUPPLIED_WORD_BRACKETS_RE.sub('', english)
             notes     = [{'noteId': f"F{r['bsb_sort']}", 'text': r['footnote']}
                          for r in members if r['footnote']]
             source_words = [_to_source_word(r) for r in members]
@@ -237,4 +232,4 @@ class TableComposer(Composer):
                 tokens.append(AlignedToken(english=pending_prefix, skip_space_after=True,
                                             source_words=pending_words, notes=pending_notes))
 
-        return osis_ref, tokens, header, {}
+        return osis_ref, tokens, header, xrefs
