@@ -105,6 +105,43 @@ def _normalize_english(text: str) -> str:
     text = _SPACE_BEFORE_PUNCT_RE.sub(r'\1', text)
     return _INTERNAL_WHITESPACE_RE.sub(' ', text)
 
+
+# Eleven rows carry the properly-spaced ". . ." continuation marker glued to
+# real content in the same cell, e.g. Numbers 26:18's raw BSB version is
+# " . . . 40,500 " — not the exact-match ". . ." that gets classified as a
+# continuation row, so it falls through to plain text with the marker still
+# embedded. Confirmed against the actual published BSB text row by row: these
+# eleven have no ellipsis in the real text (the marker is a leftover
+# artifact, not content) and should just become their trailing content
+# ("40,500"). Ephesians 3:14 looks similar at a glance but is NOT one of
+# these — its raw value is " ... for this reason " (a bare, unspaced "...",
+# a completely different string), and it genuinely does have an ellipsis in
+# the published text (Paul's sentence resuming after the digression since
+# 3:1), so it's deliberately excluded and left untouched.
+#
+# This has to run *before* _normalize_english(): that function's
+# space-before-punctuation cleanup would otherwise match the spaces inside
+# ". . ." too (each "space then period" looks identical to "word ." needing
+# its space removed) and mangle the marker into "..." instead of stripping
+# it — which is exactly how this was first miscategorized as a bare-ellipsis
+# bug instead of a leftover-marker bug.
+#
+# Keyed by bsb_sort since that's this file's own stable identifier; if
+# bsb_tables.tsv is ever refreshed, re-verify this list rather than trusting
+# it blindly.
+_ELLIPSIS_ARTIFACT_BSB_SORTS = {
+    106223, 106302, 106356, 106397, 106531,  # Numbers 26 census verses
+    106590, 106672, 106712, 106786, 106841,
+    638979,  # John 21:7
+}
+_SPACED_ELLIPSIS_PREFIX_RE = re.compile(r'^\.\s*\.\s*\.\s*')
+
+
+def _strip_ellipsis_artifact(bsb_sort: int, text: str) -> str:
+    if bsb_sort in _ELLIPSIS_ARTIFACT_BSB_SORTS:
+        return _SPACED_ELLIPSIS_PREFIX_RE.sub('', text)
+    return text
+
 # heading and crossref are verse-level facts, not token-level ones — moved
 # to their own `verses` table rather than living on whichever token happens
 # to be first in bsb_sort order (that "first" token isn't meaningful once
@@ -252,6 +289,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
             strongs     = (cols[COL_STR_GRK] if language == 'G' else cols[COL_STR_HEB]).strip() or None
 
             bsb_version = cols[COL_BSB_VERSION].strip()
+            extra_punctuation = None
             if bsb_version == '-':
                 gloss_type, english = 'untranslated', None
             elif bsb_version == '. . .':
@@ -259,7 +297,18 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
             elif bsb_version == 'vvv':
                 gloss_type, english = 'continuation_before', None
             else:
-                gloss_type, english = 'text', _normalize_english(bsb_version)
+                bsb_version = _strip_ellipsis_artifact(bsb_sort, bsb_version)
+                english = _normalize_english(bsb_version)
+                if english and not any(c.isalnum() for c in english):
+                    # John 21:7's stripped residue is bare ")" -- pure
+                    # punctuation with no translated content. Left in
+                    # `english`, TableComposer's merge routing (which only
+                    # looks at the punctuation/end_quote *fields*, not raw
+                    # text) wouldn't know to attach it to the previous word;
+                    # moving it to `punctuation` lets that logic work as designed.
+                    gloss_type, english, extra_punctuation = 'untranslated', None, english
+                else:
+                    gloss_type = 'text'
 
             params = dict(
                 bsb_sort=bsb_sort, verse_id=verse_id,
@@ -274,7 +323,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                 parent_id=None,
                 beg_quote=cols[COL_BEGQ] or None,
                 end_quote=cols[COL_ENDQ] or None,
-                punctuation=cols[COL_PNC] or None,
+                punctuation=extra_punctuation or cols[COL_PNC] or None,
                 space=cols[COL_SPACE] or None,
                 suffix_html=cols[COL_END_TEXT] or None,
                 par_class=par_correction or cols[COL_PAR] or None,
