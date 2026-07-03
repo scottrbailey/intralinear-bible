@@ -7,7 +7,6 @@ Verse rendering is fully delegated to the injected VerseFormatter.
 """
 
 import sqlite3
-import xml.etree.ElementTree as ET
 from dataclasses import replace
 from pathlib import Path
 
@@ -46,6 +45,7 @@ class SQLiteBibleWriter(BibleWriter):
         self._verse_count  = 0
         self._previewed_ot = False
         self._previewed_nt = False
+        self._preview_verses = []   # [(osis_ref, scripture), ...] -> sample_{abbrev}.html
 
     # ------------------------------------------------------------------ public
 
@@ -69,7 +69,10 @@ class SQLiteBibleWriter(BibleWriter):
         self.insert_details()
         self.conn.commit()
         self.conn.close()
+        sample_path = self._write_sample_html()
         print(f"Written to {self.output_path} ({self._verse_count:,} verses)")
+        if sample_path:
+            print(f"Sample preview (CSS + first verse per testament): {sample_path}")
 
     def insert_details(self):
         raise NotImplementedError
@@ -121,11 +124,7 @@ class SQLiteBibleWriter(BibleWriter):
 
         is_ot = book_num <= 39
         if (is_ot and not self._previewed_ot) or (not is_ot and not self._previewed_nt):
-            self._pretty_print(osis_ref, scripture)
-            transformed = self.profile.preview_transform(scripture)
-            if transformed != scripture:
-                print(f"--- {osis_ref} transformed ---")
-                print(transformed)
+            self._preview_verses.append((osis_ref, scripture))
             if is_ot:
                 self._previewed_ot = True
             else:
@@ -150,17 +149,23 @@ class SQLiteBibleWriter(BibleWriter):
             }
         return SQLiteBibleWriter._book_cache.get(osis_book, 0)
 
-    @staticmethod
-    def _pretty_print(osis_ref: str, scripture: str):
-        print(f'\n--- {osis_ref} ---')
-        try:
-            root = ET.fromstring(f'<v>{scripture}</v>')
-            if root.text:
-                print(root.text, end='')
-            for child in root:
-                print('\n' + ET.tostring(child, encoding='unicode'), end='')
-            print()
-        except ET.ParseError as e:
-            print(f'(parse error: {e})')
-            print(scripture)
-        print()
+    def _write_sample_html(self) -> Path | None:
+        """Write CSS + the first previewed verse per testament to
+        sample_{abbrev}.html next to the output file, for visual review in a
+        browser instead of dumping (often not-well-formed-XML) verse markup
+        to the console. Returns the path written, or None if there was
+        nothing to preview (e.g. an empty book filter).
+        """
+        if not self._preview_verses:
+            return None
+        sample_path = self.output_path.parent / f"sample_{self.profile.abbreviation}.html"
+        parts = [
+            "<!doctype html>", "<html>", "<head>",
+            f"<style>{self.profile.css}</style>", "</head>", "<body>",
+        ]
+        for osis_ref, scripture in self._preview_verses:
+            parts.append(f"<h3>{osis_ref}</h3>")
+            parts.append(f"<p>{scripture}</p>")
+        parts += ["</body>", "</html>"]
+        sample_path.write_text('\n'.join(parts), encoding='utf-8')
+        return sample_path
