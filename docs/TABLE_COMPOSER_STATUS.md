@@ -18,6 +18,11 @@ architecture; this doc tracks the newer, still-settling parts.
   producing actual `.bbli` files (2,601 verses, Genesis + Matthew).
 - Full-Bible pass (all 31,085 verses with real content): zero exceptions,
   zero double-spaces, zero stray supplied-word brackets.
+- `main.py --composer table` (or `composer: table` in config.yaml) now
+  selects `TableComposer` through the normal CLI entry point — verified
+  against real Genesis output via both the CLI flag and the config key
+  (1,533 verses, matching the known count); the default `alignment` path
+  is unchanged.
 
 ## Known issues (not yet fixed)
 
@@ -73,14 +78,7 @@ architecture; this doc tracks the newer, still-settling parts.
    `_mysword_rx_tags` etc.) expect. `TableComposer.iter_verses()` always
    yields `{}` for xrefs. Turning one into the other is unbuilt.
 
-7. **`main.py` isn't wired to select `TableComposer`.** It's hardcoded to
-   `AlignmentComposer(config)`. The end-to-end render test above used a
-   standalone script instantiating `TableComposer` + writers directly,
-   bypassing `main.py`'s CLI/config entirely. Needs a config key or CLI flag
-   to pick a composer before this is usable through the normal `python
-   main.py` entry point.
-
-8. **The `Space` column's meaning is still unconfirmed** — blank in every
+7. **The `Space` column's meaning is still unconfirmed** — blank in every
    row seen so far across all investigation in this session. Not used for
    anything; flagged in `TableComposer`'s docstring.
 
