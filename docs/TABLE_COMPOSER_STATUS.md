@@ -48,7 +48,9 @@ architecture; this doc tracks the newer, still-settling parts.
    suppressible from module data, so rendering those here doubles them up,
    and e-Sword has no way to make ours render above the verse the way its
    native pericopes do. Only `acrostic`/`ihdg`/`subhdg` — classes native
-   pericopes don't cover — render, inline as `<i>{text}</i><br/>`.
+   pericopes don't cover — render, each wrapped in a same-named `<span>`
+   rather than a hardcoded tag, styled by `_INLINE_HEADER_CSS` (block +
+   italic, `acrostic` also centered) so each stays independently stylable.
 
 5. **Supplied-word bracket/brace stripping.** Moved off `TableComposer`
    (which now always preserves `[brackets]`/`{braces}` verbatim) and onto

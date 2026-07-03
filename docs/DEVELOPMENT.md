@@ -215,7 +215,10 @@ verse data exactly once regardless of how many output targets are active.
   from module data, so rendering those here would double them up (and for
   e-Sword there's no way to make ours render above the verse the way native
   pericopes do anyway). Only render the classes native pericopes don't
-  cover — `acrostic`, `ihdg`, `subhdg` — inline as `<i>{text}</i><br/>`.
+  cover — `acrostic`, `ihdg`, `subhdg` — each wrapped in a same-named
+  `<span>`, styled by `_INLINE_HEADER_CSS` (block + italic, `acrostic` also
+  centered) rather than a hardcoded tag, so each class stays independently
+  stylable and doesn't collide with `bracket_replacement`'s own `<i>` use.
 - `transform_english()` / `bracket_replacement` / `brace_replacement` —
   strip, keep, or restyle the BSB text's two independent translator-supplied-
   word markers: `[brackets]` (broadly supplied words — pronouns, articles,

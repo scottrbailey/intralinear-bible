@@ -197,6 +197,14 @@ def _clean_header_text(text: str) -> str:
 # section headings, which those native pericopes already show.
 _INLINE_HEADER_CLASSES = {'acrostic', 'ihdg', 'subhdg'}
 
+# Shared styling for the classes above: block-level (so each renders on its
+# own line with no explicit <br/> needed) and italic; 'acrostic' (Psalm 119
+# stanza letters, e.g. "א ALEPH") also centered. Appended to every
+# formatter's own css block below.
+_INLINE_HEADER_CSS = dedent('''\
+    .acrostic, .ihdg, .subhdg {display: block; font-style: italic}
+    .acrostic {text-align: center}''')
+
 
 # ================================================================ base class
 
@@ -283,11 +291,15 @@ class VerseFormatter(ABC):
         render above the verse the way its native pericopes do anyway.
         Default: skip those, and render only the classes native pericopes
         don't cover — 'acrostic' (Psalm 119 stanza letters), 'ihdg' (Song of
-        Solomon speaker labels), 'subhdg' (nested headings) — inline, in
-        italics. Override to change this policy or the markup.
+        Solomon speaker labels), 'subhdg' (nested headings) — each wrapped
+        in a same-named <span>, styled (block + italic, 'acrostic' also
+        centered) by _INLINE_HEADER_CSS rather than a hardcoded <i>/<br/> —
+        keeps each class independently stylable and out of the way of
+        bracket_replacement's own (also documented) '<i>' use. Override to
+        change this policy or the markup.
         """
         return ''.join(
-            f'<i>{text}</i><br/>'
+            f'<span class="{cls}">{text}</span>'
             for cls, text in parse_headers(raw)
             if cls in _INLINE_HEADER_CLASSES
         )
@@ -334,7 +346,7 @@ _ESWORD_INTRALINEAR_CSS = dedent('''\
     ruby {color: blue; display:block}
     ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 0;}
     .ilb ruby ~ * {position: absolute; z-index:9999; top:0.5em; left:0; right: 0; text-align: center; opacity: 0;}'''
-)
+) + '\n' + _INLINE_HEADER_CSS
 
 class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
     abbreviation   = "BSTB"
@@ -389,12 +401,12 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
 
 _ESWORD_STACKED_CSS = dedent('''\
-    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
+    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em;
         padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
     ruby {color: blue; display:block}
     ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 1;}
     .ilb ruby ~ * {position: absolute; z-index:9999; top:0.5em; left:0; right: 0; text-align: center; opacity: 0;}'''
-)
+) + '\n' + _INLINE_HEADER_CSS
 
 class ESwordStackedFormatter(ESwordIntralinearFormatter):
     abbreviation   = "BSXB"
@@ -414,7 +426,7 @@ _ESWORD_INTERLINEAR_CSS = (
     'lem sup{display:block;vertical-align:baseline;margin:0;padding:0;line-height:1}'
     '.xlit{color:#2244aa}'
     'tvm{color:#666}'
-)
+) + '\n' + _INLINE_HEADER_CSS
 
 class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
     abbreviation   = "BSBri"
@@ -545,12 +557,12 @@ class _MySwordXrefMixin:
 
 
 _MYSWORD_INTRALINEAR_CSS = dedent("""\
-	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; 
+	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px;
 	    padding:2px 0; position:relative; font-size:0.8em;}
     ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 0;}
     ruby > rt {display:block; font-size: 1.1em; color: blue;}
     ruby a {text-decoration: none;}
-""")
+""") + _INLINE_HEADER_CSS
 
 _MYSWORD_INTRALINEAR_RULES = ''
 
@@ -604,12 +616,12 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
         return self._apply_rules(scripture, self.verse_rules)
 
 _MYSWORD_STACKED_CSS = dedent("""\
-	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px; 
+	.ilb ruby {display: inline-flex; flex-direction: column; align-items:center; vertical-align:middle; gap: 1px;
 	    padding:4px 0; position:relative; font-size:0.8em; line-height: 1;}
     ruby > ro {display:block; color:#1ca0b1; text-align: center; opacity: 1;}
     ruby > rt {display:block; font-size: 1.1em; color: blue;}
     ruby a {text-decoration: none;}
-""")
+""") + _INLINE_HEADER_CSS
 
 _MYSWORD_STACKED_RULES = ''
 
@@ -623,7 +635,7 @@ class MySwordStackedFormatter(MySwordIntralinearFormatter):
 _MYSWORD_INTERLINEAR_CSS = """
 sup { font-size: 70%; }
 .xlit a { color: blue; text-decoration: none; }
-"""
+""" + _INLINE_HEADER_CSS
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
