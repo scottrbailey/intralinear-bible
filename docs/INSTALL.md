@@ -1,19 +1,19 @@
-# BSB Intralinear Bible — Installation Guide
+# Berean Standard Transliterated Bible — Installation Guide
 
-The BSB Intralinear Bible combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's concordance. It is available for two Bible apps:
+**Berean Standard Transliterated Bible** (BSTB) and **Berean Standard Translinear Bible** (BSXB) combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's concordance. It is available for two Bible apps:
 
 - **[MySword](#mysword-android)** — Android phones and tablets
 - **[e-Sword](#e-sword-android-and-ios)** — Android and iOS phones and tablets (does not play well with desktop version of e-Sword)
 
 ---
 
-### Choosing Between Standard and Stacked
+### Choosing Between Transliterated and Translinear
 
-**Standard (`BSBi`)** — transliteration appears as a superscript after the English word. Tap it to open the Strong's lexicon entry.
+**Transliterated (`BSTB`)** — transliteration appears as a superscript after the English word. Tap it to open the Strong's lexicon entry.
 
 <img src="assets/MySword_intralinear.jpg" width="480" description="BSB Intralinear on MySword"/>
 
-**Stacked (`BSBis`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word.
+**Translinear (`BSXB`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word.
 
 <img src="assets/MySword_stacked_intralinear.jpg" width="480" description="BSB Intralinear Stacked on MySword" />
 
@@ -33,8 +33,8 @@ The application is free, but requires a $25 "donation" to unlock all features.
 ### Step 2 — Download the Intralinear Module
 
 1. On your device, open this link to download the module:
-   **[BSBi.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBi.bbl.zip)** BSB Intralinear 
-   or **[BSBis.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBis.bbl.zip)** BSB Intralinear Stacked
+   **BSTBi.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.bbl.zip)** Berean Standard Transliterated Bible
+   or **[BSXB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.bbl.zip)** Berean Standard Translinear Bible
 2. When prompted, save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module
@@ -64,7 +64,8 @@ If you want to use the Intralinear Bible on iOS, this is your only choice.
 ### Step 2 — Download the Module
 
 1. On your device, open this link to download the module:
-   **[BSBi.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBi.zip)** - Intralinear version or **[BSBis.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSBis.zip)** - Intralinear Stacked
+   **[BSTB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.zip)** - Berean Standard Transliterated Bible
+   **[BSXB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.zip)** - Berean Standard Translinear Bible
 2. Save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module 

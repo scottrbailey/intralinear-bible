@@ -76,11 +76,11 @@ class VerseFormatter(ABC):
 
 # ============================================================ e-Sword profiles
 _ESWORD_INTRALINEAR_CSS = dedent('''\
-    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
-        padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
-    ruby {color: blue; display:block}
-    ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 0;}
-    .ilb ruby ~ * {position: absolute; z-index:9999; top:0.5em; left:0; right: 0; text-align: center; opacity: 0;}'''
+	.ilb ruby {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; gap:1px; 
+	    padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
+    ruby > ro {display:block; color:#1ca0b1; text-align:center; opacity:0;}
+    ruby > rt {display:block; font-size:1.1em; color: blue;}
+    .ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'''
 )
 
 class ESwordIntralinearFormatter(VerseFormatter):
@@ -114,10 +114,9 @@ class ESwordIntralinearFormatter(VerseFormatter):
                 lemmas = []
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    # yes I know the ruby / rt tags are semantically inverted - easier to hide rt
                     lemmas.append(
                         f'<span class="ilb">'
-                        f'<ruby>{xlit}<rt>{sw.text}</rt></ruby>'
+                        f'<ruby><rt>{xlit}</rt><ro>{sw.text}</ro></ruby>'
                         f'<num>{sw.stem.strongs}</num>'
                         f'</span>'
                     )
@@ -140,15 +139,15 @@ class ESwordIntralinearFormatter(VerseFormatter):
 
 
 _ESWORD_STACKED_CSS = dedent('''\
-    .ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:0.85em; gap:1px; line-height:0.9em; 
-        padding:4px 0; position:relative; height: 2.4em; overflow: hidden}
-    ruby {color: blue; display:block}
-    ruby > rt {font-size: 1.1em; color: #1ca0b1; display: block; text-align: center; opacity: 1;}
-    .ilb ruby ~ * {position: absolute; z-index:9999; top:0.5em; left:0; right: 0; text-align: center; opacity: 0;}'''
+	.ilb ruby {display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; gap:1px; 
+	    padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
+    ruby > ro {display:block; color:#1ca0b1; text-align:center; opacity:1;}
+    ruby > rt {display:block; font-size:1.1em; color:blue;}
+    .ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'''
 )
 
 class ESwordStackedFormatter(ESwordIntralinearFormatter):
-    abbreviation   = "BSXB+"
+    abbreviation   = "BSXB"
     module_name    = "Berean Standard Translinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_STACKED_CSS
