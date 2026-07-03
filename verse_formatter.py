@@ -197,13 +197,21 @@ def _clean_header_text(text: str) -> str:
 # section headings, which those native pericopes already show.
 _INLINE_HEADER_CLASSES = {'acrostic', 'ihdg', 'subhdg'}
 
-# Shared by both MySword and e-Sword
+# Shared by both MySword and e-Sword.
+#
+# .acrostic/.ihdg/.subhdg: float (not display:block) so the span stays on
+# the same line as the app's own verse number instead of starting a new
+# line before it, and width:100% so nothing can float beside it, forcing
+# whatever follows in normal flow (the verse's token text) onto a new line
+# after it — a line break with no literal <br/>. clear:right guards against
+# wrapping around anything the host app itself right-floats on that line.
 _INTRALINEAR_CSS = dedent('''\
-    .acrostic, .ihdg, .subhdg {display:block; color:#777; margin:0.4em 0 0.1em; font:italic bold}
-	.acrostic {text-align:center;} .ihdg {font-weight: normal;} .subhdg {font-style: normal;}
-    .ilb  {display:inline-block; vertical-align:middle; gap:1px; 
-        padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
-	.ilb ruby {display:inline-flex; flex-direction:column;}
+    .acrostic, .ihdg, .subhdg {float:left; clear:right; width:100%; color:#777; margin:0.4em 0 0.1em; font-style:italic; font-weight:bold;}
+    .acrostic {text-align:center;}
+    .ihdg {font-weight:normal;}
+    .subhdg {font-style:normal;}
+    .ilb {display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
+    .ilb ruby {display:inline-flex; flex-direction:column;}
     ruby > ro {display:block; color:#1ca0b1; text-align:center;}
     ruby > rt {display:block; font-size:1.1em; color: blue;}
 ''')
@@ -343,7 +351,7 @@ class _ESwordXrefMixin:
 
 
 _ESWORD_INTRALINEAR_CSS = (_INTRALINEAR_CSS +
-    '\nruby > ro {opacity:0}' +
+    '\nruby > ro {opacity:0}\n' +
     '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 )
 
@@ -606,7 +614,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
         return self._apply_rules(scripture, self.verse_rules)
 
 _MYSWORD_STACKED_CSS = _INTRALINEAR_CSS + \
-    '\nruby > ro {opacity:0} ruby a {text-decoration: none;}'
+    '\nruby a {text-decoration: none;}'
 
 _MYSWORD_STACKED_RULES = ''
 
