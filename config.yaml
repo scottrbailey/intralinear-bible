@@ -44,7 +44,7 @@ crossrefs:   "data/bsb_xrefs.json"
 # ── Output ───────────────────────────────────────────────────
 output:
   dir:     "output"
-  headers: 0             # section headers
+  headers: 1             # section headers
   notes:   1             # translator notes
   xref:    1             # cross ref 0: none, 1: beginning of verse, 2: end of verse
 
