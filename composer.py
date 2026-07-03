@@ -8,6 +8,7 @@ AlignmentComposer: loads source/alignment/target files and joins them live.
 import csv
 import json
 import re
+import sqlite3
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -22,9 +23,14 @@ from models import (
 # Build at module load — one-time cost, used by composer and writers alike.
 BOOK_NUM_MAP: dict = {book.usfmnumber: book.osisID for book in Books().values()}
 
-_book_abbrev = [book.osisID for book in Books().values()]
-_OT_ABBREV   = set(_book_abbrev[:39])
-_NT_ABBREV   = set(_book_abbrev[60:87])
+# data/books.db (see utils/build_books_table.py) gives an explicit testament
+# per book rather than slicing into biblelib's own (apocrypha-inclusive)
+# iteration order, which put the NT at index 60, not immediately after the
+# 39 OT books.
+_BOOKS_DB = Path(__file__).resolve().parent / "data" / "books.db"
+with sqlite3.connect(_BOOKS_DB) as _conn:
+    _OT_ABBREV = {r[0] for r in _conn.execute("SELECT osis_id FROM books WHERE testament='OT'")}
+    _NT_ABBREV = {r[0] for r in _conn.execute("SELECT osis_id FROM books WHERE testament='NT'")}
 
 
 def verse_id_to_osis(verse_id: str) -> str:

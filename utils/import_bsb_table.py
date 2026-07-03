@@ -29,10 +29,39 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from bible_books import FULL_NAME_TO_OSIS
-
 DEFAULT_SOURCE = ROOT / "data" / "bsb_tables.tsv"
 DEFAULT_OUTPUT = ROOT / "data" / "bsb_tables.db"
+BOOKS_DB       = ROOT / "data" / "books.db"
+
+# Full English book name, as cited in bsb_tables.tsv's VerseId column
+# (e.g. "Genesis 1:1", "1 Samuel 3:2") -> OSIS book id, in canonical order.
+# This is a BSB-citation-format quirk, not a general fact about books, so
+# it stays local to this import script rather than living in data/books.db
+# (which is shared pipeline-wide infrastructure). Can't be derived live from
+# biblelib either: biblelib's own .name differs from the file in exactly two
+# places ("Psalms" vs the file's "Psalm", "Song of Songs" vs "Song of
+# Solomon") — verified against the actual file: exactly these 66 names, in
+# exactly this order, appear as VerseId prefixes.
+_FULL_NAMES_IN_CANONICAL_ORDER = [
+    'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
+    'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel',
+    '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra',
+    'Nehemiah', 'Esther', 'Job', 'Psalm', 'Proverbs',
+    'Ecclesiastes', 'Song of Solomon', 'Isaiah', 'Jeremiah', 'Lamentations',
+    'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos',
+    'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk',
+    'Zephaniah', 'Haggai', 'Zechariah', 'Malachi', 'Matthew',
+    'Mark', 'Luke', 'John', 'Acts', 'Romans',
+    '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians', 'Philippians',
+    'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy', '2 Timothy',
+    'Titus', 'Philemon', 'Hebrews', 'James', '1 Peter',
+    '2 Peter', '1 John', '2 John', '3 John', 'Jude',
+    'Revelation',
+]
+with sqlite3.connect(BOOKS_DB) as _conn:
+    _osis_in_canon_order = [r[0] for r in
+        _conn.execute("SELECT osis_id FROM books ORDER BY canon_order")]
+FULL_NAME_TO_OSIS = dict(zip(_FULL_NAMES_IN_CANONICAL_ORDER, _osis_in_canon_order))
 
 # ------------------------------------------------------------- column layout
 
@@ -77,7 +106,7 @@ _VERSE_ID_RE  = re.compile(r'^(.+?)\s+(\d+):(\d+)$')
 _CROSSREF_MISFILED_PREFIX = '<p class='
 
 _INSERT_COLUMNS = [
-    'bsb_sort', 'book', 'chapter', 'verse', 'source_sort', 'language',
+    'bsb_sort', 'verse_id', 'source_sort', 'language',
     'source_text', 'translit', 'strongs', 'parsing_short', 'parsing_full',
     'gloss_type', 'english', 'parent_id',
     'beg_quote', 'end_quote', 'punctuation', 'space',
@@ -86,19 +115,18 @@ _INSERT_COLUMNS = [
 
 DDL = """
 CREATE TABLE verses (
+    verse_id INTEGER PRIMARY KEY,  -- bsb_tables.tsv's own "Verse" column
     book     TEXT NOT NULL,
     chapter  INTEGER NOT NULL,
     verse    INTEGER NOT NULL,
     heading  TEXT,
-    crossref TEXT,
-    PRIMARY KEY (book, chapter, verse)
+    crossref TEXT
 );
+CREATE INDEX verses_book ON verses (book, verse_id);
 
 CREATE TABLE tokens (
     bsb_sort      INTEGER PRIMARY KEY,
-    book          TEXT NOT NULL,
-    chapter       INTEGER NOT NULL,
-    verse         INTEGER NOT NULL,
+    verse_id      INTEGER NOT NULL REFERENCES verses(verse_id),
     source_sort   REAL NOT NULL,
     language      TEXT NOT NULL CHECK(language IN ('H','A','G')),
     source_text   TEXT NOT NULL,
@@ -117,10 +145,9 @@ CREATE TABLE tokens (
     space         TEXT,
     suffix_html   TEXT,
     par_class     TEXT,
-    footnote      TEXT,
-    FOREIGN KEY (book, chapter, verse) REFERENCES verses(book, chapter, verse)
+    footnote      TEXT
 );
-CREATE INDEX tokens_book        ON tokens (book, bsb_sort);
+CREATE INDEX tokens_verse      ON tokens (verse_id, bsb_sort);
 CREATE INDEX tokens_source_sort ON tokens (source_sort);
 """
 
@@ -128,7 +155,7 @@ _INSERT_SQL = (
     "INSERT INTO tokens (" + ", ".join(_INSERT_COLUMNS) + ") VALUES ("
     + ", ".join("?" for _ in _INSERT_COLUMNS) + ")"
 )
-_INSERT_VERSE_SQL = "INSERT INTO verses (book, chapter, verse, heading, crossref) VALUES (?, ?, ?, ?, ?)"
+_INSERT_VERSE_SQL = "INSERT INTO verses (verse_id, book, chapter, verse, heading, crossref) VALUES (?, ?, ?, ?, ?, ?)"
 
 
 def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> None:
@@ -162,7 +189,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
 
     pending_vvv: list = []
     current_owner_bsb_sort = None
-    book = chapter = verse = None
+    verse_id = None
     prev_verse_col = None
     discarded_at_boundary = 0
     misfiled_crossref_count = 0
@@ -184,6 +211,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
             par_correction = None
             if verse_col != prev_verse_col:
                 prev_verse_col = verse_col
+                verse_id = int(verse_col)
                 vid = cols[COL_VERSE_ID].strip()
                 if vid:
                     m = _VERSE_ID_RE.match(vid)
@@ -198,7 +226,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                         par_correction = crossref
                         crossref = None
                         misfiled_crossref_count += 1
-                    cur.execute(_INSERT_VERSE_SQL, (book, chapter, verse, heading, crossref))
+                    cur.execute(_INSERT_VERSE_SQL, (verse_id, book, chapter, verse, heading, crossref))
                 discarded_at_boundary += len(pending_vvv)
                 pending_vvv = []
                 current_owner_bsb_sort = None
@@ -222,7 +250,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                 gloss_type, english = 'text', bsb_version
 
             params = dict(
-                bsb_sort=bsb_sort, book=book, chapter=chapter, verse=verse,
+                bsb_sort=bsb_sort, verse_id=verse_id,
                 source_sort=source_sort, language=language,
                 source_text=cols[COL_SOURCE_TEXT],
                 translit=cols[COL_TRANSLIT] or None,

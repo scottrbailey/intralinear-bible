@@ -14,11 +14,19 @@ never emits the corresponding tags and the CSS for them is never exercised.
 """
 
 import re
+import sqlite3
 from abc import ABC, abstractmethod
+from pathlib import Path
 from textwrap import dedent
 from collections.abc import Callable
-from bible_books import ABBREV_TO_BOOK_NUM
 from translit import make_transliterator
+
+# data/books.db (see utils/build_books_table.py) — our display abbreviation
+# ('Joh', '1Co', ...) -> usfm_number, for MySword's <RX b.c.v> cross-ref tags.
+_BOOKS_DB = Path(__file__).resolve().parent / "data" / "books.db"
+with sqlite3.connect(_BOOKS_DB) as _conn:
+    ABBREV_TO_BOOK_NUM = {r[0]: r[1] for r in
+                           _conn.execute("SELECT display_abbrev, usfm_number FROM books")}
 
 
 MODULE_DESCRIPTION = dedent("""\

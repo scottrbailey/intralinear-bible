@@ -115,37 +115,38 @@ class TableComposer(Composer):
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
-        # verses is small (~31K rows) — load it whole rather than joining or
-        # querying per-verse, since heading is a fact about the verse, not
-        # about whichever token happens to be first in a given sort order.
-        cur.execute("SELECT book, chapter, verse, heading, crossref FROM verses")
-        headings = {(r['book'], r['chapter'], r['verse']): r['heading'] for r in cur}
+        # verses is small (~31K rows) — load it whole rather than querying
+        # per-verse, since heading/book/chapter/verse are facts about the
+        # verse (looked up by verse_id), not about whichever token happens
+        # to be first in a given sort order.
+        cur.execute("SELECT verse_id, book, chapter, verse, heading FROM verses")
+        verse_info = {r['verse_id']: r for r in cur}
 
         where, params = "", ()
         if self._books_filter:
             placeholders = ','.join('?' for _ in self._books_filter)
-            where  = f"WHERE book IN ({placeholders})"
+            where  = (f"WHERE verse_id IN (SELECT verse_id FROM verses "
+                      f"WHERE book IN ({placeholders}))")
             params = tuple(self._books_filter)
 
         cur.execute(f"SELECT * FROM tokens {where} ORDER BY bsb_sort", params)
 
-        current_key, verse_rows = None, []
+        current_verse_id, verse_rows = None, []
         for row in cur:
-            key = (row['book'], row['chapter'], row['verse'])
-            if key != current_key:
+            if row['verse_id'] != current_verse_id:
                 if verse_rows:
-                    yield self._build_verse(current_key, verse_rows, headings.get(current_key))
-                current_key, verse_rows = key, []
+                    yield self._build_verse(verse_info[current_verse_id], verse_rows)
+                current_verse_id, verse_rows = row['verse_id'], []
             verse_rows.append(row)
         if verse_rows:
-            yield self._build_verse(current_key, verse_rows, headings.get(current_key))
+            yield self._build_verse(verse_info[current_verse_id], verse_rows)
 
         conn.close()
 
     @staticmethod
-    def _build_verse(key, rows, header):
-        book, chapter, verse = key
-        osis_ref = f"{book}.{chapter}.{verse}"
+    def _build_verse(verse_info, rows):
+        osis_ref = f"{verse_info['book']}.{verse_info['chapter']}.{verse_info['verse']}"
+        header   = verse_info['heading']
 
         groups, order = {}, []
         for row in rows:
