@@ -64,15 +64,36 @@ COL_END_TEXT      = 22
 _LANGUAGE_MAP = {'Hebrew': 'H', 'Aramaic': 'A', 'Greek': 'G'}
 _VERSE_ID_RE  = re.compile(r'^(.+?)\s+(\d+):(\d+)$')
 
+# heading and crossref are verse-level facts, not token-level ones — moved
+# to their own `verses` table rather than living on whichever token happens
+# to be first in bsb_sort order (that "first" token isn't meaningful once
+# source_sort ordering is used, e.g. forward interlinear). Verified against
+# the real file: all 1328 non-null Crossref values sit on the verse's first
+# bsb_sort row with zero exceptions once 3 known mis-column rows are
+# corrected — those 3 (BSB Sort 392396, 457348, 560983) hold Par-shaped
+# content ("<p class=|...|>") instead of a real cross-reference
+# ("<br /><span class=|cross|>..."), and belong on that token's own
+# par_class, not on the verse's crossref.
+_CROSSREF_MISFILED_PREFIX = '<p class='
+
 _INSERT_COLUMNS = [
     'bsb_sort', 'book', 'chapter', 'verse', 'source_sort', 'language',
     'source_text', 'translit', 'strongs', 'parsing_short', 'parsing_full',
     'gloss_type', 'english', 'parent_id',
     'beg_quote', 'end_quote', 'punctuation', 'space',
-    'heading', 'prefix_html', 'suffix_html', 'par_class', 'footnote',
+    'suffix_html', 'par_class', 'footnote',
 ]
 
 DDL = """
+CREATE TABLE verses (
+    book     TEXT NOT NULL,
+    chapter  INTEGER NOT NULL,
+    verse    INTEGER NOT NULL,
+    heading  TEXT,
+    crossref TEXT,
+    PRIMARY KEY (book, chapter, verse)
+);
+
 CREATE TABLE tokens (
     bsb_sort      INTEGER PRIMARY KEY,
     book          TEXT NOT NULL,
@@ -94,11 +115,10 @@ CREATE TABLE tokens (
     end_quote     TEXT,
     punctuation   TEXT,
     space         TEXT,
-    heading       TEXT,
-    prefix_html   TEXT,
     suffix_html   TEXT,
     par_class     TEXT,
-    footnote      TEXT
+    footnote      TEXT,
+    FOREIGN KEY (book, chapter, verse) REFERENCES verses(book, chapter, verse)
 );
 CREATE INDEX tokens_book        ON tokens (book, bsb_sort);
 CREATE INDEX tokens_source_sort ON tokens (source_sort);
@@ -108,6 +128,7 @@ _INSERT_SQL = (
     "INSERT INTO tokens (" + ", ".join(_INSERT_COLUMNS) + ") VALUES ("
     + ", ".join("?" for _ in _INSERT_COLUMNS) + ")"
 )
+_INSERT_VERSE_SQL = "INSERT INTO verses (book, chapter, verse, heading, crossref) VALUES (?, ?, ?, ?, ?)"
 
 
 def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> None:
@@ -144,6 +165,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
     book = chapter = verse = None
     prev_verse_col = None
     discarded_at_boundary = 0
+    misfiled_crossref_count = 0
     row_count = 0
 
     with open(tsv_path, encoding='utf-8', newline='') as f:
@@ -158,7 +180,8 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                 current_owner_bsb_sort = None
                 continue
 
-            verse_col = cols[COL_VERSE_NUM].strip()
+            verse_col   = cols[COL_VERSE_NUM].strip()
+            par_correction = None
             if verse_col != prev_verse_col:
                 prev_verse_col = verse_col
                 vid = cols[COL_VERSE_ID].strip()
@@ -166,6 +189,16 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                     m = _VERSE_ID_RE.match(vid)
                     book_name, chap_s, verse_s = m.groups()
                     book, chapter, verse = FULL_NAME_TO_OSIS[book_name], int(chap_s), int(verse_s)
+
+                    heading  = cols[COL_HDG] or None
+                    crossref = cols[COL_CROSSREF] or None
+                    if crossref and crossref.startswith(_CROSSREF_MISFILED_PREFIX):
+                        # Par-shaped content sitting in the Crossref column —
+                        # redirect it onto this row's own par_class instead.
+                        par_correction = crossref
+                        crossref = None
+                        misfiled_crossref_count += 1
+                    cur.execute(_INSERT_VERSE_SQL, (book, chapter, verse, heading, crossref))
                 discarded_at_boundary += len(pending_vvv)
                 pending_vvv = []
                 current_owner_bsb_sort = None
@@ -203,10 +236,8 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                 end_quote=cols[COL_ENDQ] or None,
                 punctuation=cols[COL_PNC] or None,
                 space=cols[COL_SPACE] or None,
-                heading=cols[COL_HDG] or None,
-                prefix_html=cols[COL_CROSSREF] or None,
                 suffix_html=cols[COL_END_TEXT] or None,
-                par_class=cols[COL_PAR] or None,
+                par_class=par_correction or cols[COL_PAR] or None,
                 footnote=cols[COL_FOOTNOTES] or None,
             )
 
@@ -237,6 +268,9 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
     conn.close()
 
     print(f"Imported {row_count:,} rows from {tsv_path.name} to {db_path}")
+    if misfiled_crossref_count:
+        print(f"Redirected {misfiled_crossref_count} misfiled Crossref value(s) "
+              f"(Par-shaped content) onto their own token's par_class.")
     if discarded_at_boundary:
         print(f"Warning: {discarded_at_boundary} 'vvv' row(s) discarded unresolved "
               f"at a verse/blank-row boundary — unexpected, worth investigating.")

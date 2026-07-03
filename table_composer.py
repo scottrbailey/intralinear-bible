@@ -78,9 +78,14 @@ class TableComposer(Composer):
     same (osis_ref, [AlignedToken], header, xrefs) shape as AlignmentComposer.
 
     Notes on fidelity to AlignmentComposer's contract:
-      - xrefs: bsb_tables.tsv carries no cross-reference data; always {}.
-      - prefix_html/suffix_html/par_class (red-letter spans, poetry indent,
-        etc.) are preserved in the tokens table but not yet surfaced on
+      - xrefs: verses.crossref holds the raw HTML cross-reference markup
+        (e.g. "<br /><span class=|cross|>(<a href=...>John 1:1-5</a>...)"),
+        not the plain "Joh 1:1-5; Heb 11:1-3" shape AlignmentComposer's xref
+        pipeline expects — turning one into the other is its own parsing
+        task, not done here, so this always yields {} for now. The raw text
+        is preserved in the verses table for whenever that's built.
+      - suffix_html/par_class (trailing markup/content, poetry indent, etc.)
+        are preserved in the tokens table but not yet surfaced on
         AlignedToken — no formatter consumes them yet, so they aren't wired
         through until one does.
       - The 'space' column's meaning is still unconfirmed (blank in every
@@ -110,6 +115,12 @@ class TableComposer(Composer):
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
+        # verses is small (~31K rows) — load it whole rather than joining or
+        # querying per-verse, since heading is a fact about the verse, not
+        # about whichever token happens to be first in a given sort order.
+        cur.execute("SELECT book, chapter, verse, heading, crossref FROM verses")
+        headings = {(r['book'], r['chapter'], r['verse']): r['heading'] for r in cur}
+
         where, params = "", ()
         if self._books_filter:
             placeholders = ','.join('?' for _ in self._books_filter)
@@ -123,16 +134,16 @@ class TableComposer(Composer):
             key = (row['book'], row['chapter'], row['verse'])
             if key != current_key:
                 if verse_rows:
-                    yield self._build_verse(current_key, verse_rows)
+                    yield self._build_verse(current_key, verse_rows, headings.get(current_key))
                 current_key, verse_rows = key, []
             verse_rows.append(row)
         if verse_rows:
-            yield self._build_verse(current_key, verse_rows)
+            yield self._build_verse(current_key, verse_rows, headings.get(current_key))
 
         conn.close()
 
     @staticmethod
-    def _build_verse(key, rows):
+    def _build_verse(key, rows, header):
         book, chapter, verse = key
         osis_ref = f"{book}.{chapter}.{verse}"
 
@@ -143,8 +154,6 @@ class TableComposer(Composer):
                 groups[owner] = []
                 order.append(owner)
             groups[owner].append(row)
-
-        header = next((r['heading'] for r in rows if r['heading']), None)
 
         # An 'untranslated' word can still carry its own leading quote or
         # trailing punctuation (e.g. a comma-bearing pronoun BSB doesn't
