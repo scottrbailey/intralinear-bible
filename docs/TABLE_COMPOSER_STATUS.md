@@ -49,8 +49,10 @@ architecture; this doc tracks the newer, still-settling parts.
    and e-Sword has no way to make ours render above the verse the way its
    native pericopes do. Only `acrostic`/`ihdg`/`subhdg` — classes native
    pericopes don't cover — render, each wrapped in a same-named `<span>`
-   rather than a hardcoded tag, styled by `_INLINE_HEADER_CSS` (block +
-   italic, `acrostic` also centered) so each stays independently stylable.
+   (styled by `_INTRALINEAR_CSS` so each stays independently stylable)
+   followed by a literal `<br/>` — CSS-only alternatives (`display:block`,
+   then `float:left`/`width:100%`) were both tried and both broke against
+   real e-Sword/MySword rendering; a trailing `<br/>` is what works.
 
 5. **Supplied-word bracket/brace stripping.** Moved off `TableComposer`
    (which now always preserves `[brackets]`/`{braces}` verbatim) and onto

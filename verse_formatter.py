@@ -199,14 +199,15 @@ _INLINE_HEADER_CLASSES = {'acrostic', 'ihdg', 'subhdg'}
 
 # Shared by both MySword and e-Sword.
 #
-# .acrostic/.ihdg/.subhdg: float (not display:block) so the span stays on
-# the same line as the app's own verse number instead of starting a new
-# line before it, and width:100% so nothing can float beside it, forcing
-# whatever follows in normal flow (the verse's token text) onto a new line
-# after it — a line break with no literal <br/>. clear:right guards against
-# wrapping around anything the host app itself right-floats on that line.
+# .acrostic/.ihdg/.subhdg stay plain inline spans (no display/float trick —
+# display:block broke the line both before and after in e-Sword, separating
+# the span from the verse number; a float:left/width:100% attempt at "same
+# line, wrap only after" then behaved unpredictably against the real
+# rendering engine too) — render_header() appends a literal <br/> after each
+# span instead, which is guaranteed to force the wrap without touching
+# whatever precedes it on the line.
 _INTRALINEAR_CSS = dedent('''\
-    .acrostic, .ihdg, .subhdg {float:left; clear:right; width:100%; color:#777; margin:0.4em 0 0.1em; font-style:italic; font-weight:bold;}
+    .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
     .acrostic {text-align:center;}
     .ihdg {font-weight:normal;}
     .subhdg {font-style:normal;}
@@ -302,14 +303,17 @@ class VerseFormatter(ABC):
         Default: skip those, and render only the classes native pericopes
         don't cover — 'acrostic' (Psalm 119 stanza letters), 'ihdg' (Song of
         Solomon speaker labels), 'subhdg' (nested headings) — each wrapped
-        in a same-named <span>, styled (block + italic, 'acrostic' also
-        centered) by _INLINE_HEADER_CSS rather than a hardcoded <i>/<br/> —
-        keeps each class independently stylable and out of the way of
-        bracket_replacement's own (also documented) '<i>' use. Override to
-        change this policy or the markup.
+        in a same-named <span> (styled by _INTRALINEAR_CSS, so each class
+        stays independently stylable and out of the way of
+        bracket_replacement's own '<i>' use) followed by a literal <br/> —
+        display:block and a float:left/width:100% trick were both tried
+        first to get the same "same line as the verse number, then wrap"
+        effect without a literal break, and both broke against the real
+        e-Sword/MySword rendering engines; a trailing <br/> is what actually
+        works reliably. Override to change this policy or the markup.
         """
         return ''.join(
-            f'<span class="{cls}">{text}</span>'
+            f'<span class="{cls}">{text}</span><br/>'
             for cls, text in parse_headers(raw)
             if cls in _INLINE_HEADER_CLASSES
         )
