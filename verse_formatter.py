@@ -235,7 +235,6 @@ _INTRALINEAR_CSS = dedent('''\
     .ihdg {font-weight:normal;}
     .subhdg {font-style:normal;}
     .pshdg, .inscrip, .selah {font-style:italic;}
-    .red {color:#c00;}
     .ilb {display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
     .ilb ruby {display:inline-flex; flex-direction:column;}
     ruby > ro {display:block; color:#1ca0b1; text-align:center;}
@@ -263,6 +262,13 @@ class VerseFormatter(ABC):
                      narrower category — see verse_formatter.py's module-level
                      comment above _IMPLIED_WORD_RE); independent of
                      bracket_replacement, same default and value shapes.
+      red_letter_tags — (prefix, suffix) wrapping red-letter (words of
+                     Christ) text in transform_english() when is_red is set.
+                     Default is a CSS-based <span>; e-Sword/MySword override
+                     this with their own native red-letter markup instead
+                     (<red>...</red>, <FR>...<Fr>) so the reader's own
+                     display-setting toggle controls visibility, rather than
+                     baking a fixed color into the module's CSS.
     """
 
     abbreviation:   str = ""
@@ -274,6 +280,7 @@ class VerseFormatter(ABC):
     verse_rules:    str = ""
     bracket_replacement: tuple = ('', '')
     brace_replacement:   tuple = ('', '')
+    red_letter_tags:     tuple = ('<span class="red">', '</span>')
 
     def __init__(self, transliterate: Callable = None):
         self.transliterate = transliterate or make_transliterator()
@@ -308,8 +315,8 @@ class VerseFormatter(ABC):
         AlignmentComposer), wraps the result in a same-named <span> styled
         by _INTRALINEAR_CSS. is_red (also TableComposer-only, and only ever
         True when the writer's red_letter option is on — see
-        SQLiteBibleWriter) wraps the result in <span class="red">,
-        nested inside the par_class span when both apply.
+        SQLiteBibleWriter) wraps the result in red_letter_tags, nested
+        inside the par_class span when both apply.
         """
         if not text:
             return text
@@ -322,7 +329,8 @@ class VerseFormatter(ABC):
         if par_class in _ITALIC_PAR_CLASSES:
             text = f'<span class="{par_class}">{text}</span>'
         if is_red:
-            text = f'<span class="red">{text}</span>'
+            prefix, suffix = self.red_letter_tags
+            text = f'{prefix}{text}{suffix}'
         return text
 
     # ------------------------------------------------------------- headings
@@ -378,7 +386,13 @@ class _ESwordXrefMixin:
     which parses/links its contents natively. Exact verse refs get that
     treatment; degraded ranges (no single verse target) render as plain,
     non-linked text instead of risking a broken or absurd native-parsed link.
+
+    Also carries red_letter_tags: shared by both e-Sword formatters (not
+    xref-specific, just the natural shared home given this mixin already
+    covers both), e-Sword's own '<red>...</red>' tag, tied to its built-in
+    words-of-Christ display toggle rather than a fixed CSS color.
     """
+    red_letter_tags = ('<red>', '</red>')
 
     def transform_reference(self, ref: Reference) -> str:
         if ref.verse is None:
@@ -566,7 +580,13 @@ class _MySwordXrefMixin:
     click target: an exact ref points at its verse, a whole-chapter/book-span
     range points at the range's first chapter (verse 1), while still
     *displaying* the full range text via the tag's label.
+
+    Also carries red_letter_tags: shared by both MySword formatters (not
+    xref-specific, just the natural shared home given this mixin already
+    covers both), MySword's own '<FR>...<Fr>' red-letter markup, tied to
+    its built-in words-of-Christ display toggle rather than a fixed CSS color.
     """
+    red_letter_tags = ('<FR>', '<Fr>')
 
     def transform_reference(self, ref: Reference) -> str:
         if ref.book is None or ref.chapter is None:

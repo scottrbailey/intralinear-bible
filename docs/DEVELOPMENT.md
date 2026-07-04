@@ -231,8 +231,12 @@ verse data exactly once regardless of how many output targets are active.
   an `AlignedToken.par_class` (`TableComposer` only — the `Par` column's
   paragraph class in effect for that token, e.g. `pshdg` for a Psalm
   superscription, `selah` for a liturgical refrain) and wraps the English
-  in a same-named `<span>` for the classes in `_ITALIC_PAR_CLASSES`,
-  leaving any adjacent source-word/transliteration markup untouched.
+  in a same-named `<span>` for the classes in `_ITALIC_PAR_CLASSES`, plus
+  an `AlignedToken.is_red` (words of Christ, opt-in via `output.red_letter`
+  in config.yaml) wrapped in `red_letter_tags` — each app's own native
+  red-letter markup (e-Sword `<red>...</red>`, MySword `<FR>...<Fr>`) so
+  the reader's own display toggle controls visibility, not a fixed CSS
+  color — leaving any adjacent source-word/transliteration markup untouched.
 - `Reference` / `parse_reference()` / `transform_reference()` /
   `render_crossref()` — parse a verse's cross-reference text (same plain
   `"Joh 1:1-5; Heb 11:1-3"` shape from both composers) into individual

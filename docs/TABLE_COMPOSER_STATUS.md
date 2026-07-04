@@ -148,12 +148,25 @@ architecture; this doc tracks the newer, still-settling parts.
     at the next marker that doesn't mention red (`<p class=|reg|>`, "Then
     the devil..."). `SQLiteBibleWriter` strips `is_red` back to `False` on
     every token when `red_letter` is off (same filter-at-the-writer pattern
-    as `notes`), so the `.red` CSS rule is never exercised unless the
-    option is on. Default off given the OT/NT red-letter completeness
+    as `notes`). Default off given the OT/NT red-letter completeness
     question raised earlier in this session (the source data doesn't mark
     God's direct OT speech the same way, so red-letter here is NT-only by
     construction) — left as the module builder's choice, not resolved by
     the pipeline itself.
+
+    Renders using each app's own native red-letter markup rather than a
+    fixed CSS color, so the *reader's* own display-setting toggle controls
+    visibility instead of it being baked into the module: e-Sword gets
+    `<red>...</red>`, MySword gets `<FR>...<Fr>` (matching its `<RF>...<Rf>`
+    footnote-tag convention). `VerseFormatter.red_letter_tags` — a
+    `(prefix, suffix)` class var, same shape as `bracket_replacement` —
+    controls this; `_ESwordXrefMixin`/`_MySwordXrefMixin` set it for their
+    respective formatters (shared home for both the Intralinear and Reverse
+    Interlinear variant of each platform, even though it isn't xref-
+    specific), and the base class default falls back to a CSS `<span>` for
+    any future format with no native equivalent. The `.red` CSS rule from
+    the first pass was removed since it's now dead weight — both platforms'
+    native tags need no CSS at all.
 
 11. **`par_class`/`is_red` state was incorrectly reset every verse instead
     of persisting across verse boundaries — found by spot-checking real
