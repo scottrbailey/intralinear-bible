@@ -159,12 +159,13 @@ _IMPLIED_WORD_RE  = re.compile(r'\{([^{}]*)\}')
 # levels, lists, tabs) that was deliberately set aside as a bigger, separate
 # project (see TABLE_COMPOSER_STATUS.md).
 #
-# 'red' (red-letter words of Christ) is a candidate for the same mechanism
-# — TableComposer.AlignedToken.par_class already carries it through when
-# present — but isn't wired to any styling here: its boundaries are messier
-# (a fresh <span class=|red|> per red phrase, not once per paragraph like
-# the classes above, and it fuses into indent-level class names like
-# 'indentred1') and the OT/NT red-letter question was set aside separately.
+# Red-letter (words of Christ) is a related but separate concern, tracked
+# on AlignedToken.is_red rather than folded into par_class — its boundaries
+# work differently (a fresh <span class=|red|> per red phrase, not once per
+# paragraph like the classes above, and it fuses into indent-level class
+# names like 'indentred1'; see table_composer.py's _extract_is_red()) and,
+# given the OT/NT red-letter completeness question, it's opt-in per build
+# via the writer's red_letter option rather than on by default.
 _ITALIC_PAR_CLASSES = {'pshdg', 'inscrip', 'selah'}
 
 
@@ -234,6 +235,7 @@ _INTRALINEAR_CSS = dedent('''\
     .ihdg {font-weight:normal;}
     .subhdg {font-style:normal;}
     .pshdg, .inscrip, .selah {font-style:italic;}
+    .red {color:#c00;}
     .ilb {display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
     .ilb ruby {display:inline-flex; flex-direction:column;}
     ruby > ro {display:block; color:#1ca0b1; text-align:center;}
@@ -298,13 +300,16 @@ class VerseFormatter(ABC):
 
     # -------------------------------------------------------- supplied words
 
-    def transform_english(self, text: str, par_class: str = None) -> str:
+    def transform_english(self, text: str, par_class: str = None, is_red: bool = False) -> str:
         """Apply this format's handling of [bracket]- and {brace}-marked
         supplied words — independently controlled, see bracket_replacement/
         brace_replacement — plus, when par_class names one of
         _ITALIC_PAR_CLASSES (TableComposer only; always None from
         AlignmentComposer), wraps the result in a same-named <span> styled
-        by _INTRALINEAR_CSS.
+        by _INTRALINEAR_CSS. is_red (also TableComposer-only, and only ever
+        True when the writer's red_letter option is on — see
+        SQLiteBibleWriter) wraps the result in <span class="red">,
+        nested inside the par_class span when both apply.
         """
         if not text:
             return text
@@ -316,6 +321,8 @@ class VerseFormatter(ABC):
             text = _IMPLIED_WORD_RE.sub(rf'{prefix}\1{suffix}', text)
         if par_class in _ITALIC_PAR_CLASSES:
             text = f'<span class="{par_class}">{text}</span>'
+        if is_red:
+            text = f'<span class="red">{text}</span>'
         return text
 
     # ------------------------------------------------------------- headings
@@ -408,12 +415,12 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
 
             if token.is_plain_text or not token.source_words:
-                parts.append(self.transform_english(token.english, token.par_class))
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
                     parts.append(f' <not>N{seq}</not>')
             else:
-                parts.append(self.transform_english(token.english, token.par_class))
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
@@ -495,7 +502,7 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
             is_plain = token.is_plain_text or not token.source_words
 
             if is_plain:
-                english_text = self.transform_english(token.english, token.par_class)
+                english_text = self.transform_english(token.english, token.par_class, token.is_red)
                 if token.skip_space_after:
                     pending += english_text
                 else:
@@ -503,7 +510,7 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                     pending = ''
                     parts.append(f'<q><e>{text}</e></q>')
             else:
-                english = pending + self.transform_english(token.english, token.par_class)
+                english = pending + self.transform_english(token.english, token.par_class, token.is_red)
                 pending = ''
 
                 j        = i + 1
@@ -511,7 +518,7 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 while cur_skip and j < len(tokens):
                     next_tok = tokens[j]
                     if next_tok.is_plain_text or not next_tok.source_words:
-                        english += self.transform_english(next_tok.english, next_tok.par_class)
+                        english += self.transform_english(next_tok.english, next_tok.par_class, next_tok.is_red)
                         skip.add(j)
                         cur_skip = next_tok.skip_space_after
                         j += 1
@@ -618,11 +625,11 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
 
             if token.is_plain_text or not token.source_words:
-                parts.append(self.transform_english(token.english, token.par_class))
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
-                parts.append(self.transform_english(token.english, token.par_class))
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
@@ -687,7 +694,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
 
             if token.is_plain_text or not token.source_words:
-                parts.append(self.transform_english(token.english, token.par_class))
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
@@ -698,7 +705,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     tag     = 'G' if sw.lang == 'G' else 'H'
                     end     = 'g' if sw.lang == 'G' else 'h'
                     segments.append(f"<{tag}>{sw.text}<W{strongs}><X>{xlit}<x><{end}>")
-                english = self.transform_english(token.english, token.par_class)
+                english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
                     f"<Q>{''.join(segments)}<E>{english}<e><q>"
                 )

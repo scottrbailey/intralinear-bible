@@ -80,3 +80,7 @@ class AlignedToken:
                                      # 'indent1', 'pshdg') — AlignmentComposer never
                                      # sets this (stays None). VerseFormatter decides
                                      # which classes (if any) affect rendering.
+    is_red: bool = False            # TableComposer only: red-letter (words of
+                                     # Christ) state in effect for this token —
+                                     # tracked independently of par_class since it
+                                     # can co-occur with any paragraph type.

@@ -131,12 +131,28 @@ architecture; this doc tracks the newer, still-settling parts.
    `_ITALIC_PAR_CLASSES`, styled by one shared rule in `_INTRALINEAR_CSS`.
    `pshdg`/`inscrip`/`selah` are collapsed to one italic treatment rather
    than styled individually, deliberately not reopening full Par-column
-   styling (indent levels, lists, tabs) as its own project. `red` (red-
-   letter words of Christ) already flows through the same `par_class` field
-   when present but isn't styled — its boundaries are messier (a fresh
-   `<span class=|red|>` per red phrase, not once per paragraph, and it
-   fuses into indent-level class names like `indentred1`) and the OT/NT
-   red-letter question was set aside separately.
+   styling (indent levels, lists, tabs) as its own project.
+
+10. **Red-letter (words of Christ), wired as an opt-in `output.red_letter`
+    config option, off by default.** Tracked independently of `par_class`
+    on a new `AlignedToken.is_red` field, since it's orthogonal to
+    paragraph type — it can ride along with any paragraph (`<p class=|reg|>
+    <span class=|red|>` marks a normally-styled paragraph whose text is
+    *also* red) and fuses into indent-level class names entirely
+    (`indentred1`, `indentred2`, `indent1stlinered`, `tab1stlinered`).
+    `TableComposer._extract_is_red()` flips a forward boolean whenever a
+    row's raw marker text mentions "red" at all; confirmed against Matthew
+    4:4 that it turns on at `<span class=|red|>` ("It is written"), rides
+    through the `indentred1`/`indentred2` quoted poetry, and turns back off
+    at the next marker that doesn't mention red (`<p class=|reg|>`, "Then
+    the devil..."). `SQLiteBibleWriter` strips `is_red` back to `False` on
+    every token when `red_letter` is off (same filter-at-the-writer pattern
+    as `notes`), so the `.red` CSS rule is never exercised unless the
+    option is on. Default off given the OT/NT red-letter completeness
+    question raised earlier in this session (the source data doesn't mark
+    God's direct OT speech the same way, so red-letter here is NT-only by
+    construction) — left as the module builder's choice, not resolved by
+    the pipeline itself.
 
 ## Known issues (not yet fixed)
 

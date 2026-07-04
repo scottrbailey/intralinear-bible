@@ -35,6 +35,23 @@ def _extract_par_class(raw: str | None) -> str | None:
     return m.group(1) if m else None
 
 
+# Red-letter state is orthogonal to par_class, not a value of it — it can
+# ride along with any paragraph type ('<p class=|reg|><span class=|red|>'
+# marks a normally-styled paragraph whose text is *also* red) and fuses
+# into indent-level class names entirely ('indentred1', 'indentred2',
+# 'indent1stlinered', 'tab1stlinered'). So it's tracked as its own forward
+# boolean, flipped by whether the *raw* marker text mentions "red" at all
+# (regardless of what other class(es) it names), not by the single
+# extracted par_class above. Confirmed against Matthew 4:4: red turns on at
+# '<span class=|red|>' ("It is written"), rides through the
+# indentred1/indentred2 quoted poetry, and turns back off at the next
+# marker that doesn't mention red ('<p class=|reg|>', "Then the devil...").
+def _extract_is_red(raw: str | None) -> bool | None:
+    if not raw:
+        return None
+    return 'red' in raw
+
+
 def _prefixed_strongs(bare: str | None, language: str) -> str:
     """Match AlignmentComposer's Strong's number convention: letter prefix, no leading zeros."""
     if not bare:
@@ -171,8 +188,9 @@ class TableComposer(Composer):
         xrefs    = {'1': verse_info['crossref']} if verse_info['crossref'] else {}
 
         groups, order = {}, []
-        par_class_at = {}
+        par_class_at, is_red_at = {}, {}
         current_par_class = None
+        current_is_red    = False
         for row in rows:
             owner = row['bsb_sort'] if row['parent_id'] is None else row['parent_id']
             if owner not in groups:
@@ -184,6 +202,11 @@ class TableComposer(Composer):
             if extracted is not None:
                 current_par_class = extracted
             par_class_at[row['bsb_sort']] = current_par_class
+
+            extracted_red = _extract_is_red(row['par_class'])
+            if extracted_red is not None:
+                current_is_red = extracted_red
+            is_red_at[row['bsb_sort']] = current_is_red
 
         # An 'untranslated' word can still carry its own leading quote or
         # trailing punctuation (e.g. a comma-bearing pronoun BSB doesn't
@@ -240,6 +263,7 @@ class TableComposer(Composer):
                 source_words=combined_words,
                 notes=combined_notes,
                 par_class=par_class_at[owner],
+                is_red=is_red_at[owner],
             ))
 
         if pending_prefix or pending_words or pending_notes:
@@ -254,6 +278,6 @@ class TableComposer(Composer):
             else:
                 tokens.append(AlignedToken(english=pending_prefix, skip_space_after=True,
                                             source_words=pending_words, notes=pending_notes,
-                                            par_class=current_par_class))
+                                            par_class=current_par_class, is_red=current_is_red))
 
         return osis_ref, tokens, header, xrefs

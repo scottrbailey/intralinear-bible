@@ -186,10 +186,11 @@ def main():
     output_cfg = config['output']
     output_dir = output_cfg['dir']
     common_kw  = dict(
-        headers = output_cfg.get('headers', 1),
-        notes   = output_cfg.get('notes', 1),
-        xref    = output_cfg.get('xref', 0),
-        version = config['version'],
+        headers    = output_cfg.get('headers', 1),
+        notes      = output_cfg.get('notes', 1),
+        xref       = output_cfg.get('xref', 0),
+        red_letter = output_cfg.get('red_letter', 0),
+        version    = config['version'],
     )
 
     writers = build_writers(

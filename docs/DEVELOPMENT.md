@@ -114,10 +114,11 @@ crossrefs:   "data/bsb_xrefs.json"
 
 # Output options
 output:
-  dir:     "output"
-  headers: 0    # section headers (0 = off; skips loading annotations if notes also 0)
-  notes:   1    # translator footnotes
-  xref:    0    # cross-references: 0 = none, 1 = start of verse, 2 = end of verse
+  dir:        "output"
+  headers:    0    # section headers (0 = off; skips loading annotations if notes also 0)
+  notes:      1    # translator footnotes
+  xref:       0    # cross-references: 0 = none, 1 = start of verse, 2 = end of verse
+  red_letter: 0    # words of Christ in red (table composer only); off by default
 
 # Book filter: null = full Bible, or a list of OSIS book IDs
 books: null     # e.g. [Gen, Exod, Matt, John]

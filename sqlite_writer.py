@@ -29,12 +29,14 @@ class SQLiteBibleWriter(BibleWriter):
                  headers: bool = True,
                  notes: bool = True,
                  xref: bool = False,
+                 red_letter: bool = False,
                  version: str = '1.0.0'):
-        self.profile  = profile
-        self.headers  = headers
-        self.notes    = notes
-        self.xref     = xref
-        self.version  = version
+        self.profile    = profile
+        self.headers    = headers
+        self.notes      = notes
+        self.xref       = xref
+        self.red_letter = red_letter
+        self.version    = version
 
         self.conn        = None
         self.output_path = None
@@ -112,7 +114,11 @@ class SQLiteBibleWriter(BibleWriter):
         # If a feature is off, the formatter never writes the corresponding tags
         # and its CSS rules for those tags are never exercised.
         render_header = header if self.headers else None
-        render_tokens = tokens if self.notes else [replace(t, notes=[]) for t in tokens]
+        render_tokens = tokens
+        if not self.notes:
+            render_tokens = [replace(t, notes=[]) for t in render_tokens]
+        if not self.red_letter:
+            render_tokens = [replace(t, is_red=False) for t in render_tokens]
 
         scripture = self.profile.render_verse(
             render_tokens,
