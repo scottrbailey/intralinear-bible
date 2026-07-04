@@ -123,9 +123,10 @@ architecture; this doc tracks the newer, still-settling parts.
    next paragraph starts (confirmed: Psalm 3:1's "A Psalm" row alone carries
    `<p class=|pshdg|>`, with "of David"/"when he fled"/etc. all `None` until
    "O LORD" starts a new `indent1stline` paragraph). `TableComposer` now
-   tracks that as forward state while building each verse and stamps the
-   bare class name on `AlignedToken.par_class` (new field, always `None`
-   from `AlignmentComposer`); `VerseFormatter.transform_english()` wraps
+   tracks that as forward state across the whole row stream (not reset per
+   verse — see item 11) and stamps the bare class name on
+   `AlignedToken.par_class` (new field, always `None` from
+   `AlignmentComposer`); `VerseFormatter.transform_english()` wraps
    just the English — never the adjacent source-word/transliteration
    markup — in a same-named `<span>` when `par_class` is one of
    `_ITALIC_PAR_CLASSES`, styled by one shared rule in `_INTRALINEAR_CSS`.
@@ -153,6 +154,24 @@ architecture; this doc tracks the newer, still-settling parts.
     God's direct OT speech the same way, so red-letter here is NT-only by
     construction) — left as the module builder's choice, not resolved by
     the pipeline itself.
+
+11. **`par_class`/`is_red` state was incorrectly reset every verse instead
+    of persisting across verse boundaries — found by spot-checking real
+    output.** A paragraph routinely spans more than one verse (Matthew
+    5:11's "Blessed are you..." opens a `<p class=|red|>` paragraph that
+    keeps going through 5:12's "Rejoice and be glad..." with no marker of
+    its own at all, through 5:14's next `<p class=|red|>`), but
+    `TableComposer._build_verse()` was a `@staticmethod` re-initializing
+    `current_par_class`/`current_is_red` fresh on every call, so verses
+    with no marker of their own — meaning "still in the previous
+    paragraph" — were silently treated as plain `reg`/non-red instead.
+    Fixed by threading both as running state through `iter_verses()`
+    across successive `_build_verse()` calls rather than resetting them
+    per verse; confirmed safe to run continuously across book boundaries
+    too, since every book's first token carries its own explicit marker
+    (checked Genesis/Matthew/Mark/Psalms). Red-letter token count across
+    the full Bible went from 15,373 (buggy) to 28,999 (fixed) — roughly
+    half of all red-letter text had been getting dropped by this bug.
 
 ## Known issues (not yet fixed)
 

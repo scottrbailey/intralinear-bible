@@ -23,8 +23,11 @@ _STRONGS_RE = re.compile(r'^0*(\d+)[a-z]*$')
 # start-of-run convention as Hdg/Crossref) — e.g. Psalm 3:1's "A Psalm" row
 # carries '<p class=|pshdg|>', but every row after it up through "Absalom"
 # carries no par_class at all, until "O LORD" (the real, counted verse 1
-# text) starts a new '<p class=|indent1stline|>' paragraph. So this is
-# state to track forward across a verse's rows, not a per-row fact.
+# text) starts a new '<p class=|indent1stline|>' paragraph. So this is state
+# to track forward across the whole row stream — a paragraph routinely spans
+# a verse boundary (confirmed: Matthew 5:11-16's red-letter paragraphs), so
+# iter_verses() threads it across successive _build_verse() calls rather
+# than resetting it fresh for each verse.
 _PAR_CLASS_RE = re.compile(r'class=\|(\w+)\|')
 
 
@@ -169,28 +172,46 @@ class TableComposer(Composer):
 
         cur.execute(f"SELECT * FROM tokens {where} ORDER BY bsb_sort", params)
 
+        # par_class/is_red only mark a paragraph's first row (see
+        # _build_verse's docstring) — a paragraph routinely spans a verse
+        # boundary (confirmed: Matthew 5:11's "Blessed are you..." opens
+        # '<p class=|red|>' and keeps going through 5:12's "Rejoice..." with
+        # no marker of its own at all, through 5:14's next '<p class=|red|>'
+        # paragraph), so this state has to carry across _build_verse() calls,
+        # not reset per verse. Safe to run continuously across book
+        # boundaries too — every book's first token carries its own explicit
+        # marker (confirmed for Genesis/Matthew/Mark/Psalms), so there's
+        # never a real gap for stale state to leak through.
+        current_par_class, current_is_red = None, False
+
         current_verse_id, verse_rows = None, []
         for row in cur:
             if row['verse_id'] != current_verse_id:
                 if verse_rows:
-                    yield self._build_verse(verse_info[current_verse_id], verse_rows)
+                    verse, current_par_class, current_is_red = self._build_verse(
+                        verse_info[current_verse_id], verse_rows,
+                        current_par_class, current_is_red,
+                    )
+                    yield verse
                 current_verse_id, verse_rows = row['verse_id'], []
             verse_rows.append(row)
         if verse_rows:
-            yield self._build_verse(verse_info[current_verse_id], verse_rows)
+            verse, current_par_class, current_is_red = self._build_verse(
+                verse_info[current_verse_id], verse_rows,
+                current_par_class, current_is_red,
+            )
+            yield verse
 
         conn.close()
 
     @staticmethod
-    def _build_verse(verse_info, rows):
+    def _build_verse(verse_info, rows, current_par_class, current_is_red):
         osis_ref = f"{verse_info['book']}.{verse_info['chapter']}.{verse_info['verse']}"
         header   = verse_info['heading']
         xrefs    = {'1': verse_info['crossref']} if verse_info['crossref'] else {}
 
         groups, order = {}, []
         par_class_at, is_red_at = {}, {}
-        current_par_class = None
-        current_is_red    = False
         for row in rows:
             owner = row['bsb_sort'] if row['parent_id'] is None else row['parent_id']
             if owner not in groups:
@@ -280,4 +301,4 @@ class TableComposer(Composer):
                                             source_words=pending_words, notes=pending_notes,
                                             par_class=current_par_class, is_red=current_is_red))
 
-        return osis_ref, tokens, header, xrefs
+        return (osis_ref, tokens, header, xrefs), current_par_class, current_is_red
