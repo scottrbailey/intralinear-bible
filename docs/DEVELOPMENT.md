@@ -226,7 +226,12 @@ verse data exactly once regardless of how many output targets are active.
   strip, keep, or restyle the BSB text's two independent translator-supplied-
   word markers: `[brackets]` (broadly supplied words — pronouns, articles,
   referents) and `{braces}` (English auxiliary/modal verbs implied by the
-  source verb's own tense/mood, e.g. `{will}`, `{do}`, `{let}`)
+  source verb's own tense/mood, e.g. `{will}`, `{do}`, `{let}`). Also takes
+  an `AlignedToken.par_class` (`TableComposer` only — the `Par` column's
+  paragraph class in effect for that token, e.g. `pshdg` for a Psalm
+  superscription, `selah` for a liturgical refrain) and wraps the English
+  in a same-named `<span>` for the classes in `_ITALIC_PAR_CLASSES`,
+  leaving any adjacent source-word/transliteration markup untouched.
 - `Reference` / `parse_reference()` / `transform_reference()` /
   `render_crossref()` — parse a verse's cross-reference text (same plain
   `"Joh 1:1-5; Heb 11:1-3"` shape from both composers) into individual

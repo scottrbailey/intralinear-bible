@@ -75,3 +75,8 @@ class AlignedToken:
     source_words: list = field(default_factory=list)    # list[SourceWord]
     is_plain_text: bool = False
     notes: list = field(default_factory=list)           # list of {noteId, text} dicts
+    par_class: str | None = None    # TableComposer only: bare Par-column paragraph
+                                     # class in effect for this token (e.g. 'reg',
+                                     # 'indent1', 'pshdg') — AlignmentComposer never
+                                     # sets this (stays None). VerseFormatter decides
+                                     # which classes (if any) affect rendering.

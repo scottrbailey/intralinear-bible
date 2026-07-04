@@ -114,6 +114,30 @@ architecture; this doc tracks the newer, still-settling parts.
    `<span class=|reftext|>...</span>` pattern from BegQ before it's stored,
    confirmed zero leaks across the full Bible.
 
+9. **`pshdg`/`inscrip`/`selah` Par-column classes now style the English
+   text they apply to** (Psalm superscriptions, quoted inscriptions like
+   Exodus 28:36's "HOLY TO THE LORD", liturgical refrains). Unlike header
+   classes, Par classes apply to a *run* of tokens, not a standalone label,
+   and — like `Hdg`/`Crossref` — the raw column only marks a paragraph's
+   *first* row; every row after it carries no `par_class` at all until the
+   next paragraph starts (confirmed: Psalm 3:1's "A Psalm" row alone carries
+   `<p class=|pshdg|>`, with "of David"/"when he fled"/etc. all `None` until
+   "O LORD" starts a new `indent1stline` paragraph). `TableComposer` now
+   tracks that as forward state while building each verse and stamps the
+   bare class name on `AlignedToken.par_class` (new field, always `None`
+   from `AlignmentComposer`); `VerseFormatter.transform_english()` wraps
+   just the English — never the adjacent source-word/transliteration
+   markup — in a same-named `<span>` when `par_class` is one of
+   `_ITALIC_PAR_CLASSES`, styled by one shared rule in `_INTRALINEAR_CSS`.
+   `pshdg`/`inscrip`/`selah` are collapsed to one italic treatment rather
+   than styled individually, deliberately not reopening full Par-column
+   styling (indent levels, lists, tabs) as its own project. `red` (red-
+   letter words of Christ) already flows through the same `par_class` field
+   when present but isn't styled — its boundaries are messier (a fresh
+   `<span class=|red|>` per red phrase, not once per paragraph, and it
+   fuses into indent-level class names like `indentred1`) and the OT/NT
+   red-letter question was set aside separately.
+
 ## Known issues (not yet fixed)
 
 1. **Pre-owner punctuation in `vvv`-led groups** — exactly 10 verses, verified:

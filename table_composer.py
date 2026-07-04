@@ -19,6 +19,21 @@ from models import AlignedToken, MappingDirection, SourceToken, SourceWord
 
 _STRONGS_RE = re.compile(r'^0*(\d+)[a-z]*$')
 
+# Par column marks a new paragraph only on that paragraph's first row (same
+# start-of-run convention as Hdg/Crossref) — e.g. Psalm 3:1's "A Psalm" row
+# carries '<p class=|pshdg|>', but every row after it up through "Absalom"
+# carries no par_class at all, until "O LORD" (the real, counted verse 1
+# text) starts a new '<p class=|indent1stline|>' paragraph. So this is
+# state to track forward across a verse's rows, not a per-row fact.
+_PAR_CLASS_RE = re.compile(r'class=\|(\w+)\|')
+
+
+def _extract_par_class(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    m = _PAR_CLASS_RE.search(raw)
+    return m.group(1) if m else None
+
 
 def _prefixed_strongs(bare: str | None, language: str) -> str:
     """Match AlignmentComposer's Strong's number convention: letter prefix, no leading zeros."""
@@ -156,12 +171,19 @@ class TableComposer(Composer):
         xrefs    = {'1': verse_info['crossref']} if verse_info['crossref'] else {}
 
         groups, order = {}, []
+        par_class_at = {}
+        current_par_class = None
         for row in rows:
             owner = row['bsb_sort'] if row['parent_id'] is None else row['parent_id']
             if owner not in groups:
                 groups[owner] = []
                 order.append(owner)
             groups[owner].append(row)
+
+            extracted = _extract_par_class(row['par_class'])
+            if extracted is not None:
+                current_par_class = extracted
+            par_class_at[row['bsb_sort']] = current_par_class
 
         # An 'untranslated' word can still carry its own leading quote or
         # trailing punctuation (e.g. a comma-bearing pronoun BSB doesn't
@@ -217,6 +239,7 @@ class TableComposer(Composer):
                 skip_space_after=not needs_space_after(combined_text),
                 source_words=combined_words,
                 notes=combined_notes,
+                par_class=par_class_at[owner],
             ))
 
         if pending_prefix or pending_words or pending_notes:
@@ -230,6 +253,7 @@ class TableComposer(Composer):
                 tokens[-1].skip_space_after = not needs_space_after(tokens[-1].english)
             else:
                 tokens.append(AlignedToken(english=pending_prefix, skip_space_after=True,
-                                            source_words=pending_words, notes=pending_notes))
+                                            source_words=pending_words, notes=pending_notes,
+                                            par_class=current_par_class))
 
         return osis_ref, tokens, header, xrefs
