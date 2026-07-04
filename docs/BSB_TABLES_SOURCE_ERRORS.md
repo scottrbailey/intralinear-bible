@@ -50,7 +50,26 @@ ellipsis (`...`, not our target's spaced `. . .`), and it *does* have a real
 ellipsis in the published text (Paul's sentence resuming after the long
 digression since 3:1). Not an error, not included above.
 
-## 3. Minor: stray "z" in the Language column
+## 3. BegQ column holds the website's own verse-number anchor markup, not a quote mark
+
+116 rows have the exact same literal value in the **BegQ** (beginning
+quote) column: `<span class=|reftext|><a href=|#|><b>1</b></a></span>`.
+This isn't quote-mark content at all — it's berean.bible's own inline
+"1" verse-number link, and it always lands on a Psalm's first content
+verse (the explicit "1" the site shows because that psalm's superscription
+line, e.g. "A Psalm of David", isn't itself counted as verse 1 — unlike
+psalms with no superscription, where no such marker appears). Confirmed:
+always this one exact string, always in BegQ, never combined with real
+quote-mark content. A few examples (of 116 affected psalms, spanning
+Psalm 3 through Psalm 145):
+
+| Verse | BegQ column currently contains |
+|---|---|
+| Psalm 14:1 | `<span class=\|reftext\|><a href=\|#\|><b>1</b></a></span>` |
+| Psalm 51:1 | `<span class=\|reftext\|><a href=\|#\|><b>1</b></a></span>` |
+| Psalm 121:1 | `<span class=\|reftext\|><a href=\|#\|><b>1</b></a></span>` |
+
+## 4. Minor: stray "z" in the Language column
 
 One reserved/blank filler row (in the buffer between Numbers 7:59 and the
 next verse) has `z` in the Language column instead of being empty like its

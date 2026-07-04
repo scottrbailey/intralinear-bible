@@ -104,6 +104,16 @@ architecture; this doc tracks the newer, still-settling parts.
    `brace_replacement` control rather than reusing `bracket_replacement` —
    see item 5 above.
 
+8. **Stray website markup leaking into rendered text via BegQ** (e.g. Psalm
+   121:1 rendering literal `<span class=|reftext|>...` right before "I lift
+   up"). `_assemble_group_text()` glues `beg_quote` onto the token's text
+   with no cleaning, and 116 rows have berean.bible's own inline verse-
+   number-anchor HTML there instead of a real quote mark — see
+   `BSB_TABLES_SOURCE_ERRORS.md` item 3. Fixed at import time:
+   `_strip_reftext_marker()` in `import_bsb_table.py` strips the
+   `<span class=|reftext|>...</span>` pattern from BegQ before it's stored,
+   confirmed zero leaks across the full Bible.
+
 ## Known issues (not yet fixed)
 
 1. **Pre-owner punctuation in `vvv`-led groups** — exactly 10 verses, verified:

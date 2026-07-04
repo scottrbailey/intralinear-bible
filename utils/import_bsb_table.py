@@ -95,6 +95,22 @@ COL_END_TEXT      = 22
 _LANGUAGE_MAP = {'Hebrew': 'H', 'Aramaic': 'A', 'Greek': 'G'}
 _VERSE_ID_RE  = re.compile(r'^(.+?)\s+(\d+):(\d+)$')
 
+# BegQ occasionally holds the source website's own verse-number anchor
+# markup instead of a real opening quote mark — confirmed as exactly one
+# literal value, '<span class=|reftext|><a href=|#|><b>1</b></a></span>',
+# across all 116 occurrences, always on a psalm's first content verse (the
+# explicit "1" the site shows when the psalm's superscription itself isn't
+# counted as verse 1). Not real quote content; stripped rather than glued
+# onto the token's assembled text as literal HTML (e.g. Psalm 121:1).
+_REFTEXT_MARKER_RE = re.compile(r'<span class=\|reftext\|>.*?</span>')
+
+
+def _strip_reftext_marker(value: str | None) -> str | None:
+    if not value:
+        return value
+    cleaned = _REFTEXT_MARKER_RE.sub('', value).strip()
+    return cleaned or None
+
 # The BSB version column has occasional typographical inconsistencies of its
 # own — e.g. Exodus 12:42's "[is to be a vigil ]" (space before the closing
 # bracket), Leviticus 1:17's "[ the bird ]" (space after the opening one
@@ -393,7 +409,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                 gloss_type=gloss_type,
                 english=english,
                 parent_id=None,
-                beg_quote=cols[COL_BEGQ] or None,
+                beg_quote=_strip_reftext_marker(cols[COL_BEGQ] or None),
                 end_quote=cols[COL_ENDQ] or None,
                 punctuation=extra_punctuation or cols[COL_PNC] or None,
                 space=cols[COL_SPACE] or None,
