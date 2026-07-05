@@ -461,6 +461,7 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
 
 _ESWORD_STACKED_CSS = _INTRALINEAR_CSS + \
+    '\nruby > ro {opacity:1}' + \
     '\n.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 
 
