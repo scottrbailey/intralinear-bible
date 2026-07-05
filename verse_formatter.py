@@ -155,9 +155,14 @@ _IMPLIED_WORD_RE  = re.compile(r'\{([^{}]*)\}')
 # layout: rendered as-is, the punctuation lands between the English word
 # and its transliteration/source-word <span>, leaving the annotation
 # hanging after it instead of capping the whole word+annotation unit.
-# Same closing-punctuation set already used for import-time cleanup
-# (see utils/import_bsb_table.py's _SPACE_BEFORE_PUNCT_RE).
-_TRAILING_PUNCT_RE = re.compile(r'([,.;:!?)\]’”]+)$')
+# Based on the closing-punctuation set already used for import-time cleanup
+# (see utils/import_bsb_table.py's _SPACE_BEFORE_PUNCT_RE), minus ']' — a
+# trailing ']' is a supplied-word bracket's own closer (transform_english()'s
+# bracket_replacement needs the opening '[' and closing ']' to still be a
+# balanced pair when it runs), not punctuation to relocate; splitting it off
+# here left transform_english() looking at an unbalanced "[Jesus" with no
+# closing bracket at all, so it silently stopped matching.
+_TRAILING_PUNCT_RE = re.compile(r'([,.;:!?)’”]+)$')
 
 
 def _split_trailing_punct(text: str) -> tuple:
