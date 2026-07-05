@@ -146,6 +146,29 @@ _SUPPLIED_WORD_RE = re.compile(r'\[([^\[\]]*)\]')
 _IMPLIED_WORD_RE  = re.compile(r'\{([^{}]*)\}')
 
 
+# ================================================================= word order
+
+# AlignedToken.english carries trailing punctuation/quote marks glued
+# directly onto the word (e.g. "the earth."), with no separate field for
+# them — fine for reverse interlinear, where English and the source-word
+# annotation stack in separate rows, but wrong for intralinear's inline
+# layout: rendered as-is, the punctuation lands between the English word
+# and its transliteration/source-word <span>, leaving the annotation
+# hanging after it instead of capping the whole word+annotation unit.
+# Same closing-punctuation set already used for import-time cleanup
+# (see utils/import_bsb_table.py's _SPACE_BEFORE_PUNCT_RE).
+_TRAILING_PUNCT_RE = re.compile(r'([,.;:!?)\]’”]+)$')
+
+
+def _split_trailing_punct(text: str) -> tuple:
+    """Split off a token's trailing punctuation/quote marks so the caller can
+    render them after the source-word annotation instead of before it."""
+    m = _TRAILING_PUNCT_RE.search(text)
+    if not m:
+        return text, ''
+    return text[:m.start()].rstrip(), m.group(1)
+
+
 # ============================================================ Par-column classes
 
 # Par-column paragraph classes that apply to a *run* of tokens' English text
@@ -434,7 +457,8 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
                     seq = note_id_map.get(note['noteId'], note['noteId'])
                     parts.append(f' <not>N{seq}</not>')
             else:
-                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                core, trail = _split_trailing_punct(token.english)
+                parts.append(self.transform_english(core, token.par_class, token.is_red))
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
@@ -447,6 +471,7 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
                         f'</span>'
                     )
                 parts.append(' '.join(lemmas))
+                parts.append(trail)
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
                     parts.append(f' <not>N{seq}</not>')
@@ -658,7 +683,8 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
-                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                core, trail = _split_trailing_punct(token.english)
+                parts.append(self.transform_english(core, token.par_class, token.is_red))
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
@@ -668,6 +694,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                         f'<ro>{sw.text}</ro></ruby></span>'
                     )
                 parts.append(' '.join(lemmas))
+                parts.append(trail)
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
 

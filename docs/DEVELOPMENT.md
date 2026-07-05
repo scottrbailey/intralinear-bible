@@ -206,6 +206,14 @@ verse data exactly once regardless of how many output targets are active.
 - `render_verse()` — produces the HTML/GBF string stored in the DB
 - `css` — styles exactly the tags that `render_verse()` emits
 - `verse_rules` — MySword regex transforms applied at display time (must match the tags above)
+- `_split_trailing_punct()` — `AlignedToken.english` glues trailing
+  punctuation/quote marks directly onto the word (e.g. `"the earth."`),
+  with no separate field for them. Both Intralinear formatters (e-Sword,
+  MySword) split it off before rendering so the English word is followed
+  by its transliteration/source-word `<span>` and *then* the punctuation,
+  instead of the punctuation landing between the word and its annotation.
+  Not used by the Reverse Interlinear formatters, where English and the
+  source-word block stack in separate rows rather than running inline.
 - `render_header()` / `parse_headers()` — turn a verse heading (either a
   plain string from `AlignmentComposer`'s `bsb_annotations.json`, or a raw
   `<p class=|hdg|>...` wrapper cell from `TableComposer`'s `bsb_tables.db`)
