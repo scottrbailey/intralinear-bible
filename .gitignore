@@ -20,3 +20,9 @@ Thumbs.db
 
 # Local config overrides
 my_config*.yaml
+/local/
+
+# External source data (large; supplied locally, not committed) and the
+# database built from it by utils/import_bsb_table.py
+data/bsb_tables.tsv
+data/bsb_tables.db

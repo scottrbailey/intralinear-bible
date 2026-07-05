@@ -13,11 +13,22 @@ if headers/notes/xrefs are disabled, the writer passes None/[] so the formatter
 never emits the corresponding tags and the CSS for them is never exercised.
 """
 
+import html
 import re
+import sqlite3
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from pathlib import Path
 from textwrap import dedent
-
+from collections.abc import Callable
 from translit import make_transliterator
+
+# data/books.db (see utils/build_books_table.py) — our display abbreviation
+# ('Joh', '1Co', ...) -> usfm_number, for MySword's <RX b.c.v> cross-ref tags.
+_BOOKS_DB = Path(__file__).resolve().parent / "data" / "books.db"
+with sqlite3.connect(_BOOKS_DB) as _conn:
+    ABBREV_TO_BOOK_NUM = {r[0]: r[1] for r in
+                           _conn.execute("SELECT display_abbrev, usfm_number FROM books")}
 
 
 MODULE_DESCRIPTION = dedent("""\
@@ -25,6 +36,210 @@ MODULE_DESCRIPTION = dedent("""\
     Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible
     Alignments project (CC BY 4.0).""")
 
+
+# ============================================================ cross-references
+
+@dataclass
+class Reference:
+    """One Bible reference target, format-agnostic.
+
+    verse is None for a range with no single verse target — a whole-chapter
+    range ("Genesis 4-9") or a book span ("Jos-Mal"); book/chapter are still
+    populated in that case (chapter defaults to 1 for a book span) so a
+    formatter can choose to link to that chapter's start while still
+    *displaying* the full range via label. book/chapter are None only when
+    the text couldn't be parsed as a reference at all.
+    """
+    book: str | None = None
+    chapter: int | None = None
+    verse: int | None = None
+    end_chapter: int | None = None
+    end_verse: int | None = None
+    label: str | None = None
+
+
+# Matches our own abbreviated ref strings (as produced by
+# utils/import_bsb_table.py's crossref conversion, and by bsb_xrefs.json):
+#   "Joh 1:1-5"        book chapter:verse-verse
+#   "1Ch 15:29-16:3"   book chapter:verse-chapter:verse (crosses chapters)
+#   "Gen 4-9"          book chapter-chapter (whole-chapter range, no verse)
+_XREF_REF_RE = re.compile(
+    r'^(?P<book>\S+)\s+(?P<chap>\d+)'
+    r'(?:'
+        r':(?P<verse>\d+)(?:-(?:(?P<end_chap>\d+):)?(?P<end_verse>\d+))?'
+        r'|'
+        r'-(?P<chap_end>\d+)'
+    r')?$'
+)
+# "Jos-Mal" — a book-only span, no chapter/verse at all.
+_XREF_BOOK_SPAN_RE = re.compile(r'^(?P<book>\S+)-(?P<book2>\S+)$')
+
+
+def parse_reference(text: str) -> Reference:
+    """One ';'-split piece of xref text -> a Reference. Format-agnostic."""
+    text = text.strip()
+    m = _XREF_REF_RE.match(text)
+    if m:
+        book = m.group('book')
+        chapter = int(m.group('chap'))
+        verse = m.group('verse')
+        if verse is not None:
+            end_chap  = m.group('end_chap')
+            end_verse = m.group('end_verse')
+            return Reference(
+                book=book, chapter=chapter, verse=int(verse),
+                end_chapter=int(end_chap) if end_chap else None,
+                end_verse=int(end_verse) if end_verse else None,
+            )
+        # chapter-only, with or without a chapter range — no single verse
+        chap_end = m.group('chap_end')
+        return Reference(book=book, chapter=chapter,
+                          end_chapter=int(chap_end) if chap_end else None, label=text)
+
+    m = _XREF_BOOK_SPAN_RE.match(text)
+    if m:
+        return Reference(book=m.group('book'), chapter=1, label=text)
+
+    return Reference(label=text)
+
+
+def _default_ref_label(ref: Reference) -> str:
+    """Build "book chapter:verse[-verse]" text for a Reference with no label."""
+    if ref.book is None or ref.chapter is None:
+        return ''
+    if ref.verse is None:
+        text = f"{ref.book} {ref.chapter}"
+        return f"{text}-{ref.end_chapter}" if ref.end_chapter else text
+    text = f"{ref.book} {ref.chapter}:{ref.verse}"
+    if ref.end_verse:
+        text += f"-{ref.end_chapter}:{ref.end_verse}" if ref.end_chapter else f"-{ref.end_verse}"
+    return text
+
+
+# ============================================================ supplied words
+
+# The BSB text marks two distinct kinds of translator-supplied words, not
+# one — confirmed independent (both can appear in the same cell, e.g.
+# "[and] it {will} become") and never nested in one another.
+#
+# [Square brackets] (18,688 rows) skew toward substantive, broadly-supplied
+# content: articles ("the"), conjunctions ("and", "or", "but"), pronouns
+# ("it", "his", "them"), referents/proper nouns ("Jesus", "Son", "man") —
+# words with no source-language counterpart at all, freely added for English
+# readability.
+#
+# {Curly braces} (1,270 rows) skew overwhelmingly toward English auxiliary/
+# modal/copula verbs — "do/does/did", "will/shall/would/should/may/can",
+# "is/are/was/were/am/be", "let" — plus a smaller set of phrasal-verb/idiom
+# particles ("away", "down", "up", "back", "over", "again", "together",
+# "out", "about", "with", "from"). These read as grammatically implied by
+# the source verb's own tense/mood/aspect marking (Hebrew/Greek encode that
+# in the verb form itself; English has to spell it out with a separate
+# word) rather than freely-added content — a narrower, different category
+# from bracket-marked words, so it gets its own independent control
+# (brace_replacement) rather than reusing bracket_replacement.
+#
+# Both strip by default but are preserved verbatim in the data itself so
+# formats that want them (KJV-italics-style, or a future forward
+# interlinear) can keep or restyle them instead.
+_SUPPLIED_WORD_RE = re.compile(r'\[([^\[\]]*)\]')
+_IMPLIED_WORD_RE  = re.compile(r'\{([^{}]*)\}')
+
+
+# ============================================================ Par-column classes
+
+# Par-column paragraph classes that apply to a *run* of tokens' English text
+# (not a standalone label the way header classes are) — 'pshdg' (Psalm
+# superscriptions, e.g. "A Psalm of David, when he fled from his son
+# Absalom"), 'inscrip' (quoted inscriptions, e.g. Exodus 28:36's "HOLY TO
+# THE LORD"), 'selah' (liturgical refrains). Collapsed to one shared italic
+# treatment rather than styled individually — they're all "this is set
+# apart from the surrounding narrative" in the same way, and giving each
+# its own rule would start down the same road as fully styling Par (indent
+# levels, lists, tabs) that was deliberately set aside as a bigger, separate
+# project (see TABLE_COMPOSER_STATUS.md).
+#
+# Red-letter (words of Christ) is a related but separate concern, tracked
+# on AlignedToken.is_red rather than folded into par_class — its boundaries
+# work differently (a fresh <span class=|red|> per red phrase, not once per
+# paragraph like the classes above, and it fuses into indent-level class
+# names like 'indentred1'; see table_composer.py's _extract_is_red()) and,
+# given the OT/NT red-letter completeness question, it's opt-in per build
+# via the writer's red_letter option rather than on by default.
+_ITALIC_PAR_CLASSES = {'pshdg', 'inscrip', 'selah'}
+
+
+# ================================================================== headings
+
+# Raw Hdg cell shape: one or more "<p class=|CLASS|>text" segments, optionally
+# followed by <br> and more text, back to back with no separator between
+# segments. A plain string with no wrapper (e.g. AlignmentComposer's
+# bsb_annotations.json headers, already clean text) is treated as a single
+# 'hdg'-classed segment. 'pshdg' segments are dropped — confirmed to be
+# Par-column content misfiled into Hdg (see docs/BSB_TABLES_SOURCE_ERRORS.md
+# investigation); segments with no real text (e.g. 'list2') are dropped too.
+_HEADER_SEGMENT_RE = re.compile(r'<p class=\|(\w+)\|>')
+_BR_RE = re.compile(r'<br\s*/?>', re.I)
+
+
+def parse_headers(raw: str) -> list:
+    """Raw Hdg cell -> list of (class, text) segments, cleaned and filtered.
+
+    Header classes seen in bsb_tables.tsv: hdg (normal section heading),
+    subhdg (nested heading), ihdg (Song of Solomon speaker labels — treated
+    the same as any other class; it's up to the caller/subclass to style it
+    differently if desired), acrostic (Psalm 119 stanza letters), suphdg
+    (compound multi-segment Psalms "BOOK N" headers).
+    """
+    if not raw:
+        return []
+    matches = list(_HEADER_SEGMENT_RE.finditer(raw))
+    if not matches:
+        text = _clean_header_text(raw)
+        return [('hdg', text)] if text else []
+
+    segments = []
+    for i, m in enumerate(matches):
+        cls   = m.group(1)
+        start = m.end()
+        end   = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
+        text  = _clean_header_text(raw[start:end])
+        if not text or cls == 'pshdg':
+            continue
+        segments.append((cls, text))
+    return segments
+
+
+def _clean_header_text(text: str) -> str:
+    text = _BR_RE.sub('', text)
+    return html.unescape(text).strip()
+
+
+# Header classes MySword/e-Sword's own built-in pericope display doesn't
+# cover — see VerseFormatter.render_header(). 'hdg' and 'suphdg' are real
+# section headings, which those native pericopes already show.
+_INLINE_HEADER_CLASSES = {'acrostic', 'ihdg', 'subhdg'}
+
+# Shared by both MySword and e-Sword.
+#
+# .acrostic/.ihdg/.subhdg stay plain inline spans (no display/float trick —
+# display:block broke the line both before and after in e-Sword, separating
+# the span from the verse number; a float:left/width:100% attempt at "same
+# line, wrap only after" then behaved unpredictably against the real
+# rendering engine too) — render_header() appends a literal <br/> after each
+# span instead, which is guaranteed to force the wrap without touching
+# whatever precedes it on the line.
+_INTRALINEAR_CSS = dedent('''\
+    .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
+    .acrostic {text-align:center;}
+    .ihdg {font-weight:normal;}
+    .subhdg {font-style:normal;}
+    .pshdg, .inscrip, .selah {font-style:italic;}
+    .ilb {display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
+    .ilb ruby {display:inline-flex; flex-direction:column;}
+    ruby > ro {display:block; color:#1ca0b1; text-align:center;}
+    ruby > rt {display:block; font-size:1.1em; color: blue;}
+''')
 
 # ================================================================ base class
 
@@ -39,6 +254,21 @@ class VerseFormatter(ABC):
       publish_date   — date translation was published (YYYY-MM-DD)
       css            — CSS string inserted into the module (empty if not applicable)
       verse_rules    — VerseRules transform string (MySword only; empty otherwise)
+      bracket_replacement — controls [bracket]-marked supplied-word handling
+                     in transform_english(): ('', '') strips them (default),
+                     None leaves them untouched, any other (prefix, suffix)
+                     pair wraps the bracketed word instead (e.g. ('<i>', '</i>')).
+      brace_replacement — same, for {brace}-marked implied words (a distinct,
+                     narrower category — see verse_formatter.py's module-level
+                     comment above _IMPLIED_WORD_RE); independent of
+                     bracket_replacement, same default and value shapes.
+      red_letter_tags — (prefix, suffix) wrapping red-letter (words of
+                     Christ) text in transform_english() when is_red is set.
+                     Default is a CSS-based <span>; e-Sword/MySword override
+                     this with their own native red-letter markup instead
+                     (<red>...</red>, <FR>...<Fr>) so the reader's own
+                     display-setting toggle controls visibility, rather than
+                     baking a fixed color into the module's CSS.
     """
 
     abbreviation:   str = ""
@@ -48,8 +278,11 @@ class VerseFormatter(ABC):
     publish_date:   str = "2020-12-01"
     css:            str = ""
     verse_rules:    str = ""
+    bracket_replacement: tuple = ('', '')
+    brace_replacement:   tuple = ('', '')
+    red_letter_tags:     tuple = ('<span class="red">', '</span>')
 
-    def __init__(self, transliterate: callable = None):
+    def __init__(self, transliterate: Callable = None):
         self.transliterate = transliterate or make_transliterator()
 
     @abstractmethod
@@ -72,22 +305,173 @@ class VerseFormatter(ABC):
             result = re.sub(pattern, replacement, result)
         return result
 
-# ============================================================ e-Sword CSS
+    # -------------------------------------------------------- supplied words
 
-_ESWORD_INTRALINEAR_CSS = (
-    '.stk{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:super;font-size:0.65em;color:blue;line-height:0.9}'
-    'span.stk a{opacity:0 !important;}'
+    def transform_english(self, text: str, par_class: str = None, is_red: bool = False) -> str:
+        """Apply this format's handling of [bracket]- and {brace}-marked
+        supplied words — independently controlled, see bracket_replacement/
+        brace_replacement — plus, when par_class names one of
+        _ITALIC_PAR_CLASSES (TableComposer only; always None from
+        AlignmentComposer), wraps the result in a same-named <span> styled
+        by _INTRALINEAR_CSS. is_red (also TableComposer-only, and only ever
+        True when the writer's red_letter option is on — see
+        SQLiteBibleWriter) wraps the result in red_letter_tags, nested
+        inside the par_class span when both apply.
+        """
+        if not text:
+            return text
+        if self.bracket_replacement is not None:
+            prefix, suffix = self.bracket_replacement
+            text = _SUPPLIED_WORD_RE.sub(rf'{prefix}\1{suffix}', text)
+        if self.brace_replacement is not None:
+            prefix, suffix = self.brace_replacement
+            text = _IMPLIED_WORD_RE.sub(rf'{prefix}\1{suffix}', text)
+        if par_class in _ITALIC_PAR_CLASSES:
+            text = f'<span class="{par_class}">{text}</span>'
+        if is_red:
+            prefix, suffix = self.red_letter_tags
+            text = f'{prefix}{text}{suffix}'
+        return text
+
+    # ------------------------------------------------------------- headings
+
+    def render_header(self, raw: str) -> str:
+        """Raw Hdg cell (or plain heading text) -> this format's heading markup.
+
+        MySword and e-Sword both have their own built-in pericope (section
+        heading) display, on by default and not something module data can
+        suppress — so rendering the main 'hdg'/'suphdg' segments here would
+        double them up, and for e-Sword there's no way to make our version
+        render above the verse the way its native pericopes do anyway.
+        Default: skip those, and render only the classes native pericopes
+        don't cover — 'acrostic' (Psalm 119 stanza letters), 'ihdg' (Song of
+        Solomon speaker labels), 'subhdg' (nested headings) — each wrapped
+        in a same-named <span> (styled by _INTRALINEAR_CSS, so each class
+        stays independently stylable and out of the way of
+        bracket_replacement's own '<i>' use) followed by a literal <br/> —
+        display:block and a float:left/width:100% trick were both tried
+        first to get the same "same line as the verse number, then wrap"
+        effect without a literal break, and both broke against the real
+        e-Sword/MySword rendering engines; a trailing <br/> is what actually
+        works reliably. Override to change this policy or the markup.
+        """
+        return ''.join(
+            f'<span class="{cls}">{text}</span><br/>'
+            for cls, text in parse_headers(raw)
+            if cls in _INLINE_HEADER_CLASSES
+        )
+
+    # ------------------------------------------------------- cross-references
+
+    def transform_reference(self, ref: Reference) -> str:
+        """One Reference -> this format's own link/tag syntax. Default: plain
+        text, no link — safe fallback for formats with no native ref tag.
+        """
+        return ref.label or _default_ref_label(ref)
+
+    def render_crossref(self, xrefs: list) -> str:
+        """A verse's full cross-reference data ({'key':..., 'text':...} dicts,
+        as produced by both Composers) -> this format's placement. Default:
+        nothing (subclasses that support inline/note-table xrefs override).
+        """
+        return ''
+
+
+# ============================================================ e-Sword profiles
+
+class _ESwordXrefMixin:
+    """e-Sword's inline marker is a bare '<not>R{key}</not>' note reference;
+    the actual reference text lives in the Notes table (see esword_writer.py),
+    wrapped per-piece in '<ref>...</ref>' — e-Sword's own reference tag,
+    which parses/links its contents natively. Exact verse refs get that
+    treatment; degraded ranges (no single verse target) render as plain,
+    non-linked text instead of risking a broken or absurd native-parsed link.
+
+    Also carries red_letter_tags: shared by both e-Sword formatters (not
+    xref-specific, just the natural shared home given this mixin already
+    covers both), e-Sword's own '<red>...</red>' tag, tied to its built-in
+    words-of-Christ display toggle rather than a fixed CSS color.
+    """
+    red_letter_tags = ('<red>', '</red>')
+
+    def transform_reference(self, ref: Reference) -> str:
+        if ref.verse is None:
+            return ref.label or _default_ref_label(ref)
+        return f"<ref>{_default_ref_label(ref)}</ref>"
+
+    def render_crossref(self, xrefs: list) -> str:
+        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
+
+
+_ESWORD_INTRALINEAR_CSS = (_INTRALINEAR_CSS +
+    '\nruby > ro {opacity:0}\n' +
+    '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 )
 
-_ESWORD_STACKED_CSS = (
-    '.stk {display:inline-flex; flex-direction:column; align-items:center;vertical-align:super; font-size:0.75em; gap:4px;'
-    'color:#999 !important; line-height:1.3 !important; padding:4px 0; position:relative; height: 2.4em; overflow: hidden}\n'
-    '.stk.xlit{color: blue}\n'
-    '.stk >.heb{font-size:0.9em;}\n'
-    '.stk >.grk {font-size:0.85em;}\n'
-    '.stk.heb ~ *, .stk.grk ~ * {position:absolute; z-index:9999; top:0.5em; bottom:0.5em; left:0; right:0; text-align:center; opacity:0;}'
-)
+class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
+    abbreviation   = "BSTB"
+    module_name    = "Berean Standard Transliterated Bible"
+    file_extension = ".bbli"
+    css            = _ESWORD_INTRALINEAR_CSS
+
+    def render_verse(self, tokens, header=None, note_id_map=None,
+                     xrefs=None, xref_placement=0) -> str:
+        note_id_map = note_id_map or {}
+        xrefs       = xrefs or []
+        parts       = []
+
+        if header:
+            parts.append(self.render_header(header))
+        if xref_placement == 1:
+            parts.append(self.render_crossref(xrefs))
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+            else:
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                parts.append(' ')
+                lemmas = []
+                for sw in token.source_words:
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    # yes I know the ruby / rt tags are semantically inverted - easier to hide rt
+                    lemmas.append(
+                        f'<span class="ilb">'
+                        f'<ruby><rt>{xlit}</rt><ro>{sw.text}</ro></ruby>'
+                        f'<num>{sw.stem.strongs}</num>'
+                        f'</span>'
+                    )
+                parts.append(' '.join(lemmas))
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self.render_crossref(xrefs))
+
+        return ''.join(parts)
+
+
+_ESWORD_STACKED_CSS = _INTRALINEAR_CSS + \
+    '\nruby > ro {opacity:1}' + \
+    '\n.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
+
+
+class ESwordStackedFormatter(ESwordIntralinearFormatter):
+    abbreviation   = "BSXB"
+    module_name    = "Berean Standard Translinear Bible"
+    file_extension = ".bbli"
+    css            = _ESWORD_STACKED_CSS
+
+
 
 _ESWORD_INTERLINEAR_CSS = (
     'qi{display:inline-flex;flex-direction:column;align-items:center;'
@@ -101,119 +485,7 @@ _ESWORD_INTERLINEAR_CSS = (
     'tvm{color:#666}'
 )
 
-# ============================================================ e-Sword profiles
-
-class ESwordIntralinearFormatter(VerseFormatter):
-    abbreviation   = "BSBi"
-    module_name    = "Berean Standard Bible Intralinear"
-    file_extension = ".bbli"
-    css            = _ESWORD_INTRALINEAR_CSS
-
-    def render_verse(self, tokens, header=None, note_id_map=None,
-                     xrefs=None, xref_placement=0) -> str:
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-
-        if header:
-            parts.append(f'<b class="headline">{header}</b><br>')
-        if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                parts.append(token.english)
-                parts.append(' ')
-                lemmas = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    lemmas.append(
-                        f'<span class="stk">'
-                        f'{xlit} '
-                        f'<num>{sw.stem.strongs}</num>'
-                        f'</span>'
-                    )
-                parts.append(' '.join(lemmas))
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
-
-        return ''.join(parts)
-
-    @staticmethod
-    def _xref_markers(xrefs: list) -> str:
-        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
-
-class ESwordStackedFormatter(VerseFormatter):
-    abbreviation   = "BSBis"
-    module_name    = "Berean Standard Bible Intralinear Stacked"
-    file_extension = ".bbli"
-    css            = _ESWORD_INTRALINEAR_CSS
-
-    def render_verse(self, tokens, header=None, note_id_map=None,
-                     xrefs=None, xref_placement=0) -> str:
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-
-        if header:
-            parts.append(f'<b class="headline">{header}</b><br>')
-        if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                parts.append(token.english)
-                parts.append(' ')
-                lemmas = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    lang_cls = 'grk' if sw.lang == 'G' else 'heb'
-                    lemmas.append(
-                        f'<span class="stk">'
-                        f'<span class="xlit">{xlit}</span> '
-                        f'<span class="{lang_cls}">{sw.text}</span>'
-                        f'<num>{sw.stem.strongs}</num>'
-                        f'</span>'
-                    )
-                parts.append(' '.join(lemmas))
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
-
-        return ''.join(parts)
-
-    @staticmethod
-    def _xref_markers(xrefs: list) -> str:
-        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
-
-class ESwordReverseInterlinearFormatter(VerseFormatter):
+class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
     abbreviation   = "BSBri"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbli"
@@ -234,9 +506,9 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
         pending     = ''
 
         if header:
-            parts.append(f'<b class="headline">{header}</b><br>')
+            parts.append(self.render_header(header))
         if xref_placement == 1:
-            parts.append(self._xref_markers(xrefs))
+            parts.append(self.render_crossref(xrefs))
 
         for i, token in enumerate(tokens):
             if i in skip:
@@ -245,14 +517,15 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
             is_plain = token.is_plain_text or not token.source_words
 
             if is_plain:
+                english_text = self.transform_english(token.english, token.par_class, token.is_red)
                 if token.skip_space_after:
-                    pending += token.english
+                    pending += english_text
                 else:
-                    text    = pending + token.english
+                    text    = pending + english_text
                     pending = ''
                     parts.append(f'<q><e>{text}</e></q>')
             else:
-                english = pending + token.english
+                english = pending + self.transform_english(token.english, token.par_class, token.is_red)
                 pending = ''
 
                 j        = i + 1
@@ -260,7 +533,7 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
                 while cur_skip and j < len(tokens):
                     next_tok = tokens[j]
                     if next_tok.is_plain_text or not next_tok.source_words:
-                        english += next_tok.english
+                        english += self.transform_english(next_tok.english, next_tok.par_class, next_tok.is_red)
                         skip.add(j)
                         cur_skip = next_tok.skip_space_after
                         j += 1
@@ -294,43 +567,132 @@ class ESwordReverseInterlinearFormatter(VerseFormatter):
                     parts.append(f' <not>N{seq}</not>')
 
         if xref_placement == 2:
-            parts.append(self._xref_markers(xrefs))
+            parts.append(self.render_crossref(xrefs))
 
         return ''.join(parts)
 
-    @staticmethod
-    def _xref_markers(xrefs: list) -> str:
-        return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
+# ============================================================ MySword profiles
 
-# ============================================================ MySword CSS / VerseRules
+class _MySwordXrefMixin:
+    """MySword's RX tag is a bare milestone with no visible label of its own,
+    so each tag is followed by its own display text — a note popup containing
+    only RX tags and nothing else renders as blank. RX's b.c.v addressing
+    gives every reference — even a degraded, no-single-verse one — a real
+    click target: an exact ref points at its verse, a whole-chapter/book-span
+    range points at the range's first chapter (verse 1), while still
+    *displaying* the full range text via the tag's label.
 
-_MYSWORD_INTRALINEAR_CSS = """
-sup { font-size: 75%; }
-.xlit a { color: blue; text-decoration: none; }
-.ref { font-size: 0.65em; color: #333; background-color: #e8e8e8;
-       border-radius: 3px; padding: 0 2px; text-decoration: none; }
-"""
+    Also carries red_letter_tags: shared by both MySword formatters (not
+    xref-specific, just the natural shared home given this mixin already
+    covers both), MySword's own '<FR>...<Fr>' red-letter markup, tied to
+    its built-in words-of-Christ display toggle rather than a fixed CSS color.
 
-# Tab between pattern and replacement is required by MySword.
-_MYSWORD_INTRALINEAR_RULES = (
-    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<sup class="xlit"><a href="s$1">$3</a></sup>\n'
-)
+    And render_header(): unlike the base default (which skips 'hdg'/
+    'suphdg' to avoid doubling up with e-Sword's native pericopes — see
+    VerseFormatter.render_header()), MySword renders every header class via
+    its own '<TS>...<Ts>' title tag, undifferentiated by class.
+    """
+    red_letter_tags = ('<FR>', '<Fr>')
 
-_MYSWORD_STACKED_CSS = """
-ruby { display: inline-flex; flex-direction: column-reverse; align-items: center;
-  color: #888; gap: 0px; font-size: 80%; vertical-align: middle; margin: 0 3px;
-  padding: 3px 0; line-height: 0.9}
-ruby > rt { font-size: 1.0em; }
-ruby > rt a { color: blue; text-decoration: none; }
-.ref {font-size: 0.65em; color: #333; background-color: #e8e8e8;
-       border-radius: 3px; padding: 0 2px; text-decoration: none; }
-"""
+    def render_header(self, raw: str) -> str:
+        return ''.join(f"<TS>{text}<Ts>" for _, text in parse_headers(raw))
 
-_MYSWORD_STACKED_RULES = (
-    '<lemma sn="([^ "]+)" o="([^"]*?)">([^<]*)</lemma>\t'
-    '<ruby>$2<rt><a href="s$1">$3</a></rt></ruby>'
-)
+    def transform_reference(self, ref: Reference) -> str:
+        if ref.book is None or ref.chapter is None:
+            return ref.label or ''
+        book_num = ABBREV_TO_BOOK_NUM.get(ref.book)
+        if not book_num:
+            return ref.label or _default_ref_label(ref)
+
+        if ref.verse is not None:
+            loc = f"{book_num}.{ref.chapter}.{ref.verse}"
+            if ref.end_verse:
+                loc += (f"-{ref.end_chapter}.{ref.end_verse}" if ref.end_chapter
+                        else f"-{ref.end_verse}")
+        else:
+            loc = f"{book_num}.{ref.chapter}.1"
+
+        label = ref.label or _default_ref_label(ref)
+        return f"<RX{loc}>{label}"
+
+    def render_crossref(self, xrefs: list) -> str:
+        parts = []
+        for vx in xrefs:
+            rx_tags = '; '.join(
+                self.transform_reference(parse_reference(piece))
+                for piece in vx['text'].split(';') if piece.strip()
+            )
+            if rx_tags:
+                parts.append(f"<RF q=R{vx['key']}>{rx_tags}<Rf>")
+        return ''.join(parts)
+
+
+_MYSWORD_INTRALINEAR_CSS = _INTRALINEAR_CSS +\
+    '\nruby > ro {opacity:0} ruby a {text-decoration: none;}'
+
+_MYSWORD_INTRALINEAR_RULES = ''
+
+class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
+    abbreviation   = "BSTB"
+    module_name    = "Berean Standard Transliterated Bible"
+    file_extension = ".bbl.mybible"
+    css            = _MYSWORD_INTRALINEAR_CSS
+    verse_rules    = _MYSWORD_INTRALINEAR_RULES
+
+    def render_verse(self, tokens, header=None, note_id_map=None,
+                     xrefs=None, xref_placement=0) -> str:
+        """Render tokens with <span class="ilb"><ruby> markup for lemma display."""
+        note_id_map = note_id_map or {}
+        xrefs = xrefs or []
+        parts = []
+        if header:
+            parts.append(self.render_header(header))
+        if xref_placement == 1:
+            parts.append(self.render_crossref(xrefs))
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                for note in token.notes:
+                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+            else:
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                parts.append(' ')
+                lemmas = []
+                for sw in token.source_words:
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    lemmas.append(
+                        f'<span class="ilb"><ruby><rt><a href="s{sw.stem.strongs}">{xlit}</a></rt>'
+                        f'<ro>{sw.text}</ro></ruby></span>'
+                    )
+                parts.append(' '.join(lemmas))
+                for note in token.notes:
+                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self.render_crossref(xrefs))
+
+        return ''.join(parts)
+
+    def preview_transform(self, scripture: str) -> str:
+        return self._apply_rules(scripture, self.verse_rules)
+
+_MYSWORD_STACKED_CSS = _INTRALINEAR_CSS + \
+    '\nruby a {text-decoration: none;}'
+
+_MYSWORD_STACKED_RULES = ''
+
+class MySwordStackedFormatter(MySwordIntralinearFormatter):
+    """Stacked variant: same verse content, different CSS."""
+    abbreviation = "BSXB"
+    module_name  = "Berean Standard Translinear Bible"
+    css          = _MYSWORD_STACKED_CSS
+    verse_rules  = _MYSWORD_STACKED_RULES
 
 _MYSWORD_INTERLINEAR_CSS = """
 sup { font-size: 70%; }
@@ -339,60 +701,7 @@ sup { font-size: 70%; }
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
-# ============================================================ MySword profiles
-
-class MySwordIntralinearFormatter(VerseFormatter):
-    abbreviation   = "BSBi"
-    module_name    = "BSB Intralinear Bible"
-    file_extension = ".bbl.mybible"
-    css            = _MYSWORD_INTRALINEAR_CSS
-    verse_rules    = _MYSWORD_INTRALINEAR_RULES
-
-    def render_verse(self, tokens, header=None, note_id_map=None,
-                     xrefs=None, xref_placement=0) -> str:
-        """Render tokens with <lemma sn="..."> tags; MySword VerseRules transforms them."""
-        parts = []
-        if header:
-            parts.append(f"<TS>{header}<Ts>")
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
-                for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
-            else:
-                parts.append(token.english)
-                parts.append(' ')
-                lemmas = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    lemmas.append(
-                        f'<lemma sn="{sw.stem.strongs}" o="{sw.text}">{xlit}</lemma>'
-                    )
-                parts.append(' '.join(lemmas))
-                for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        return ''.join(parts)
-
-    def preview_transform(self, scripture: str) -> str:
-        return self._apply_rules(scripture, self.verse_rules)
-
-
-class MySwordStackedFormatter(MySwordIntralinearFormatter):
-    """Stacked variant: same <lemma> verse content, different CSS/VerseRules."""
-    abbreviation = "BSBis"
-    module_name  = "BSB Intralinear Bible (Stacked)"
-    css          = _MYSWORD_STACKED_CSS
-    verse_rules  = _MYSWORD_STACKED_RULES
-
-
-class MySwordReverseInterlinearFormatter(VerseFormatter):
+class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
     abbreviation   = "BSBri"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbl.mybible"
@@ -402,17 +711,21 @@ class MySwordReverseInterlinearFormatter(VerseFormatter):
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
         """Render tokens with GBF tags for MySword interlinear display."""
+        note_id_map = note_id_map or {}
+        xrefs = xrefs or []
         parts = []
         if header:
-            parts.append(f"<TS>{header}<Ts>")
+            parts.append(self.render_header(header))
+        if xref_placement == 1:
+            parts.append(self.render_crossref(xrefs))
 
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
 
             if token.is_plain_text or not token.source_words:
-                parts.append(token.english)
+                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
                 for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
                 segments = []
                 for sw in token.source_words:
@@ -421,13 +734,17 @@ class MySwordReverseInterlinearFormatter(VerseFormatter):
                     tag     = 'G' if sw.lang == 'G' else 'H'
                     end     = 'g' if sw.lang == 'G' else 'h'
                     segments.append(f"<{tag}>{sw.text}<W{strongs}><X>{xlit}<x><{end}>")
+                english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
-                    f"<Q>{''.join(segments)}<E>{token.english}<e><q>"
+                    f"<Q>{''.join(segments)}<E>{english}<e><q>"
                 )
                 for note in token.notes:
-                    parts.append(f"<RF q={note['noteId']}>{note['text']}<Rf>")
+                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self.render_crossref(xrefs))
 
         return ''.join(parts)

@@ -1,25 +1,35 @@
 # Intralinear Bible Pipeline Configuration
-# Run: python main.py [--format esword|mysword|osis] [--mode intralinear|interlinear]
+# Run: python main.py [--format esword|mysword|osis] [--mode intralinear|stacked|interlinear]
 
 # ── Module identity ──────────────────────────────────────────
-version: "1.0.1"
+version: "1.1.0"
 translation: "BSB"                    # Module abbreviations derived as:
                                       #   intralinear:         {translation}i
                                       #   intralinear stacked: {translation}is
                                       #   interlinear:         {translation}ri+
 description: "Berean Standard Bible"
 
+# ── Composer ─────────────────────────────────────────────────
+# table_db points at a precomputed database (built by utils/import_bsb_table.py).
+# If that file exists, it's used automatically and the text sources below are
+# never loaded — no need to touch anything else in this file. Set "composer"
+# explicitly (alignment|table) only to force one path regardless of whether
+# table_db exists (e.g. to rebuild from live sources for comparison).
+table_db: "data/bsb_tables.db"
+# composer: alignment
+
 # ── Source data ──────────────────────────────────────────────
+# Only used when composer resolves to "alignment" (see above)
 data_root: "../"
 
 sources:
   ot:
     source:    "macula-hebrew/WLC/tsv/macula-hebrew.tsv"
-    alignment: "Alignments/data/eng/alignments/BSB/WLCM-BSB-manual.json"
+    alignment: "intralinear-bible/data/WLCM-BSB-align.ndjson"
     target:    "Alignments/data/eng/targets/BSB/ot_BSB.tsv"
   nt:
-    source:    "macula-greek/Nestle1904/tsv/macula-greek-Nestle1904.tsv"
-    alignment: "Alignments/data/eng/alignments/BSB/SBLGNT-BSB-manual.json"
+    source:    "macula-greek/SBLGNT/tsv/macula-greek-SBLGNT.tsv"
+    alignment: "intralinear-bible/data/SBLGNT-BSB-align.ndjson"
     target:    "Alignments/data/eng/targets/BSB/nt_BSB.tsv"
 
 # ── Transliteration ──────────────────────────────────────────
@@ -29,14 +39,17 @@ transliteration:
 
 # ── Annotations ──────────────────────────────────────────────
 annotations: "data/bsb_annotations.json"
-tsk:         "data/tsk_xrefs.json"
+crossrefs:   "data/bsb_xrefs.json"
 
 # ── Output ───────────────────────────────────────────────────
 output:
-  dir:     "output"
-  headers: 0             # section headers
-  notes:   1             # translator notes
-  xref:    0             # cross ref 0: none, 1: beginning of verse, 2: end of verse
+  dir:        "output"
+  headers:    1          # section headers
+  notes:      1          # translator notes
+  xref:       1          # cross ref 0: none, 1: beginning of verse, 2: end of verse
+  red_letter: 1          # words of Christ in red (table composer only; off by
+                         # default — the source data doesn't mark God's OT
+                         # speech the same way, so red-letter is NT-only here)
 
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]

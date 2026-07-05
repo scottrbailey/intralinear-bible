@@ -1,0 +1,17 @@
+{
+ "documents": [
+    {"docid": "WLCM", "scheme": "BCVWP"},
+    {"docid": "BSB", "scheme": "BCVW"}
+ ],
+ "meta": {"conformsTo": "0.3", "creator": "BiblioNexus"},
+ "roles": ["source", "target"],
+ "type": "translation",
+ "records": [
+ {"source": ["o010010010011", "o010010010012"], "target": ["01001001001", "01001001002", "01001001003"], "meta": {"id": "01001001.001", "origin": "manual", "status": "created"}},
+ {"source": ["o010010010021"], "target": ["01001001005"], "meta": {"id": "01001001.002", "origin": "manual", "status": "created"}},
+ {"source": ["o010010010031"], "target": ["01001001004"], "meta": {"id": "01001001.003", "origin": "manual", "status": "created"}},
+ {"source": ["o010010010051", "o010010010052"], "target": ["01001001006", "01001001007"], "meta": {"id": "01001001.005", "origin": "manual", "status": "created"}},
+ {"source": ["o010010010061", "o010010010062"], "target": ["01001001008"], "meta": {"id": "01001001.006", "origin": "manual", "status": "created"}},
+ {"source": ["o010010010071", "o010010010072"], "target": ["01001001009", "01001001010"], "meta": {"id": "01001001.007", "origin": "manual", "status": "created"}},
+ ]
+}

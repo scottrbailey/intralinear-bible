@@ -1,12 +1,15 @@
 """
 composer.py
 
-BibleComposer: loads source data and yields aligned verse tokens.
+Composer: ABC for anything that yields aligned verse tokens.
+AlignmentComposer: loads source/alignment/target files and joins them live.
 """
 
 import csv
 import json
 import re
+import sqlite3
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 from biblelib.book import Books
@@ -20,9 +23,14 @@ from models import (
 # Build at module load — one-time cost, used by composer and writers alike.
 BOOK_NUM_MAP: dict = {book.usfmnumber: book.osisID for book in Books().values()}
 
-_book_abbrev = [book.osisID for book in Books().values()]
-_OT_ABBREV   = set(_book_abbrev[:39])
-_NT_ABBREV   = set(_book_abbrev[60:87])
+# data/books.db (see utils/build_books_table.py) gives an explicit testament
+# per book rather than slicing into biblelib's own (apocrypha-inclusive)
+# iteration order, which put the NT at index 60, not immediately after the
+# 39 OT books.
+_BOOKS_DB = Path(__file__).resolve().parent / "data" / "books.db"
+with sqlite3.connect(_BOOKS_DB) as _conn:
+    _OT_ABBREV = {r[0] for r in _conn.execute("SELECT osis_id FROM books WHERE testament='OT'")}
+    _NT_ABBREV = {r[0] for r in _conn.execute("SELECT osis_id FROM books WHERE testament='NT'")}
 
 
 def verse_id_to_osis(verse_id: str) -> str:
@@ -34,8 +42,22 @@ def verse_id_to_osis(verse_id: str) -> str:
     return f"{book_name}.{chapter}.{verse}"
 
 
-class BibleComposer:
-    """Loads source data and yields (osis_ref, tokens, header, xrefs) per verse.
+class Composer(ABC):
+    """Yields (osis_ref, [AlignedToken], header, xrefs) per verse.
+
+    Implementations differ in where the joined data comes from — a live
+    join across source/alignment/target files (AlignmentComposer) or a
+    precomputed table (TableComposer) — but writers and formatters only
+    ever see this interface.
+    """
+
+    @abstractmethod
+    def iter_verses(self):
+        """Yield (osis_ref, [AlignedToken], header, xrefs) across all testaments."""
+
+
+class AlignmentComposer(Composer):
+    """Loads source/alignment/target files and joins them live, per verse.
 
     direction controls the join strategy:
       TARGET_TO_SOURCE — English-primary tokens (current, used for intralinear
@@ -68,7 +90,8 @@ class BibleComposer:
         headers_index = annotations.get('headers', {}) if need_headers else {}
         notes_index   = annotations.get('notes',   {}) if need_notes   else {}
 
-        tsk = _load_tsk(self.config['tsk']) if need_xref and self.config.get('tsk') else {}
+        crossrefs = (_load_crossrefs(self.config['crossrefs'])
+                     if need_xref and self.config.get('crossrefs') else {})
 
         for testament in ('ot', 'nt'):
             if testament not in sources:
@@ -76,7 +99,7 @@ class BibleComposer:
             if not self._should_process(testament):
                 continue
             yield from self._iter_testament(
-                testament, sources[testament], headers_index, notes_index, tsk
+                testament, sources[testament], headers_index, notes_index, crossrefs
             )
 
     # --------------------------------------------------------------- internals
@@ -87,7 +110,7 @@ class BibleComposer:
             return any(b in _OT_ABBREV for b in (books_filter or ['Gen']))
         return any(b in _NT_ABBREV for b in (books_filter or ['Matt']))
 
-    def _iter_testament(self, testament, tcfg, headers_index, notes_index, tsk):
+    def _iter_testament(self, testament, tcfg, headers_index, notes_index, crossrefs):
         print(f"\n{'='*60}")
         print(f"Processing {testament.upper()}")
         print(f"{'='*60}")
@@ -102,7 +125,7 @@ class BibleComposer:
                                         alignment_records, source_index, notes_index)
             osis_ref = verse_id_to_osis(verse_id)
             header   = headers_index.get(osis_ref)
-            xrefs    = tsk.get(verse_id, {})
+            xrefs    = crossrefs.get(verse_id, {})
             verse_count += 1
             yield osis_ref, tokens, header, xrefs
 
@@ -131,13 +154,13 @@ def _load_annotations(path: Path) -> dict:
     return data
 
 
-def _load_tsk(path: Path) -> dict:
+def _load_crossrefs(path: Path) -> dict:
     if not path.exists():
-        print(f"  Warning: TSK file not found at {path}, skipping")
+        print(f"  Warning: cross-reference file not found at {path}, skipping")
         return {}
     with open(path, encoding='utf-8') as f:
         data = json.load(f)
-    print(f"  Loaded TSK cross references from {path.name}")
+    print(f"  Loaded cross references from {path.name}")
     return data
 
 
@@ -174,10 +197,15 @@ def _load_source_index(path: Path, testament: str) -> dict:
 
 
 def _load_alignment_index(path: Path) -> dict:
-    with open(path, encoding='utf-8') as f:
-        data = json.load(f)
+    if path.suffix == '.json':
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        rows = data['records']
+    elif path.suffix == '.ndjson':
+        import dbtk.readers  # optional dependency, only needed for this format
+        rows = dbtk.readers.get_reader(path)
     index = {}
-    for rec in data['records']:
+    for rec in rows:
         record   = AlignmentRecord(
             source_ids=rec['source'],
             target_ids=rec['target'],
