@@ -210,19 +210,21 @@ verse data exactly once regardless of how many output targets are active.
   plain string from `AlignmentComposer`'s `bsb_annotations.json`, or a raw
   `<p class=|hdg|>...` wrapper cell from `TableComposer`'s `bsb_tables.db`)
   into this format's heading markup; both shapes go through the same
-  `parse_headers()` parsing. Default policy: skip the main `hdg`/`suphdg`
-  segments entirely — MySword and e-Sword both have their own built-in
-  pericope (section heading) display, on by default and not suppressible
-  from module data, so rendering those here would double them up (and for
-  e-Sword there's no way to make ours render above the verse the way native
-  pericopes do anyway). Only render the classes native pericopes don't
-  cover — `acrostic`, `ihdg`, `subhdg` — each wrapped in a same-named
-  `<span>` (styled by `_INTRALINEAR_CSS`, so each class stays independently
+  `parse_headers()` parsing. Default policy (e-Sword): skip the main
+  `hdg`/`suphdg` segments entirely — e-Sword has its own built-in pericope
+  (section heading) display, on by default and not suppressible from
+  module data, so rendering those here would double them up, and there's
+  no way to make ours render above the verse the way native pericopes do
+  anyway. Only render the classes native pericopes don't cover —
+  `acrostic`, `ihdg`, `subhdg` — each wrapped in a same-named `<span>`
+  (styled by `_INTRALINEAR_CSS`, so each class stays independently
   stylable instead of colliding with `bracket_replacement`'s own `<i>` use)
   followed by a literal `<br/>`. CSS-only "same line as the verse number,
   wrap only after" tricks (`display:block`; `float:left`/`width:100%`) were
-  tried first and both broke against the real e-Sword/MySword rendering
-  engines — a trailing `<br/>` is what actually works reliably.
+  tried first and both broke against the real e-Sword rendering engine —
+  a trailing `<br/>` is what actually works reliably. MySword overrides
+  this base default (via `_MySwordXrefMixin`) to render every header class
+  via its own `<TS>...<Ts>` title tag instead, undifferentiated by class.
 - `transform_english()` / `bracket_replacement` / `brace_replacement` —
   strip, keep, or restyle the BSB text's two independent translator-supplied-
   word markers: `[brackets]` (broadly supplied words — pronouns, articles,
@@ -280,9 +282,11 @@ These are per-`VerseFormatter` overrides, not composer-level changes — both
 composers feed the same raw shapes through `parse_headers()`/`parse_reference()`,
 so a new format only needs to override the render/transform side:
 
-- Headings: override `render_header()` (default skips `hdg`/`suphdg` to avoid
-  doubling up with MySword/e-Sword's own pericope display, renders
-  `acrostic`/`ihdg`/`subhdg` inline in italics); key off each segment's class
+- Headings: override `render_header()` (base default, used by e-Sword, skips
+  `hdg`/`suphdg` to avoid doubling up with its own pericope display and
+  renders `acrostic`/`ihdg`/`subhdg` inline in italics; MySword overrides it
+  to render every class via its own `<TS>...<Ts>` tag instead); key off
+  each segment's class
   (see `parse_headers()`'s docstring, or `_INLINE_HEADER_CLASSES`) for
   different policy or styling.
 - Supplied words: set `bracket_replacement`/`brace_replacement` class vars,

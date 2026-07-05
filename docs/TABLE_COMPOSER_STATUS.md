@@ -43,16 +43,19 @@ architecture; this doc tracks the newer, still-settling parts.
    shapes go through the same code path.
 
    `VerseFormatter.render_header()`'s shared default policy: skip `hdg`/
-   `suphdg` (the main section headings) entirely — MySword and e-Sword both
-   have their own built-in pericope display, on by default and not
-   suppressible from module data, so rendering those here doubles them up,
-   and e-Sword has no way to make ours render above the verse the way its
-   native pericopes do. Only `acrostic`/`ihdg`/`subhdg` — classes native
-   pericopes don't cover — render, each wrapped in a same-named `<span>`
-   (styled by `_INTRALINEAR_CSS` so each stays independently stylable)
-   followed by a literal `<br/>` — CSS-only alternatives (`display:block`,
-   then `float:left`/`width:100%`) were both tried and both broke against
-   real e-Sword/MySword rendering; a trailing `<br/>` is what works.
+   `suphdg` (the main section headings) entirely — e-Sword has its own
+   built-in pericope display, on by default and not suppressible from
+   module data, so rendering those here would double them up, and there's
+   no way to make ours render above the verse the way its native pericopes
+   do anyway. Only `acrostic`/`ihdg`/`subhdg` — classes native pericopes
+   don't cover — render, each wrapped in a same-named `<span>` (styled by
+   `_INTRALINEAR_CSS` so each stays independently stylable) followed by a
+   literal `<br/>` — CSS-only alternatives (`display:block`, then
+   `float:left`/`width:100%`) were both tried and both broke against real
+   e-Sword rendering; a trailing `<br/>` is what works. `_MySwordXrefMixin`
+   overrides this base default, though: MySword renders every header class
+   via its own `<TS>...<Ts>` title tag, undifferentiated by class — its own
+   pericope handling didn't need the same doubling workaround e-Sword did.
 
 5. **Supplied-word bracket/brace stripping.** Moved off `TableComposer`
    (which now always preserves `[brackets]`/`{braces}` verbatim) and onto

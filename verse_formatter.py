@@ -585,8 +585,16 @@ class _MySwordXrefMixin:
     xref-specific, just the natural shared home given this mixin already
     covers both), MySword's own '<FR>...<Fr>' red-letter markup, tied to
     its built-in words-of-Christ display toggle rather than a fixed CSS color.
+
+    And render_header(): unlike the base default (which skips 'hdg'/
+    'suphdg' to avoid doubling up with e-Sword's native pericopes — see
+    VerseFormatter.render_header()), MySword renders every header class via
+    its own '<TS>...<Ts>' title tag, undifferentiated by class.
     """
     red_letter_tags = ('<FR>', '<Fr>')
+
+    def render_header(self, raw: str) -> str:
+        return ''.join(f"<TS>{text}<Ts>" for _, text in parse_headers(raw))
 
     def transform_reference(self, ref: Reference) -> str:
         if ref.book is None or ref.chapter is None:
