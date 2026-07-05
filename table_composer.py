@@ -64,12 +64,22 @@ def _prefixed_strongs(bare: str | None, language: str) -> str:
     return prefix + bare
 
 
+_PASEQ = '׀'  # HEBREW PUNCTUATION PASEQ — looks like an ASCII '|' but is a
+# real Masoretic cantillation mark, not markup (confirmed: 2,268 tokens carry
+# it, always glued onto the end of a real word, never standalone). Kept in
+# the stored source_text — it's authentic text, not an error — but stripped
+# from what SourceWord actually displays: it renders 1.5-2x the surrounding
+# Hebrew's size in both e-Sword and MySword, a target-font/glyph problem
+# with no known fix, not something worth destroying the underlying data over.
+
+
 def _to_source_word(row: sqlite3.Row) -> SourceWord:
     parsing_full = row['parsing_full'] or ''
     is_proper    = 'proper' in parsing_full.lower()
+    source_text  = row['source_text'].replace(_PASEQ, '')
     token = SourceToken(
         id=str(row['bsb_sort']),
-        text=row['source_text'],
+        text=source_text,
         strongs=_prefixed_strongs(row['strongs'], row['language']),
         gloss=row['english'] or '',
         token_class=row['parsing_short'] or '',
@@ -80,7 +90,7 @@ def _to_source_word(row: sqlite3.Row) -> SourceWord:
         after=' ',
     )
     return SourceWord(
-        tokens=[token], stem=token, text=row['source_text'],
+        tokens=[token], stem=token, text=source_text,
         lang=row['language'], is_proper=is_proper,
     )
 

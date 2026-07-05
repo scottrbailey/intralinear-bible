@@ -189,6 +189,26 @@ architecture; this doc tracks the newer, still-settling parts.
     the full Bible went from 15,373 (buggy) to 28,999 (fixed) — roughly
     half of all red-letter text had been getting dropped by this bug.
 
+12. **Trailing punctuation moved after the transliteration** in the
+    Intralinear formatters' inline layout — see the "word order" section
+    of `verse_formatter.py` and `_split_trailing_punct()`. (Also fixed a
+    regression this introduced: the trailing-punctuation character class
+    briefly included `]`, splitting supplied-word brackets like `"[Jesus]"`
+    into an unbalanced `"[Jesus"` + `"]"` before `transform_english()` ever
+    saw them, so `bracket_replacement` silently stopped matching. Fixed by
+    removing `]` from that class — it's a bracket's own closer, not
+    punctuation to relocate.)
+
+13. **Hebrew *paseq* (U+05C0, `׀`) filtered from displayed source text.**
+    Looks like an ASCII `|` but is a real Masoretic cantillation mark
+    (2,268 tokens, always glued onto the end of a real word, never
+    standalone) — confirmed genuine text, not a data error. Rendered at
+    1.5-2x the surrounding Hebrew's size in both e-Sword and MySword (a
+    target-font/glyph issue with no known fix), so `TableComposer._to_source_word()`
+    strips it from what `SourceWord`/`SourceToken` actually display; the
+    stored `tokens.source_text` column keeps the authentic character
+    untouched.
+
 ## Known issues (not yet fixed)
 
 1. **Pre-owner punctuation in `vvv`-led groups** — exactly 10 verses, verified:
