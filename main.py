@@ -21,14 +21,19 @@ Usage:
                 a database built, no config change is needed at all. Either
                 config key or this flag forces one path over the other.
 
+    --zip       Also zip this run's output file(s) into one archive
+                (output/<translation>_<format>.zip) alongside the originals.
+
 Examples:
     python main.py
     python main.py config_nt.yaml --format mysword
     python main.py --format all
     python main.py --composer table
+    python main.py --format mysword --zip
 """
 
 import argparse
+import zipfile
 from pathlib import Path
 
 import yaml
@@ -116,6 +121,10 @@ def parse_args():
              "otherwise auto-detected from whether table_db exists on disk); "
              "overrides both if given",
     )
+    parser.add_argument(
+        "--zip", action="store_true",
+        help="Also zip this run's output file(s) into one archive in the output directory",
+    )
     args = parser.parse_args()
 
     # Normalize aliases
@@ -167,6 +176,17 @@ def build_writers(output_format: str, render_mode: str,
     return [OSISWriter(transliterate=transliterate)]
 
 
+# ----------------------------------------------------------------- zip
+
+def zip_outputs(paths: list, zip_path: Path) -> None:
+    """Zip this run's output file(s) (flat, no directory structure) into one archive."""
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for path in paths:
+            zf.write(path, arcname=path.name)
+    print(f"Zipped {len(paths)} file(s) to {zip_path}")
+
+
 # ----------------------------------------------------------------- main
 
 def main():
@@ -211,6 +231,10 @@ def main():
 
     for writer in writers:
         writer.write()
+
+    if args.zip:
+        zip_path = output_dir / f"{config['translation']}_{args.output_format}.zip"
+        zip_outputs([writer.output_path for writer in writers], zip_path)
 
 
 if __name__ == '__main__':

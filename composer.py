@@ -175,9 +175,23 @@ def _load_source_index(path: Path, testament: str) -> dict:
                            or row.get('strongs') or '')
             if raw_strongs:
                 raw_strongs = re.sub(r'^[HGA]', '', raw_strongs)
-                raw_strongs = re.sub(r'^0*(\d+)[a-z]*$', r'\1', raw_strongs)
-                strongs_prefix = 'H' if lang in ('H', 'A') else lang
-                raw_strongs = strongs_prefix + raw_strongs
+                # A trailing letter ('0871a', '2050b') marks a grammatical
+                # morpheme (preposition/article/conjunction) tagged with a
+                # pseudo-Strong's slot borrowed from an unrelated real entry's
+                # number, not a genuine sense-disambiguated Strong's number —
+                # confirmed against the classic Strong's dictionary: '0871a'
+                # (the bare preposition bet) strips to H871, which is really
+                # 'Atharim' (Num 21:1); '2050b' (the conjunction waw) strips
+                # to H2050, which is really 'imagine mischief' (Ps 62:3).
+                # Stripping the letter and linking anyway would point readers
+                # at the wrong, unrelated dictionary entry, so it's suppressed
+                # entirely rather than resolved.
+                m = re.match(r'^0*(\d+)([a-z]*)$', raw_strongs)
+                if m and not m.group(2):
+                    strongs_prefix = 'H' if lang in ('H', 'A') else lang
+                    raw_strongs = strongs_prefix + m.group(1)
+                else:
+                    raw_strongs = ''
 
             index[row['xml:id']] = SourceToken(
                 id=row['xml:id'],

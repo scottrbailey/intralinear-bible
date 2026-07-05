@@ -1,6 +1,22 @@
 # Changelog
 
-## [1.1.0] - 2026-07-05
+## [1.1.1] - 2026-07-05
+
+### Added
+- **`--zip` CLI option** (`main.py`): bundles a run's actual output file(s) into `output/<translation>_<format>.zip` — e.g. both e-Sword intralinear + stacked files together, or all six `--format all` targets in one archive. Every writer now exposes `self.output_path` (`OSISWriter`'s was previously private and inconsistent with the SQLite-backed writers) so `main.py` can find what it just wrote.
+
+### Changed
+- Module title changed from "BSB Intralinear Bible" to "Berean Standard Transliterated Bible" (`README.md`).
+- `docs/INSTALL.md`'s AHLB section expanded: explains the pictograph/root-word approach and where to find the lexicon's introduction on each platform (e-Sword's "Reference" section vs. MySword's entries "01"-"16", searchable as "01").
+- `utils/import_bsb_table.py`'s default source path moved from `data/bsb_tables.tsv` to `local/bsb_tables.tsv`.
+
+### Fixed
+- Trailing punctuation in the Intralinear layouts (e-Sword/MySword) was rendering directly after the English word, ahead of its transliteration/source-word annotation, instead of after it. `_split_trailing_punct()` now splits it off the raw English before `transform_english()` runs and re-appends it after the source-word markup. (Along the way, fixed a regression this introduced: the trailing-punctuation character class briefly included `]`, splitting supplied-word brackets like `"[Jesus]"` into an unbalanced `"[Jesus"` + `"]"` before the bracket-stripping regex ever saw them.)
+- Hebrew *paseq* (U+05C0, `׀`) — a real Masoretic cantillation mark that looks like an ASCII `|` — was rendering at 1.5-2x the surrounding Hebrew's size in both e-Sword and MySword (a target-font/glyph issue with no known fix). Now stripped from displayed source text only; the stored `tokens.source_text` column keeps the authentic character untouched.
+- Letter-suffixed Strong's numbers (`0871a`, `2050b`, etc.) from macula-hebrew/macula-greek were being stripped to their bare digits and linked anyway — reversing v1.0.1's original fix, which turns out to have been wrong. The trailing letter marks a grammatical morpheme (preposition/article/conjunction) tagged with a pseudo-Strong's slot borrowed from an unrelated real entry's number, not a genuine sense-disambiguated Strong's number: confirmed against the classic Strong's dictionary, `0871a` (the bare preposition *bet*) strips to H871, which is really "Atharim" (Num 21:1); `2050b` (the conjunction *waw*) strips to H2050, which is really "imagine mischief" (Ps 62:3). `composer.py` (`AlignmentComposer`'s live path) and `table_composer.py` now suppress the number entirely instead of resolving it to the wrong dictionary entry. e-Sword/MySword intralinear formatters mark the resulting unlinked word with `<rt class="unlinked">` (a dimmer, grayish-blue) instead of leaving a dead `<num>`/`<a href>` behind, so it reads as "known unavailable" rather than a broken link.
+- README.md's screenshot reference pointed at a doubled `bsxb_ot2_mysword.jpg.jpg` filename instead of the real `bsxb_ot2_mysword.jpg`.
+
+## [1.1.0] - 2026-07-04
 
 ### Added
 - **`TableComposer` pipeline** (`table_composer.py`, `utils/import_bsb_table.py`, `data/bsb_tables.db`): an alternative to `AlignmentComposer`'s live macula-hebrew/macula-greek/Alignments join — parses the full BSB interlinear export (`bsb_tables.tsv`, from berean.bible/downloads.htm) into a normalized SQLite `tokens`/`verses` database once, then reads it directly. No external repos to clone (85MB vs. the ~4.5GB `macula-hebrew` alone), and now the recommended starting point. `composer` in `config.yaml` (or `--composer`) selects it explicitly; when not set, it's auto-detected from whether `table_db` exists on disk, so a built database is picked up with zero config changes.

@@ -32,11 +32,11 @@ class OSISWriter(BibleWriter):
         self._osis         = None
         self._osis_text    = None
         self._book_map     = {}
-        self._output_path  = None
+        self.output_path   = None
 
     def open(self, output_dir: Path) -> None:
-        self._output_path = output_dir / (self.abbreviation + self.file_extension)
-        self._output_path.parent.mkdir(parents=True, exist_ok=True)
+        self.output_path = output_dir / (self.abbreviation + self.file_extension)
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
         self._osis, self._osis_text = self._make_header()
 
     def add_verse(self, osis_ref: str, tokens: list,
@@ -55,8 +55,8 @@ class OSISWriter(BibleWriter):
         ET.register_namespace('', OSIS_NS)
         ET.indent(self._osis, space="  ")
         tree = ET.ElementTree(self._osis)
-        tree.write(self._output_path, encoding="utf-8", xml_declaration=True)
-        print(f"Written to {self._output_path}")
+        tree.write(self.output_path, encoding="utf-8", xml_declaration=True)
+        print(f"Written to {self.output_path}")
 
     # --------------------------------------------------------------- internals
 

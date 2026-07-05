@@ -2,9 +2,9 @@
 
 The Bible was written in Hebrew, Aramaic, and Greek. For most of us, that means we're always reading someone else's translation — and translations involve choices. Words that carry layers of meaning get flattened. Nuance gets lost. You find yourself wondering: *what did it actually say?*
 
-The BSB Intralinear Bible is for people who want to get closer to the original text without spending years learning ancient languages. It combines the **Berean Standard Bible** — a modern, accurate English translation — with inline transliteration of every Hebrew and Greek word, linked directly to Strong's concordance so you can explore word meanings in seconds.
+The Berean Standard Transliterated Bible is for people who want to get closer to the original text without spending years learning ancient languages. It combines the **Berean Standard Bible** — a modern, accurate English translation — with inline transliteration of every Hebrew and Greek word, linked directly to Strong's concordance so you can explore word meanings in seconds.
 
-<img src="docs/assets/bsxb_ot2_mysword.jpg.jpg" description="MySword BSXB" width="480"/>
+<img src="docs/assets/bsxb_ot2_mysword.jpg" description="MySword BSXB" width="480"/>
 
 ## What You Get
 

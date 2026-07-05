@@ -146,6 +146,34 @@ _SUPPLIED_WORD_RE = re.compile(r'\[([^\[\]]*)\]')
 _IMPLIED_WORD_RE  = re.compile(r'\{([^{}]*)\}')
 
 
+# ================================================================= word order
+
+# AlignedToken.english carries trailing punctuation/quote marks glued
+# directly onto the word (e.g. "the earth."), with no separate field for
+# them — fine for reverse interlinear, where English and the source-word
+# annotation stack in separate rows, but wrong for intralinear's inline
+# layout: rendered as-is, the punctuation lands between the English word
+# and its transliteration/source-word <span>, leaving the annotation
+# hanging after it instead of capping the whole word+annotation unit.
+# Based on the closing-punctuation set already used for import-time cleanup
+# (see utils/import_bsb_table.py's _SPACE_BEFORE_PUNCT_RE), minus ']' — a
+# trailing ']' is a supplied-word bracket's own closer (transform_english()'s
+# bracket_replacement needs the opening '[' and closing ']' to still be a
+# balanced pair when it runs), not punctuation to relocate; splitting it off
+# here left transform_english() looking at an unbalanced "[Jesus" with no
+# closing bracket at all, so it silently stopped matching.
+_TRAILING_PUNCT_RE = re.compile(r'([,.;:!?)’”]+)$')
+
+
+def _split_trailing_punct(text: str) -> tuple:
+    """Split off a token's trailing punctuation/quote marks so the caller can
+    render them after the source-word annotation instead of before it."""
+    m = _TRAILING_PUNCT_RE.search(text)
+    if not m:
+        return text, ''
+    return text[:m.start()].rstrip(), m.group(1)
+
+
 # ============================================================ Par-column classes
 
 # Par-column paragraph classes that apply to a *run* of tokens' English text
@@ -239,6 +267,7 @@ _INTRALINEAR_CSS = dedent('''\
     .ilb ruby {display:inline-flex; flex-direction:column;}
     ruby > ro {display:block; color:#1ca0b1; text-align:center;}
     ruby > rt {display:block; font-size:1.1em; color: blue;}
+    ruby > rt.unlinked {color: #7a8fa6;}
 ''')
 
 # ================================================================ base class
@@ -434,19 +463,28 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
                     seq = note_id_map.get(note['noteId'], note['noteId'])
                     parts.append(f' <not>N{seq}</not>')
             else:
-                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                core, trail = _split_trailing_punct(token.english)
+                parts.append(self.transform_english(core, token.par_class, token.is_red))
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    strongs = sw.stem.strongs
                     # yes I know the ruby / rt tags are semantically inverted - easier to hide rt
+                    # <num> is invisible (opacity:0) and only overlays <rt> so e-Sword's own
+                    # tap handling resolves a Strong's popup there. With no strongs number,
+                    # that tap would silently do nothing, so <rt> gets 'unlinked' instead —
+                    # a dimmer, grayish blue reads as "known unavailable" rather than "broken".
+                    rt_class = ' class="unlinked"' if not strongs else ''
+                    num_tag  = f'<num>{strongs}</num>' if strongs else ''
                     lemmas.append(
                         f'<span class="ilb">'
-                        f'<ruby><rt>{xlit}</rt><ro>{sw.text}</ro></ruby>'
-                        f'<num>{sw.stem.strongs}</num>'
+                        f'<ruby><rt{rt_class}>{xlit}</rt><ro>{sw.text}</ro></ruby>'
+                        f'{num_tag}'
                         f'</span>'
                     )
                 parts.append(' '.join(lemmas))
+                parts.append(trail)
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
                     parts.append(f' <not>N{seq}</not>')
@@ -658,16 +696,24 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
-                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                core, trail = _split_trailing_punct(token.english)
+                parts.append(self.transform_english(core, token.par_class, token.is_red))
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    strongs = sw.stem.strongs
+                    # With no strongs number, `<a href="s">` would be a real but broken
+                    # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
+                    # as "known unavailable" rather than a dead link (see _INTRALINEAR_CSS).
+                    rt_content = f'<a href="s{strongs}">{xlit}</a>' if strongs else xlit
+                    rt_class   = ' class="unlinked"' if not strongs else ''
                     lemmas.append(
-                        f'<span class="ilb"><ruby><rt><a href="s{sw.stem.strongs}">{xlit}</a></rt>'
+                        f'<span class="ilb"><ruby><rt{rt_class}>{rt_content}</rt>'
                         f'<ro>{sw.text}</ro></ruby></span>'
                     )
                 parts.append(' '.join(lemmas))
+                parts.append(trail)
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
 

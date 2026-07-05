@@ -189,6 +189,48 @@ architecture; this doc tracks the newer, still-settling parts.
     the full Bible went from 15,373 (buggy) to 28,999 (fixed) — roughly
     half of all red-letter text had been getting dropped by this bug.
 
+12. **Trailing punctuation moved after the transliteration** in the
+    Intralinear formatters' inline layout — see the "word order" section
+    of `verse_formatter.py` and `_split_trailing_punct()`. (Also fixed a
+    regression this introduced: the trailing-punctuation character class
+    briefly included `]`, splitting supplied-word brackets like `"[Jesus]"`
+    into an unbalanced `"[Jesus"` + `"]"` before `transform_english()` ever
+    saw them, so `bracket_replacement` silently stopped matching. Fixed by
+    removing `]` from that class — it's a bracket's own closer, not
+    punctuation to relocate.)
+
+13. **Hebrew *paseq* (U+05C0, `׀`) filtered from displayed source text.**
+    Looks like an ASCII `|` but is a real Masoretic cantillation mark
+    (2,268 tokens, always glued onto the end of a real word, never
+    standalone) — confirmed genuine text, not a data error. Rendered at
+    1.5-2x the surrounding Hebrew's size in both e-Sword and MySword (a
+    target-font/glyph issue with no known fix), so `TableComposer._to_source_word()`
+    strips it from what `SourceWord`/`SourceToken` actually display; the
+    stored `tokens.source_text` column keeps the authentic character
+    untouched.
+
+14. **Letter-suffixed Strong's numbers (`0871a`, `2050b`) no longer resolve
+    to a lexicon link.** macula-hebrew/macula-greek use a trailing letter to
+    tag grammatical morphemes (prepositions, the article, conjunctions) with
+    a pseudo-Strong's slot borrowed from an unrelated real entry's number,
+    not a genuine sense-disambiguated Strong's number — confirmed against
+    the classic Strong's dictionary: the bare preposition *bet* is tagged
+    `0871a`, which strips to H871, but H871 is really "Atharim" (Num 21:1,
+    its only occurrence); the conjunction *waw* is tagged `2050b`/etc.,
+    which strips to H2050, but H2050 is really "imagine mischief" (Ps 62:3,
+    also its only occurrence) — same collision pattern across three
+    different grammatical categories, not a one-off. `composer.py`'s
+    `_load_source_index()` (`AlignmentComposer`'s live source-file path) and
+    `table_composer.py`'s `_prefixed_strongs()` previously stripped the
+    letter and linked to the digits anyway, silently pointing readers at the
+    wrong dictionary entry; both now suppress the number entirely when a
+    letter suffix is present rather than resolving it. `bsb_tables.db` never
+    carried a letter-suffixed number to begin with (confirmed: 0 of 437,587
+    non-null `strongs` values), so this is a no-op for `TableComposer`'s
+    current output — it fixes `AlignmentComposer`'s live path and guards
+    against a future `bsb_tables.tsv` rebuild pulling raw macula fields
+    through unchanged.
+
 ## Known issues (not yet fixed)
 
 1. **Pre-owner punctuation in `vvv`-led groups** — exactly 10 verses, verified:
