@@ -17,7 +17,7 @@ from pathlib import Path
 from composer import Composer
 from models import AlignedToken, MappingDirection, SourceToken, SourceWord
 
-_STRONGS_RE = re.compile(r'^0*(\d+)[a-z]*$')
+_STRONGS_RE = re.compile(r'^0*(\d+)([a-z]*)$')
 
 # Par column marks a new paragraph only on that paragraph's first row (same
 # start-of-run convention as Hdg/Crossref) — e.g. Psalm 3:1's "A Psalm" row
@@ -56,12 +56,25 @@ def _extract_is_red(raw: str | None) -> bool | None:
 
 
 def _prefixed_strongs(bare: str | None, language: str) -> str:
-    """Match AlignmentComposer's Strong's number convention: letter prefix, no leading zeros."""
+    """Match AlignmentComposer's Strong's number convention: letter prefix, no leading zeros.
+
+    macula-hebrew/macula-greek use trailing letters ('0871a', '2050b') to tag
+    grammatical morphemes (prepositions, the article, conjunctions) with a
+    pseudo-Strong's slot borrowed from an unrelated real entry's number —
+    confirmed against the classic Strong's dictionary: '0871a' (the bare
+    preposition bet) strips to H871, which is really 'Atharim' (Num 21:1);
+    '2050b' (the conjunction waw) strips to H2050, which is really 'imagine
+    mischief' (Ps 62:3). Stripping the letter and linking anyway would point
+    readers at the wrong, unrelated dictionary entry, so a lettered number is
+    suppressed entirely rather than resolved.
+    """
     if not bare:
         return ''
-    bare = _STRONGS_RE.sub(r'\1', bare)
+    m = _STRONGS_RE.match(bare)
+    if not m or m.group(2):
+        return ''
     prefix = 'H' if language in ('H', 'A') else 'G'
-    return prefix + bare
+    return prefix + m.group(1)
 
 
 _PASEQ = '׀'  # HEBREW PUNCTUATION PASEQ — looks like an ASCII '|' but is a
