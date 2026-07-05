@@ -2,11 +2,8 @@
 # Run: python main.py [--format esword|mysword|osis] [--mode intralinear|stacked|interlinear]
 
 # ── Module identity ──────────────────────────────────────────
-version: "1.1.0"
-translation: "BSB"                    # Module abbreviations derived as:
-                                      #   intralinear:         {translation}i
-                                      #   intralinear stacked: {translation}is
-                                      #   interlinear:         {translation}ri+
+version: "1.1.1"
+translation: "BSB"
 description: "Berean Standard Bible"
 
 # ── Composer ─────────────────────────────────────────────────

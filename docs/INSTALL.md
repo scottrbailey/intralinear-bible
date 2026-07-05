@@ -99,8 +99,13 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 Tapping on any of the transliterated words will take you to the lexicon entry for that word.  Which lexicon it takes you to is configurable by you. But first you need to download one or more lexicons. 
 MySword refers to lexicons as "dictionaries", while e-Sword separates "lexicons" (keyed by Strong's numbers) and "dictionaries" (keyed by words like Oxford or Merriam-Webster).
 Most lexicons are for a single language. Try [Brown-Driver-Briggs Hebrew and English Lexicon](https://en.wikipedia.org/wiki/Brown-Driver-Briggs) for Hebrew and [Thayer's Greek-English Lexicon](https://www.bible-discovery.com/dictionary-license-thayer) for Greek. MySword offers a combined "BDB/Thayer's" in one download. 
-We also recommend the [Ancient Hebrew Lexicon of the Bible](https://www.ancient-hebrew.org/ahlb/), if you want a much deeper understanding of the Hebrew language. Installing the AHLB lexicon on e-Sword will make the book's foreward available under the "Reference" section. 
-Reading the AHLB foreward will help you understand the definitions.
+
+### AHLB - Ancient Hebrew Lexicon of the Bible
+If you want a much richer understanding of the Hebrew language, we highly recommend the [Ancient Hebrew Lexicon of the Bible](https://www.ancient-hebrew.org/ahlb/). It shows the ancient Hebrew pictographs (Paleo Hebrew script) and explains how those pictures form concrete root words and how additional words are built off of that root that share a common theme.
+
+To get the most out of the AHLB, you will need to read the introduction. On e-Sword, the AHLB introduction is available as a "Reference" book once you install the Lexicon. On MySword, the introduction is in the lexicon under the entries "01" through "16", so you will have to search for "01".
+Installing the AHLB lexicon on e-Sword will make the book's foreward available under the "Reference" section. 
+
 
 ---
 

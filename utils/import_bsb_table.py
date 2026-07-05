@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-DEFAULT_SOURCE = ROOT / "data" / "bsb_tables.tsv"
+DEFAULT_SOURCE = ROOT / "local" / "bsb_tables.tsv"
 DEFAULT_OUTPUT = ROOT / "data" / "bsb_tables.db"
 BOOKS_DB       = ROOT / "data" / "books.db"
 
