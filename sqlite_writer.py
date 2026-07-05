@@ -19,11 +19,13 @@ class SQLiteBibleWriter(BibleWriter):
 
     Subclasses must implement:
       - _table_name: str
+      - _format_name: str (used only in the sample_{format}_{abbrev}.html filename)
       - insert_details()
       - Any format-specific table setup in open() / _create_bible_table()
     """
 
-    _table_name: str = 'Bible'
+    _table_name:  str = 'Bible'
+    _format_name: str = 'output'
 
     def __init__(self, profile: VerseFormatter,
                  headers: bool = True,
@@ -157,14 +159,18 @@ class SQLiteBibleWriter(BibleWriter):
 
     def _write_sample_html(self) -> Path | None:
         """Write CSS + the first previewed verse per testament to
-        sample_{abbrev}.html next to the output file, for visual review in a
-        browser instead of dumping (often not-well-formed-XML) verse markup
-        to the console. Returns the path written, or None if there was
-        nothing to preview (e.g. an empty book filter).
+        sample_{format}_{abbrev}.html next to the output file, for visual
+        review in a browser instead of dumping (often not-well-formed-XML)
+        verse markup to the console. _format_name keeps e-Sword and MySword
+        from overwriting each other's sample when they share an abbreviation
+        (e.g. both platforms' Intralinear formatter is "BSTB"). Returns the
+        path written, or None if there was nothing to preview (e.g. an
+        empty book filter).
         """
         if not self._preview_verses:
             return None
-        sample_path = self.output_path.parent / f"sample_{self.profile.abbreviation}.html"
+        sample_path = (self.output_path.parent /
+                        f"sample_{self._format_name}_{self.profile.abbreviation}.html")
         parts = [
             "<!doctype html>", "<html>", "<head>",
             f"<style>{self.profile.css}</style>", "</head>", "<body>",

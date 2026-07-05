@@ -13,7 +13,8 @@ from sqlite_writer import SQLiteBibleWriter
 class MySwordWriter(SQLiteBibleWriter):
     """Writes MySword .bbl.mybible SQLite Bible modules."""
 
-    _table_name = 'Bible'
+    _table_name  = 'Bible'
+    _format_name = 'mysword'
 
     def __init__(self, profile, **kwargs):
         super().__init__(profile, **kwargs)

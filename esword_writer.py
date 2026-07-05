@@ -18,7 +18,8 @@ from verse_formatter import VerseFormatter, parse_reference
 class ESwordWriter(SQLiteBibleWriter):
     """Writes e-Sword LT .bbli SQLite Bible modules."""
 
-    _table_name = '_Bible'
+    _table_name  = '_Bible'
+    _format_name = 'esword'
 
     def __init__(self, profile: VerseFormatter, **kwargs):
         super().__init__(profile, **kwargs)
