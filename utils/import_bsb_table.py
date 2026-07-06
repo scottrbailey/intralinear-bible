@@ -524,14 +524,32 @@ def _resolve_morph(parsing_short: str | None) -> str | None:
         # like a noun's -- Greek has no equivalent fused verb+object-pronoun
         # code, so this stores it as its own separate linked morpheme
         # (an accusative personal pronoun) rather than trying to fuse it.
-        codes.append(_compose_hebrew_verb(stem))
-        codes.append(_compose_object_pronoun(suffix))
+        # If the verb itself resolves but we don't have a confident mapping
+        # for this particular suffix, the verb code is still worth keeping
+        # -- the raw suffix rides along bracketed (unlinked) rather than
+        # losing the verb's own match entirely.
+        verb_code = _compose_hebrew_verb(stem)
+        codes.append(verb_code)
+        if verb_code is not None:
+            pronoun_code = _compose_object_pronoun(suffix)
+            codes.append(pronoun_code if pronoun_code is not None else f'[{suffix}]')
     else:
         stem_upper = stem.upper().replace('/', '-')
-        stem_code = (_resolve_code(f'{stem_upper}-{suffix}')
-                     or _resolve_code(f'{stem_upper}-{re.sub(r"[0-9]$", "", suffix)}')
-                     or _directional_he_location(stem_upper, suffix))
-        codes.append(stem_code)
+        fused = (_resolve_code(f'{stem_upper}-{suffix}')
+                 or _resolve_code(f'{stem_upper}-{re.sub(r"[0-9]$", "", suffix)}')
+                 or _directional_he_location(stem_upper, suffix))
+        if fused is not None:
+            codes.append(fused)
+        else:
+            # No fused or composed form exists for this stem+suffix pairing
+            # (e.g. Number-mdc | 3mp, Interjection | 1cs -- rmac.json has no
+            # entry either way). Rather than lose a stem that resolves fine
+            # on its own, link that and carry the raw suffix along
+            # unlinked/bracketed instead of discarding the whole token.
+            bare = _resolve_code(stem_upper)
+            codes.append(bare)
+            if bare is not None:
+                codes.append(f'[{suffix}]')
 
     if any(code is None for code in codes):
         return None
