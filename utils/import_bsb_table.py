@@ -247,24 +247,73 @@ def _parse_crossref_cell(raw: str) -> str | None:
 # pronouns, the direct-object marker, numbers) and for the great majority of
 # Greek verb forms — just not case-for-case, and RMAC spells the ambiguous
 # middle/passive slash as a hyphen (`V-PIM/P-1P` -> `V-PIM-P-1P`). Confirmed
-# against data/rmac.json (2,492 real RMAC codes): every one of those
-# categories resolves once normalized this way. What does NOT resolve is (1)
-# Hebrew/Aramaic verb stem+conjugation forms (`V-Qal-Perf-3ms`,
-# `V-Hifil-Prtcpl-ms`) — RMAC has no Hebrew verb morphology at all, needs a
-# real stem/conjugation equivalence table, not attempted here — and (2)
-# compound forms joined with " | " (a fused Hebrew word carrying more than
-# one morpheme, e.g. `Prep-b | N-fs`, or a construct noun plus its
-# pronominal suffix, e.g. `N-msc | 3ms`) — deliberately left unmapped rather
-# than guessing which segment is the "stem" one.
+# against data/rmac.json (2,492 codes extracted from the real MySword/e-Sword
+# RMAC dictionary module — not ours to extend, since that module is already
+# installed by thousands of readers): every one of those categories resolves
+# once normalized this way.
+#
+# A compound Parsing value (a fused Hebrew word carrying more than one
+# morpheme, joined with " | ", e.g. `Prep-b | N-fs`, sometimes with several
+# stacked prefixes comma-separated within one slot, e.g.
+# `Conj-w, Prep-l, Art | N-ms`) is resolved segment-by-segment and stored
+# pipe-delimited (`PREP-B|N-FS`) so the verse renderer can split it back
+# apart and emit one linked <tvm> per morpheme.
+#
+# Two segment shapes never resolve, and the whole token's morph is left NULL
+# rather than a partial/guessed result:
+#   1. Hebrew/Aramaic verb stem+conjugation forms (`V-Qal-Perf-3ms`,
+#      `V-Hifil-Prtcpl-ms`) — RMAC has no Hebrew verb morphology at all;
+#      needs a real stem/conjugation equivalence table, not attempted here.
+#   2. Bare pronominal-suffix person codes (`2ms`, `3fs`...) — RMAC's own
+#      personal-pronoun codes need a case, and the right case depends on
+#      what the suffix attaches to (noun -> genitive/possessive, verb ->
+#      accusative/object) — a real crosswalk decision, not attempted here.
 with open(RMAC_JSON, encoding='utf-8') as _f:
     _RMAC_CODES = set(json.load(_f))
 
+# Hebrew's article and conjunctive waw carry no case/gender/number of their
+# own (unlike Greek's), so a bare `ART`/`CONJ-W` code is the linguistically
+# correct one even though the real RMAC dictionary — Greek-only — has no
+# entry for either. Stored anyway: it'll display as plain, unlinked text in
+# the reader (the popup dictionary just won't resolve it), which beats
+# dropping the tag entirely.
+_KNOWN_GOOD_UNLINKED = {'ART', 'CONJ-W'}
+
+_SUFFIX_PRONOUN_RE = re.compile(r'^[1-3][a-z]{2}$', re.IGNORECASE)
+
+_HEBREW_VERB_STEMS = frozenset({
+    'QAL', 'NIFAL', 'NIPHAL', 'PIEL', 'PUAL', 'HIFIL', 'HIPHIL', 'HOFAL',
+    'HOPHAL', 'HITPAEL', 'HITHPAEL', 'NITHPAEL', 'QALPASS', 'POLEL', 'POLAL',
+    'HITPOLEL', 'PILPEL', 'PALEL', 'PULAL', 'HISHTAPHEL', 'TIPHIL', 'POEL',
+    'POAL',
+})
+
+
+def _is_hebrew_verb_stem(segment: str) -> bool:
+    parts = segment.upper().split('-')
+    return len(parts) > 1 and parts[0] == 'V' and parts[1] in _HEBREW_VERB_STEMS
+
+
+def _resolve_segment(segment: str) -> str | None:
+    if _SUFFIX_PRONOUN_RE.match(segment):
+        return None
+    if _is_hebrew_verb_stem(segment):
+        return None
+    code = segment.upper().replace('/', '-')
+    return code if (code in _RMAC_CODES or code in _KNOWN_GOOD_UNLINKED) else None
+
 
 def _resolve_morph(parsing_short: str | None) -> str | None:
-    if not parsing_short or '|' in parsing_short:
+    if not parsing_short:
         return None
-    code = parsing_short.strip().upper().replace('/', '-')
-    return code if code in _RMAC_CODES else None
+    segments = [s.strip() for part in parsing_short.split('|') for s in part.split(',')]
+    segments = [s for s in segments if s]
+    if not segments:
+        return None
+    codes = [_resolve_segment(s) for s in segments]
+    if any(code is None for code in codes):
+        return None
+    return '|'.join(codes)
 
 
 _INSERT_COLUMNS = [
