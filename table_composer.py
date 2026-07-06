@@ -98,7 +98,7 @@ def _to_source_word(row: sqlite3.Row) -> SourceWord:
         token_class=row['parsing_short'] or '',
         pos='',
         noun_type='proper' if is_proper else '',
-        morph=parsing_full,
+        morph=row['morph'] or '',
         lang=row['language'],
         after=' ',
     )

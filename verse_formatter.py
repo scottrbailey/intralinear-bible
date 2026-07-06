@@ -741,8 +741,9 @@ class MySwordStackedFormatter(MySwordIntralinearFormatter):
     verse_rules  = _MYSWORD_STACKED_RULES
 
 _MYSWORD_INTERLINEAR_CSS = """
-ilb {display: grid}
-lm {display:inline-flex; flex-direction:column} 
+ilb {display:inline-grid; grid-template-rows:auto auto; grid-auto-flow:column; justify-items:center; vertical-align:top;}
+ilb > t {grid-row:1; grid-column:1;}
+ilb > lm {grid-row:2; display:inline-flex; flex-direction:column; align-items:center;}
 """
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
@@ -777,7 +778,13 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 for sw in token.source_words:
                     xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper)
                     strongs = sw.stem.strongs
-                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt><W{strongs}><WT{sw.stem.token_class}></lm>")
+                    # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
+                    # falls back to the raw BSB Parsing string when unresolved -- still
+                    # displayed for the reader, just not a dictionary-linkable code, so
+                    # MySword's own lookup silently fails to match it rather than showing
+                    # nothing at all.
+                    morph = sw.stem.morph or sw.stem.token_class
+                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt><W{strongs}><WT{morph}></lm>")
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
                     f"<ilb><t>{english}</t>{''.join(segments)}</ilb>"
