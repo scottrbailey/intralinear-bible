@@ -344,6 +344,31 @@ _IMPERATIVE_TAIL_RE = re.compile(r'^[cmf]([sp])$', re.IGNORECASE)
 
 _PARTICIPLE_GENDER = {'M': 'M', 'F': 'F', 'C': 'M'}  # RMAC has no common gender; default to masculine
 
+# Hebrew's directional/locative *he* (e.g. Egypt -> "Egypt-ward") is
+# orthographically identical to a 3rd-person singular possessive suffix --
+# same final letter either way -- so BSB's data tags it with the same
+# `3fs`/`3ms`-shaped code, even though it's not a possessor at all.
+# Confirmed against real examples (Gen 10:19, 12:10, 18:22, 26:1...): every
+# `N-proper-fs | 3fs` gloss is directional ("toward Gerar", "to Egypt", "at
+# Sodom"), never possessive ("her Egypt"). The tell: a genuine possessive
+# suffix's person/gender/number is independent of the noun's own -- it
+# would be a coincidence for a random possessor to always match the head
+# noun's own gender/number. Here it always does, because it's the same
+# marker. Greek has its own tag for exactly this use (a place name used
+# adverbially for direction), the "Location" suffix -- reused here instead
+# of a fictitious possessive fusion.
+_DIRECTIONAL_HE_LOCATION = {'FS': 'N-ASF-L', 'MS': 'N-ASM-L'}
+
+
+def _directional_he_location(stem_upper: str, suffix: str) -> str | None:
+    if not stem_upper.startswith('N-PROPER-'):
+        return None
+    gender_number = stem_upper[len('N-PROPER-'):]
+    if suffix[:1] != '3' or suffix[1:] != gender_number:
+        return None
+    return _resolve_code(_DIRECTIONAL_HE_LOCATION.get(gender_number))
+
+
 _OBJECT_SUFFIX_RE = re.compile(r'^([1-3])([CMF])([SP])[A-Z0-9]?$')
 
 
@@ -504,7 +529,8 @@ def _resolve_morph(parsing_short: str | None) -> str | None:
     else:
         stem_upper = stem.upper().replace('/', '-')
         stem_code = (_resolve_code(f'{stem_upper}-{suffix}')
-                     or _resolve_code(f'{stem_upper}-{re.sub(r"[0-9]$", "", suffix)}'))
+                     or _resolve_code(f'{stem_upper}-{re.sub(r"[0-9]$", "", suffix)}')
+                     or _directional_he_location(stem_upper, suffix))
         codes.append(stem_code)
 
     if any(code is None for code in codes):
