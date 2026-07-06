@@ -21,6 +21,7 @@ Usage:
 
 import argparse
 import csv
+import json
 import re
 import sqlite3
 import sys
@@ -32,6 +33,7 @@ sys.path.insert(0, str(ROOT))
 DEFAULT_SOURCE = ROOT / "local" / "bsb_tables.tsv"
 DEFAULT_OUTPUT = ROOT / "data" / "bsb_tables.db"
 BOOKS_DB       = ROOT / "data" / "books.db"
+RMAC_JSON      = ROOT / "data" / "rmac.json"
 
 # Full English book name, as cited in bsb_tables.tsv's VerseId column
 # (e.g. "Genesis 1:1", "1 Samuel 3:2") -> OSIS book id, in canonical order.
@@ -240,10 +242,35 @@ def _parse_crossref_cell(raw: str) -> str | None:
         return None
     return '; '.join(_convert_xref_label(lbl) for lbl in labels)
 
+# BSB's own Parsing (short) column already matches RMAC one-for-one for every
+# non-verb Hebrew/Greek category (nouns, adjectives, articles, prepositions,
+# pronouns, the direct-object marker, numbers) and for the great majority of
+# Greek verb forms — just not case-for-case, and RMAC spells the ambiguous
+# middle/passive slash as a hyphen (`V-PIM/P-1P` -> `V-PIM-P-1P`). Confirmed
+# against data/rmac.json (2,492 real RMAC codes): every one of those
+# categories resolves once normalized this way. What does NOT resolve is (1)
+# Hebrew/Aramaic verb stem+conjugation forms (`V-Qal-Perf-3ms`,
+# `V-Hifil-Prtcpl-ms`) — RMAC has no Hebrew verb morphology at all, needs a
+# real stem/conjugation equivalence table, not attempted here — and (2)
+# compound forms joined with " | " (a fused Hebrew word carrying more than
+# one morpheme, e.g. `Prep-b | N-fs`, or a construct noun plus its
+# pronominal suffix, e.g. `N-msc | 3ms`) — deliberately left unmapped rather
+# than guessing which segment is the "stem" one.
+with open(RMAC_JSON, encoding='utf-8') as _f:
+    _RMAC_CODES = set(json.load(_f))
+
+
+def _resolve_morph(parsing_short: str | None) -> str | None:
+    if not parsing_short or '|' in parsing_short:
+        return None
+    code = parsing_short.strip().upper().replace('/', '-')
+    return code if code in _RMAC_CODES else None
+
+
 _INSERT_COLUMNS = [
     'bsb_sort', 'verse_id', 'source_sort', 'language',
     'source_text', 'translit', 'strongs', 'parsing_short', 'parsing_full',
-    'gloss_type', 'english', 'parent_id',
+    'morph', 'gloss_type', 'english', 'parent_id',
     'beg_quote', 'end_quote', 'punctuation', 'space',
     'suffix_html', 'par_class', 'footnote',
 ]
@@ -269,6 +296,7 @@ CREATE TABLE tokens (
     strongs       TEXT,
     parsing_short TEXT,
     parsing_full  TEXT,
+    morph         TEXT,  -- RMAC code, populated only where parsing_short maps directly (see _resolve_morph)
     gloss_type    TEXT NOT NULL
                   CHECK(gloss_type IN ('text','untranslated',
                                        'continuation_after','continuation_before')),
@@ -406,6 +434,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                 strongs=strongs,
                 parsing_short=cols[COL_PARSING_SHORT] or None,
                 parsing_full=cols[COL_PARSING_FULL] or None,
+                morph=_resolve_morph(cols[COL_PARSING_SHORT]),
                 gloss_type=gloss_type,
                 english=english,
                 parent_id=None,
