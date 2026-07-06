@@ -333,10 +333,10 @@ _CONJUGATION_TENSE_MOOD = {
     'PRTCPL': ('P', 'P'), 'QALPASSPRTCPL': ('P', 'P'),
 }
 # Cohortative/jussive variants (encoded as e.g. "Imperf.Cohort",
-# "ConjImperf.Jus") always resolve to Aorist Subjunctive regardless of base
-# conjugation. The paragogic-he variant (".h") carries no mood change of its
-# own -- same (tense, mood) as its base conjugation.
-_VOLITIONAL_VARIANTS = frozenset({'COHORT', 'JUS'})
+# "ConjImperf.Jus") each override mood regardless of the base conjugation --
+# see _compose_hebrew_verb for why they DON'T share one mapping. The
+# paragogic-he variant (".h") carries no mood change of its own -- same
+# (tense, mood) as its base conjugation.
 
 _PERSON_NUMBER_RE = re.compile(r'^([1-3])[cmf]([sp])$', re.IGNORECASE)
 _GENDER_NUMBER_RE = re.compile(r'^([cmf])([sp])(?:[cd])?$', re.IGNORECASE)
@@ -363,15 +363,33 @@ def _compose_hebrew_verb(segment: str) -> str | None:
     conj_base, _, variant = conj_field.upper().partition('.')
     if conj_base == 'QALPASSPRTCPL':
         voice = 'P'  # passive regardless of binyan -- that's the whole point of this form
-    if variant in _VOLITIONAL_VARIANTS:
+
+    tail = parts[3] if len(parts) > 3 else None
+
+    # Cohortative (1st person volitional) and jussive (3rd person volitional)
+    # DON'T share a mapping, confirmed against real LXX renderings (Gen
+    # 1:3, 1:26): cohortative POIHSWMEN "let us make" is Aorist Active
+    # SUBJUNCTIVE (Greek has no 1st-person imperative, subjunctive is the
+    # functional match) -- but jussive GENHQHTW "let there be" and
+    # ARXETWSAN "let them rule" are both Aorist/Present *Imperative*,
+    # 3rd person -- because Greek, unlike English, actually has a 3rd
+    # person imperative, and that's what jussive maps onto directly.
+    if variant == 'COHORT':
         tense, mood = 'A', 'S'
+    elif variant == 'JUS':
+        tense, mood = 'A', 'M'
+        if tail is None:
+            return None
+        m = _PERSON_NUMBER_RE.match(tail)
+        if not m:
+            return None
+        person, number = m.groups()
+        return _resolve_code(f'V-{tense}{voice}{mood}-{person}{number.upper()}')
     else:
         tense_mood = _CONJUGATION_TENSE_MOOD.get(conj_base)
         if tense_mood is None:
             return None
         tense, mood = tense_mood
-
-    tail = parts[3] if len(parts) > 3 else None
 
     if mood == 'N':  # infinitive: no person/number
         return _resolve_code(f'V-{tense}{voice}{mood}')
@@ -388,7 +406,7 @@ def _compose_hebrew_verb(segment: str) -> str | None:
             return None
         return _resolve_code(f'V-{tense}{voice}{mood}-N{number.upper()}{gender}')
 
-    if mood == 'M':  # imperative: always 2nd person
+    if mood == 'M':  # imperative (from the Imp conjugation itself): always 2nd person
         if tail is None:
             return None
         m = _IMPERATIVE_TAIL_RE.match(tail)
