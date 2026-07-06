@@ -284,7 +284,7 @@ with open(RMAC_JSON, encoding='utf-8') as _f:
 # dropping the tag entirely.
 _KNOWN_GOOD_UNLINKED = {'ART', 'CONJ-W'}
 
-_SUFFIX_PRONOUN_RE = re.compile(r'^[1-3][a-z]{2}[0-9]?$', re.IGNORECASE)
+_SUFFIX_PRONOUN_RE = re.compile(r'^[1-3][a-z]{2}[a-z0-9]?$', re.IGNORECASE)
 
 _HEBREW_VERB_STEMS = frozenset({
     'QAL', 'NIFAL', 'NIPHAL', 'PIEL', 'PUAL', 'HIFIL', 'HIPHIL', 'HOFAL',
@@ -344,7 +344,7 @@ _IMPERATIVE_TAIL_RE = re.compile(r'^[cmf]([sp])$', re.IGNORECASE)
 
 _PARTICIPLE_GENDER = {'M': 'M', 'F': 'F', 'C': 'M'}  # RMAC has no common gender; default to masculine
 
-_OBJECT_SUFFIX_RE = re.compile(r'^([1-3])([CMF])([SP])[0-9]?$')
+_OBJECT_SUFFIX_RE = re.compile(r'^([1-3])([CMF])([SP])[A-Z0-9]?$')
 
 
 def _compose_object_pronoun(suffix: str) -> str | None:
@@ -463,8 +463,24 @@ def _resolve_morph(parsing_short: str | None) -> str | None:
     if not groups:
         return None
 
+    # Paragogic nun ("Pn") is an emphatic/energic marker on some imperfect
+    # 2nd/3rd plural forms -- no RMAC morpheme of its own, so it's dropped
+    # rather than treated as an unresolvable suffix. It can appear alone
+    # (`V-Qal-Imperf-3mp | Pn`) or alongside a real object suffix
+    # (`V-Piel-Imperf-3mp | 1cs, Pn`).
+    if len(groups) >= 2:
+        last_items = [x.strip() for x in groups[-1].split(',')]
+        if any(x.upper() == 'PN' for x in last_items):
+            remaining = [x for x in last_items if x.upper() != 'PN']
+            if remaining:
+                groups[-1] = ', '.join(remaining)
+            else:
+                groups.pop()
+
     # A trailing bare suffix isn't its own morpheme -- it fuses onto the
-    # stem's own code with a hyphen (N-fsc | 3ms -> N-FSC-3MS).
+    # stem's own code with a hyphen (N-fsc | 3ms -> N-FSC-3MS). A rare
+    # variant-form suffix carries a trailing digit or letter BSB's own data
+    # doesn't explain (`2fs2`, `1cse`) -- ignored, resolved as the base form.
     suffix = None
     if len(groups) >= 2 and _SUFFIX_PRONOUN_RE.match(groups[-1]):
         suffix = groups.pop().upper()
