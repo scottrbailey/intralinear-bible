@@ -259,15 +259,20 @@ def _parse_crossref_cell(raw: str) -> str | None:
 # pipe-delimited (`PREP-B|N-FS`) so the verse renderer can split it back
 # apart and emit one linked <tvm> per morpheme.
 #
-# Two segment shapes never resolve, and the whole token's morph is left NULL
-# rather than a partial/guessed result:
-#   1. Hebrew/Aramaic verb stem+conjugation forms (`V-Qal-Perf-3ms`,
-#      `V-Hifil-Prtcpl-ms`) — RMAC has no Hebrew verb morphology at all;
-#      needs a real stem/conjugation equivalence table, not attempted here.
-#   2. Bare pronominal-suffix person codes (`2ms`, `3fs`...) — RMAC's own
-#      personal-pronoun codes need a case, and the right case depends on
-#      what the suffix attaches to (noun -> genitive/possessive, verb ->
-#      accusative/object) — a real crosswalk decision, not attempted here.
+# A trailing bare pronominal-suffix segment (`2ms`, `3fs`...) is NOT a
+# separate linkable morpheme -- confirmed against data/rmac.json: it's fused
+# onto the *stem's own* code with a hyphen (`N-fsc | 3ms` -> `N-FSC-3MS`,
+# `Prep | 3ms` -> `PREP-3MS`), not stored as its own pipe segment. A rare
+# variant-form suffix carries a trailing digit BSB's own data doesn't explain
+# (`2fs2`); tried as-is first, then with the digit stripped.
+#
+# One segment shape never resolves, and the whole token's morph is left NULL
+# rather than a partial/guessed result: Hebrew/Aramaic verb stem+conjugation
+# forms (`V-Qal-Perf-3ms`, `V-Hifil-Prtcpl-ms`) -- RMAC has no Hebrew verb
+# morphology at all; needs a real stem/conjugation equivalence table, not
+# attempted here. (A small number of other combinations -- proper noun +
+# suffix, interjection + suffix -- also have no fused entry in rmac.json;
+# same treatment, left NULL rather than guessed.)
 with open(RMAC_JSON, encoding='utf-8') as _f:
     _RMAC_CODES = set(json.load(_f))
 
@@ -279,7 +284,7 @@ with open(RMAC_JSON, encoding='utf-8') as _f:
 # dropping the tag entirely.
 _KNOWN_GOOD_UNLINKED = {'ART', 'CONJ-W'}
 
-_SUFFIX_PRONOUN_RE = re.compile(r'^[1-3][a-z]{2}$', re.IGNORECASE)
+_SUFFIX_PRONOUN_RE = re.compile(r'^[1-3][a-z]{2}[0-9]?$', re.IGNORECASE)
 
 _HEBREW_VERB_STEMS = frozenset({
     'QAL', 'NIFAL', 'NIPHAL', 'PIEL', 'PUAL', 'HIFIL', 'HIPHIL', 'HOFAL',
@@ -294,23 +299,46 @@ def _is_hebrew_verb_stem(segment: str) -> bool:
     return len(parts) > 1 and parts[0] == 'V' and parts[1] in _HEBREW_VERB_STEMS
 
 
+def _resolve_code(code: str) -> str | None:
+    return code if (code in _RMAC_CODES or code in _KNOWN_GOOD_UNLINKED) else None
+
+
 def _resolve_segment(segment: str) -> str | None:
-    if _SUFFIX_PRONOUN_RE.match(segment):
-        return None
     if _is_hebrew_verb_stem(segment):
         return None
-    code = segment.upper().replace('/', '-')
-    return code if (code in _RMAC_CODES or code in _KNOWN_GOOD_UNLINKED) else None
+    return _resolve_code(segment.upper().replace('/', '-'))
 
 
 def _resolve_morph(parsing_short: str | None) -> str | None:
     if not parsing_short:
         return None
-    segments = [s.strip() for part in parsing_short.split('|') for s in part.split(',')]
-    segments = [s for s in segments if s]
+    groups = [g.strip() for g in parsing_short.split('|') if g.strip()]
+    if not groups:
+        return None
+
+    # A trailing bare suffix isn't its own morpheme -- it fuses onto the
+    # stem's own code with a hyphen (N-fsc | 3ms -> N-FSC-3MS).
+    suffix = None
+    if len(groups) >= 2 and _SUFFIX_PRONOUN_RE.match(groups[-1]):
+        suffix = groups.pop().upper()
+
+    segments = [s.strip() for group in groups for s in group.split(',') if s.strip()]
     if not segments:
         return None
-    codes = [_resolve_segment(s) for s in segments]
+
+    codes = [_resolve_segment(s) for s in segments[:-1]]
+    stem = segments[-1]
+
+    if suffix is None:
+        stem_code = _resolve_segment(stem)
+    elif _is_hebrew_verb_stem(stem):
+        stem_code = None  # still blocked by the verb-stem crosswalk gap
+    else:
+        stem_upper = stem.upper().replace('/', '-')
+        stem_code = (_resolve_code(f'{stem_upper}-{suffix}')
+                     or _resolve_code(f'{stem_upper}-{re.sub(r"[0-9]$", "", suffix)}'))
+    codes.append(stem_code)
+
     if any(code is None for code in codes):
         return None
     return '|'.join(codes)
