@@ -344,6 +344,23 @@ _IMPERATIVE_TAIL_RE = re.compile(r'^[cmf]([sp])$', re.IGNORECASE)
 
 _PARTICIPLE_GENDER = {'M': 'M', 'F': 'F', 'C': 'M'}  # RMAC has no common gender; default to masculine
 
+_OBJECT_SUFFIX_RE = re.compile(r'^([1-3])([CMF])([SP])[0-9]?$')
+
+
+def _compose_object_pronoun(suffix: str) -> str | None:
+    """A verb's pronominal suffix is a direct object -- maps to RMAC's
+    accusative personal pronoun. Hebrew's 1st person suffix carries no
+    gender (always common), matching RMAC's genderless PPRO-A1S/A1P forms;
+    2nd/3rd person are always gendered in Hebrew, matching RMAC's gendered
+    PPRO-AM.../PPRO-AF... forms."""
+    m = _OBJECT_SUFFIX_RE.match(suffix)
+    if not m:
+        return None
+    person, gender, number = m.groups()
+    if gender == 'C':
+        return _resolve_code(f'PPRO-A{person}{number}')
+    return _resolve_code(f'PPRO-A{gender}{person}{number}')
+
 
 def _compose_hebrew_verb(segment: str) -> str | None:
     """Compose an RMAC verb code from a Hebrew Parsing value the CSV
@@ -460,14 +477,19 @@ def _resolve_morph(parsing_short: str | None) -> str | None:
     stem = segments[-1]
 
     if suffix is None:
-        stem_code = _resolve_segment(stem)
+        codes.append(_resolve_segment(stem))
     elif _is_hebrew_verb_stem(stem):
-        stem_code = None  # still blocked by the verb-stem crosswalk gap
+        # A verb's own suffix is a pronominal *object*, not a possessive
+        # like a noun's -- Greek has no equivalent fused verb+object-pronoun
+        # code, so this stores it as its own separate linked morpheme
+        # (an accusative personal pronoun) rather than trying to fuse it.
+        codes.append(_compose_hebrew_verb(stem))
+        codes.append(_compose_object_pronoun(suffix))
     else:
         stem_upper = stem.upper().replace('/', '-')
         stem_code = (_resolve_code(f'{stem_upper}-{suffix}')
                      or _resolve_code(f'{stem_upper}-{re.sub(r"[0-9]$", "", suffix)}'))
-    codes.append(stem_code)
+        codes.append(stem_code)
 
     if any(code is None for code in codes):
         return None
