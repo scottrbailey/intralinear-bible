@@ -101,6 +101,7 @@ def _to_source_word(row: sqlite3.Row) -> SourceWord:
         morph=row['morph'] or '',
         lang=row['language'],
         after=' ',
+        translit=row['translit'] or '',
     )
     return SourceWord(
         tokens=[token], stem=token, text=source_text,

@@ -30,6 +30,10 @@ sources:
     target:    "Alignments/data/eng/targets/BSB/nt_BSB.tsv"
 
 # ── Transliteration ──────────────────────────────────────────
+# Set either to null to skip our own scheme-based transliteration and use
+# the source's own provided transliteration instead (bsb_tables.tsv's
+# Translit column -- table composer only; falls back to the raw source
+# text if a given token has none).
 transliteration:
   hebrew:  "brill_simple"   # brill_simple, sbl_simple, sbl_academic, phonetic_dot
   greek:   "SIMPLE"

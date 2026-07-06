@@ -31,6 +31,7 @@ class SourceToken:
     lang: str
     lemma: str = ""
     after: str = " "    # '' = join to next token (same display-word); ' ' = word boundary
+    translit: str = ""  # source's own provided transliteration, if any (e.g. bsb_tables.tsv's Translit column)
 
 
 @dataclass

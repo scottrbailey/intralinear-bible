@@ -1103,28 +1103,42 @@ def add_greek_syllable_markers(greek: str, xlit: str,
 
 # ================== TRANSLITERATOR FACTORY ==================
 
-def make_transliterator(hebrew_scheme: str = "brill_simple",
-                        greek_scheme: str = "SIMPLE") -> callable:
-    """Return a configured transliterate(text, lang, is_proper) function.
+def make_transliterator(hebrew_scheme: str | None = "brill_simple",
+                        greek_scheme: str | None = "SIMPLE") -> callable:
+    """Return a configured transliterate(text, lang, is_proper, provided) function.
 
     Hebrew/Aramaic: uses our HebrewTransliterator if hebrew_scheme is in SCHEMES,
                     otherwise delegates to bt.HebrewTransliterator (falling back to
                     bt.HebrewScheme.SIMPLE if the name isn't a valid bt scheme).
     Greek:          routed through bt.GreekTransliterator.
+
+    Either scheme can be None (config.yaml's transliteration.hebrew/greek set
+    to null) -- for the "academic interlinear" case, where the source data's
+    own provided transliteration (bsb_tables.tsv's Translit column, threaded
+    through as SourceToken.translit) should be used as-is instead of computing
+    one. When None, that language's branch skips its scheme entirely and
+    returns whatever `provided` the caller passes in (falling back to the raw
+    source text if the token didn't carry one).
     """
-    if hebrew_scheme in SCHEMES:
-        _hebrew_t = HebrewTransliterator(hebrew_scheme)
-    else:
-        bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
-        _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
-        _hebrew_t  = _bt_hebrew.transliterate
+    _hebrew_t = None
+    if hebrew_scheme is not None:
+        if hebrew_scheme in SCHEMES:
+            _hebrew_t = HebrewTransliterator(hebrew_scheme)
+        else:
+            bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
+            _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
+            _hebrew_t  = _bt_hebrew.transliterate
 
-    _greek_t = bt.GreekTransliterator(bt.GreekOptions(
-        scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)
-    ))
+    _greek_t = None
+    if greek_scheme is not None:
+        _greek_t = bt.GreekTransliterator(bt.GreekOptions(
+            scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)
+        ))
 
-    def transliterate(text: str, lang: str, is_proper: bool = False) -> str:
+    def transliterate(text: str, lang: str, is_proper: bool = False, provided: str = '') -> str:
         if lang == 'G':
+            if _greek_t is None:
+                return provided or text
             result = _greek_t.transliterate(text)
             if not is_proper:
                 result = lowercase_translit(result)
@@ -1138,6 +1152,8 @@ def make_transliterator(hebrew_scheme: str = "brill_simple",
                 )
             return result
         else:  # H or A
+            if _hebrew_t is None:
+                return provided or text
             return _hebrew_t(text)
 
     return transliterate

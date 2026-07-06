@@ -468,7 +468,7 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
                     # yes I know the ruby / rt tags are semantically inverted - easier to hide rt
                     # <num> is invisible (opacity:0) and only overlays <rt> so e-Sword's own
@@ -580,7 +580,7 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
                 segments = []
                 for sw in token.source_words:
-                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
                     if sw.lang == 'G':
                         segments.append(
@@ -701,7 +701,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
                     # With no strongs number, `<a href="s">` would be a real but broken
                     # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
@@ -776,7 +776,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
             else:
                 segments = []
                 for sw in token.source_words:
-                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
                     # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
                     # falls back to the raw BSB Parsing string when unresolved -- still
