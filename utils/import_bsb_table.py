@@ -293,6 +293,118 @@ _HEBREW_VERB_STEMS = frozenset({
     'POAL',
 })
 
+# Hebrew's binyan (stem) encodes voice-like distinctions derivationally --
+# there's no 1:1 match to Greek's three voices, but this is the standard
+# approximation: Qal/Piel/Hifil are the "active" stems (simple/intensive/
+# causative); Nifal/Pual/Hofal are their passives; Hitpael/Nithpael are
+# reflexive/reciprocal, closest to Greek's middle.
+_BINYAN_VOICE = {
+    'QAL': 'A', 'PIEL': 'A', 'HIFIL': 'A', 'HIPHIL': 'A',
+    'NIFAL': 'P', 'NIPHAL': 'P', 'PUAL': 'P', 'HOFAL': 'P', 'HOPHAL': 'P',
+    'HITPAEL': 'M', 'HITHPAEL': 'M', 'NITHPAEL': 'M',
+    'QALPASS': 'P',
+    'POLEL': 'A', 'PILPEL': 'A', 'PALEL': 'A', 'POEL': 'A', 'TIPHIL': 'A',
+    'POAL': 'P', 'PULAL': 'P',
+    'HITPOLEL': 'M', 'HISHTAPHEL': 'M',
+}
+
+# Hebrew's conjugation (aspect-based) has no 1:1 match to Greek's tense
+# system either. Approximation used here, to be revisited once checked
+# against real usage:
+#   Perfect / wayyiqtol (narrative past) -> Aorist Indicative -- Hebrew's
+#     two main "completed action" forms, both read as simple past in
+#     narrative; RMAC's Perfect tense is stative/resultative and would
+#     overstate that nuance across thousands of tokens.
+#   Imperfect / weqatal (prospective/incomplete) -> Future Indicative.
+#   Cohortative/jussive (volitional) -> Aorist Subjunctive -- Greek has no
+#     future subjunctive, and subjunctive is the closest functional match
+#     for "let it happen" volitional forms.
+#   Imperative -> Aorist Imperative.
+#   Infinitive construct/absolute -> both collapse to one Aorist Infinitive
+#     code; RMAC has no construct/absolute distinction to preserve.
+#   Participle -> Present Participle -- Hebrew's participle is durative/
+#     ongoing in force, closer to Greek's present than aorist participle.
+# (tense, mood) letters; voice comes from _BINYAN_VOICE separately.
+_CONJUGATION_TENSE_MOOD = {
+    'PERF': ('A', 'I'), 'CONSECIMPERF': ('A', 'I'),
+    'IMPERF': ('F', 'I'), 'CONJPERF': ('F', 'I'), 'CONJIMPERF': ('F', 'I'),
+    'IMP': ('A', 'M'),
+    'INF': ('A', 'N'), 'INFABS': ('A', 'N'),
+    'PRTCPL': ('P', 'P'), 'QALPASSPRTCPL': ('P', 'P'),
+}
+# Cohortative/jussive variants (encoded as e.g. "Imperf.Cohort",
+# "ConjImperf.Jus") always resolve to Aorist Subjunctive regardless of base
+# conjugation. The paragogic-he variant (".h") carries no mood change of its
+# own -- same (tense, mood) as its base conjugation.
+_VOLITIONAL_VARIANTS = frozenset({'COHORT', 'JUS'})
+
+_PERSON_NUMBER_RE = re.compile(r'^([1-3])[cmf]([sp])$', re.IGNORECASE)
+_GENDER_NUMBER_RE = re.compile(r'^([cmf])([sp])(?:[cd])?$', re.IGNORECASE)
+_IMPERATIVE_TAIL_RE = re.compile(r'^[cmf]([sp])$', re.IGNORECASE)
+
+_PARTICIPLE_GENDER = {'M': 'M', 'F': 'F', 'C': 'M'}  # RMAC has no common gender; default to masculine
+
+
+def _compose_hebrew_verb(segment: str) -> str | None:
+    """Compose an RMAC verb code from a Hebrew Parsing value the CSV
+    catalogued but never translated (e.g. `V-Qal-ConsecImperf-3ms` ->
+    `V-AAI-3S`). See the module docstring above for the binyan/conjugation
+    approximations this rests on -- a real linguistic judgment call, not a
+    mechanical fact, and worth revisiting against real usage."""
+    parts = segment.split('-')
+    if len(parts) < 3 or parts[0].upper() != 'V':
+        return None
+    binyan = parts[1].upper()
+    voice = _BINYAN_VOICE.get(binyan)
+    if voice is None:
+        return None
+
+    conj_field = parts[2]
+    conj_base, _, variant = conj_field.upper().partition('.')
+    if conj_base == 'QALPASSPRTCPL':
+        voice = 'P'  # passive regardless of binyan -- that's the whole point of this form
+    if variant in _VOLITIONAL_VARIANTS:
+        tense, mood = 'A', 'S'
+    else:
+        tense_mood = _CONJUGATION_TENSE_MOOD.get(conj_base)
+        if tense_mood is None:
+            return None
+        tense, mood = tense_mood
+
+    tail = parts[3] if len(parts) > 3 else None
+
+    if mood == 'N':  # infinitive: no person/number
+        return _resolve_code(f'V-{tense}{voice}{mood}')
+
+    if mood == 'P':  # participle: case(default N)+number+gender, no construct
+        if tail is None:
+            return None
+        m = _GENDER_NUMBER_RE.match(tail)
+        if not m:
+            return None
+        gender, number = m.groups()
+        gender = _PARTICIPLE_GENDER.get(gender.upper())
+        if gender is None:
+            return None
+        return _resolve_code(f'V-{tense}{voice}{mood}-N{number.upper()}{gender}')
+
+    if mood == 'M':  # imperative: always 2nd person
+        if tail is None:
+            return None
+        m = _IMPERATIVE_TAIL_RE.match(tail)
+        if not m:
+            return None
+        return _resolve_code(f'V-{tense}{voice}{mood}-2{m.group(1).upper()}')
+
+    # indicative / subjunctive: person + number, gender dropped
+    if tail is None:
+        return None
+    m = _PERSON_NUMBER_RE.match(tail)
+    if not m:
+        return None
+    person, number = m.groups()
+    return _resolve_code(f'V-{tense}{voice}{mood}-{person}{number.upper()}')
+
 
 def _is_hebrew_verb_stem(segment: str) -> bool:
     parts = segment.upper().split('-')
@@ -305,7 +417,7 @@ def _resolve_code(code: str) -> str | None:
 
 def _resolve_segment(segment: str) -> str | None:
     if _is_hebrew_verb_stem(segment):
-        return None
+        return _compose_hebrew_verb(segment)
     return _resolve_code(segment.upper().replace('/', '-'))
 
 
