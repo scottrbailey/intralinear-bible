@@ -747,6 +747,11 @@ lm {display:inline-flex; flex-direction:column; align-items:center;}
 ilb ro {color:#1ca0b1;}
 ilb rt {color:#7a10ad;}
 .strong, .morph {font-size:0.7em}
+.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
+.acrostic {text-align:center;}
+.ihdg {font-weight:normal;}
+.subhdg {font-style:normal;}
+.pshdg, .inscrip, .selah {font-style:italic;}
 """
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
@@ -757,6 +762,24 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
     verse_rules    = _MYSWORD_INTERLINEAR_RULES
+
+    def render_header(self, raw: str) -> str:
+        """Unlike the other MySword formatters (which dump every header class
+        into <TS>, undifferentiated -- see _MySwordXrefMixin), the interlinear
+        keeps acrostic/ihdg/subhdg as inline spans+<br/> instead (same markup
+        the base class's default policy uses for e-Sword): those read as part
+        of the verse's own running text here, not a section title, so folding
+        them into MySword's native title bar alongside real headings would
+        lose that. hdg/suphdg still go through <TS> -- that's the only way
+        MySword shows a heading at all, unlike e-Sword's always-on pericopes.
+        """
+        parts = []
+        for cls, text in parse_headers(raw):
+            if cls in _INLINE_HEADER_CLASSES:
+                parts.append(f'<span class="{cls}">{text}</span><br/>')
+            else:
+                parts.append(f"<TS>{text}<Ts>")
+        return ''.join(parts)
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -796,6 +819,13 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 )
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+
+            # A Psalm superscription (pshdg) runs across several tokens (see
+            # table_composer.py's forward par_class tracking) -- add a break
+            # once at the end of that run, not after every token in it, so
+            # the poem body starts on its own line instead of running on.
+            if token.par_class == 'pshdg' and (next_token is None or next_token.par_class != 'pshdg'):
+                parts.append('<br/>')
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
