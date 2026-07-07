@@ -804,6 +804,14 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 for sw in token.source_words:
                     xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
+                    # Some source words genuinely have no Strong's number (the
+                    # direct object marker, prefixed prepositions/conjunctions
+                    # as their own token, etc.) -- a bare <W> tag with no
+                    # number doesn't reserve a row the way a real <WH.../WG...>
+                    # link does, so sibling <lm>s in the same row go out of
+                    # vertical alignment. An empty, class-styled placeholder
+                    # keeps the row's height consistent instead.
+                    strong_tag = f'<W{strongs}>' if strongs else '<span class="strong"/>'
                     # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
                     # falls back to the raw BSB Parsing string when unresolved -- still
                     # displayed for the reader, just not a dictionary-linkable code, so
@@ -812,7 +820,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     morph = sw.stem.morph or sw.stem.token_class
                     morph_tags = ''.join([f'<WT{mph}>' for mph in morph.split('|')])
 
-                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt><W{strongs}>{morph_tags}</lm>")
+                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}{morph_tags}</lm>")
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
                     f"<ilb><t>{english}</t><lg>{''.join(segments)}</lg></ilb>"
