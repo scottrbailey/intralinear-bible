@@ -809,9 +809,14 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     # as their own token, etc.) -- a bare <W> tag with no
                     # number doesn't reserve a row the way a real <WH.../WG...>
                     # link does, so sibling <lm>s in the same row go out of
-                    # vertical alignment. An empty, class-styled placeholder
-                    # keeps the row's height consistent instead.
-                    strong_tag = f'<W{strongs}>' if strongs else '<span class="strong"></span>'
+                    # vertical alignment. A truly empty <span> doesn't fix
+                    # this either: every direct child of <lm> is a flex item
+                    # (lm's own display:inline-flex; flex-direction:column),
+                    # and flex items size to their content -- an empty span
+                    # has zero content, so it collapses to zero height
+                    # regardless of font-size. A non-breaking space gives it
+                    # real content to size against, so it reserves the row.
+                    strong_tag = f'<W{strongs}>' if strongs else '<span class="strong">&nbsp;</span>'
                     # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
                     # falls back to the raw BSB Parsing string when unresolved -- still
                     # displayed for the reader, just not a dictionary-linkable code, so
