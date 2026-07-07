@@ -741,15 +741,18 @@ class MySwordStackedFormatter(MySwordIntralinearFormatter):
     verse_rules  = _MYSWORD_STACKED_RULES
 
 _MYSWORD_INTERLINEAR_CSS = """
-ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:top;}
-ilb > lg {display:inline-flex; flex-direction:row;}
+ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:top; margin-bottom:0.75em;}
+ilb > lg {display:inline-flex; flex-direction:row; gap:2px;}
 lm {display:inline-flex; flex-direction:column; align-items:center;}
+ilb ro {color:#1ca0b1;}
+ilb rt {color:#7a10ad;}
+.strong, .morph {font-size:0.7em}
 """
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSBri"
+    abbreviation   = "BSBri+"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
@@ -784,7 +787,9 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     # MySword's own lookup silently fails to match it rather than showing
                     # nothing at all.
                     morph = sw.stem.morph or sw.stem.token_class
-                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt><W{strongs}><WT{morph}></lm>")
+                    morph_tags = ''.join([f'<WT{mph}>' for mph in morph.split('|')])
+
+                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt><W{strongs}>{morph_tags}</lm>")
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
                     f"<ilb><t>{english}</t><lg>{''.join(segments)}</lg></ilb>"

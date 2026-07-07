@@ -175,6 +175,7 @@ SCHEMES = {
         '\u05B9': '\u014D',   # Holam ō
         '\u05BB': '\u00FB',   # Qibbuts û
         'stress_marker': '\u0301',
+        'divine_name': 'Ye·hó·vah',
     },
 
     'phonetic_dot': {
