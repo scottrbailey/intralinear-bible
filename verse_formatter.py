@@ -762,6 +762,12 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
     verse_rules    = _MYSWORD_INTERLINEAR_RULES
+    # Supplied words (no source-language counterpart, e.g. "[he] said") get
+    # italicized here rather than stripped (the base default) or bracketed --
+    # this is the class-attribute override transform_english() is built for,
+    # so it's scoped to just this formatter and doesn't touch the intralinear
+    # ones, which keep stripping.
+    bracket_replacement = ('<i>', '</i>')
 
     def render_header(self, raw: str) -> str:
         """Unlike the other MySword formatters (which dump every header class
