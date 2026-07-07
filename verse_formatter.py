@@ -811,7 +811,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     # link does, so sibling <lm>s in the same row go out of
                     # vertical alignment. An empty, class-styled placeholder
                     # keeps the row's height consistent instead.
-                    strong_tag = f'<W{strongs}>' if strongs else '<span class="strong"/>'
+                    strong_tag = f'<W{strongs}>' if strongs else '<span class="strong"></span>'
                     # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
                     # falls back to the raw BSB Parsing string when unresolved -- still
                     # displayed for the reader, just not a dictionary-linkable code, so
