@@ -509,20 +509,6 @@ class ESwordStackedFormatter(ESwordIntralinearFormatter):
     file_extension = ".bbli"
     css            = _ESWORD_STACKED_CSS
 
-
-
-_ESWORD_INTERLINEAR_CSS_OLD = (
-    'qi{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:top;margin:0 3px}'
-    'e{white-space:nowrap}'
-    'qi>span{display:flex;flex-direction:row;gap:0px}'
-    'lem {display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;'
-    'font-size:.9em;margin-top:2px;padding-top:2px;gap:2px;line-height:1 !important;}'
-    'lem sup{display:block;vertical-align:baseline;margin:0;padding:0;line-height:1}'
-    '.xlit{color:#2244aa}'
-    'tvm{color:#666}'
-)
-
 _ESWORD_INTERLINEAR_CSS = (
     'ilb {display:inline-flex; flex-direction:column; align-items:center; text-align:center; vertical-align:top; margin:0 0.2em 0.75em 0;}'
     'ilb > lg {display:inline-flex; flex-direction:row; gap:4px; font-size:0.8em; line-height:1.1em;}'
@@ -595,6 +581,8 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                     xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     morph = sw.stem.morph or sw.stem.token_class
                     morph_tags = ''.join([f'<tvm>{mph}</tvm>' for mph in morph.split('|')])
+                    # The <sb> and <mb> wrappers around the <num> and <tvm> tags are important.
+                    # Without them, e-Sword puts a very large space around the links when it does the replacement.
                     if sw.lang == 'G':
                         segments.append(
                             f'<lm><grk>{sw.text}</grk>'
