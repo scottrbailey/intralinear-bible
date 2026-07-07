@@ -511,7 +511,7 @@ class ESwordStackedFormatter(ESwordIntralinearFormatter):
 
 
 
-_ESWORD_INTERLINEAR_CSS = (
+_ESWORD_INTERLINEAR_CSS_OLD = (
     'qi{display:inline-flex;flex-direction:column;align-items:center;'
     'vertical-align:top;margin:0 3px}'
     'e{white-space:nowrap}'
@@ -523,8 +523,20 @@ _ESWORD_INTERLINEAR_CSS = (
     'tvm{color:#666}'
 )
 
+_ESWORD_INTERLINEAR_CSS = (
+    'ilb {display:inline-flex; flex-direction:column; align-items:center; text-align:center; vertical-align:top; margin:0 0.2em 0.75em 0;}'
+    'ilb > lg {display:inline-flex; flex-direction:row; gap:4px; font-size:0.8em; line-height:1.1em;}'
+    'lm {display:inline-flex; flex-direction:column; align-items:center; gap:2px;}'
+    'sup.num, sup.morph {font-size:0.9em;} lg t {width:100%; border-bottom:2px solid #222;}'
+    'ilb .heb, ilb .grk {color:#065e69;} ilb .lat {color:green;} ilb i {color: #444;} red i {color: #8f4b4b;}'
+    '.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}'
+    '.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}'
+    '.pshdg, .inscrip, .selah {font-style:italic;}'
+    'lm mb, lm sb {display:inline-flex; flex-wrap:wrap; gap:3px; justify-content:center; width:100%; margin:0 !important; padding: 0 !important;}'
+)
+
 class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSBri"
+    abbreviation   = "BSBri+"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTERLINEAR_CSS
@@ -561,7 +573,7 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 else:
                     text    = pending + english_text
                     pending = ''
-                    parts.append(f'<q><e>{text}</e></q>')
+                    parts.append(f'<ilb><eng>{text}</eng><lg></lg></ilb>')
             else:
                 english = pending + self.transform_english(token.english, token.par_class, token.is_red)
                 pending = ''
@@ -581,24 +593,26 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 segments = []
                 for sw in token.source_words:
                     xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    strongs = sw.stem.strongs
+                    morph = sw.stem.morph or sw.stem.token_class
+                    morph_tags = ''.join([f'<tvm>{mph}</tvm>' for mph in morph.split('|')])
                     if sw.lang == 'G':
                         segments.append(
-                            f'<lem><gs>{sw.text}</gs>'
-                            f'<xlit>{xlit}</xlit>'
-                            f'<num>{strongs}</num>'
-                            f'<tvm>{sw.stem.morph}</tvm></lem>'
+                            f'<lm><grk>{sw.text}</grk>'
+                            f'<lat>{xlit}</lat>'
+                            f'<sb><num>{sw.stem.strongs}</num></sb>'
+                            f'<mb>{morph_tags}</mb></lm>'
                         )
                     else:
                         segments.append(
-                            f'<lem><heb>{sw.text}</heb>'
-                            f'<xlit>{xlit}</xlit>'
-                            f'<tvm>{sw.stem.morph}</tvm></lem>'
+                            f'<lm><heb>{sw.text}</heb>'
+                            f'<lat>{xlit}</lat>'
+                            f'<sb><num>{sw.stem.strongs}</num></sb>'
+                            f'<mb>{morph_tags}</mb></lm>'
                         )
 
                 parts.append(
-                    f'<qi><e>{english}</e>'
-                    f'<span>{"".join(segments)}</span></qi>'
+                    f'<ilb><eng>{english}</eng>'
+                    f'<lg>{"".join(segments)}</lg></ilb>'
                 )
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
@@ -744,16 +758,13 @@ _MYSWORD_INTERLINEAR_CSS = """
 ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:top; margin-bottom:0.75em;}
 ilb > lg {display:inline-flex; flex-direction:row; gap:2px;}
 lm {display:inline-flex; flex-direction:column; align-items:center;}
-ilb ro {color:#065e69;}
-ilb rt {color:#7a10ad;}
-ilb i {color: #444;}
+ilb ro {color:#065e69;} ilb rt {color:#7a10ad;} ilb i {color: #444;}
 .wjc i {color: #8f4b4b;}
 .strong, .morph {font-size:0.7em}
 .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
-.acrostic {text-align:center;}
-.ihdg {font-weight:normal;}
-.subhdg {font-style:normal;}
+.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
 .pshdg, .inscrip, .selah {font-style:italic;}
+ilb mg {display:inline-flex; flex-wrap:wrap; gap:3px; justify-content:center; width:100%;}
 """
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
@@ -833,7 +844,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     morph = sw.stem.morph or sw.stem.token_class
                     morph_tags = ''.join([f'<WT{mph}>' for mph in morph.split('|')])
 
-                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}{morph_tags}</lm>")
+                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}<mg>{morph_tags}</mg></lm>")
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
                     f"<ilb><t>{english}</t><lg>{''.join(segments)}</lg></ilb>"

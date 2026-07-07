@@ -54,4 +54,4 @@ output:
 
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
-books: null
+books: null #[Gen, Matt]
