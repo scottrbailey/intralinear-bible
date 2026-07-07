@@ -741,9 +741,9 @@ class MySwordStackedFormatter(MySwordIntralinearFormatter):
     verse_rules  = _MYSWORD_STACKED_RULES
 
 _MYSWORD_INTERLINEAR_CSS = """
-ilb {display:inline-grid; grid-template-rows:auto auto; grid-auto-flow:column; justify-items:center; vertical-align:top;}
-ilb > t {grid-row:1; grid-column:1;}
-ilb > lm {grid-row:2; display:inline-flex; flex-direction:column; align-items:center;}
+ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:top;}
+ilb > lg {display:inline-flex; flex-direction:row;}
+lm {display:inline-flex; flex-direction:column; align-items:center;}
 """
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
@@ -787,7 +787,7 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt><W{strongs}><WT{morph}></lm>")
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
-                    f"<ilb><t>{english}</t>{''.join(segments)}</ilb>"
+                    f"<ilb><t>{english}</t><lg>{''.join(segments)}</lg></ilb>"
                 )
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
