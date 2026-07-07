@@ -2,7 +2,7 @@
 # Run: python main.py [--format esword|mysword|osis] [--mode intralinear|stacked|interlinear]
 
 # ── Module identity ──────────────────────────────────────────
-version: "1.1.1"
+version: "1.1.2"
 translation: "BSB"
 description: "Berean Standard Bible"
 

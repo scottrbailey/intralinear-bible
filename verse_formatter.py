@@ -744,8 +744,10 @@ _MYSWORD_INTERLINEAR_CSS = """
 ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:top; margin-bottom:0.75em;}
 ilb > lg {display:inline-flex; flex-direction:row; gap:2px;}
 lm {display:inline-flex; flex-direction:column; align-items:center;}
-ilb ro {color:#1ca0b1;}
+ilb ro {color:#065e69;}
 ilb rt {color:#7a10ad;}
+ilb i {color: #444;}
+.wjc i {color: #8f4b4b;}
 .strong, .morph {font-size:0.7em}
 .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
 .acrostic {text-align:center;}
