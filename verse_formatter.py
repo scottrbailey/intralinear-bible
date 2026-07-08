@@ -513,8 +513,12 @@ _ESWORD_INTERLINEAR_CSS = (
     'ilb {display:inline-flex; flex-direction:column; align-items:center; text-align:center; vertical-align:top; margin:0 0.2em 0.75em 0;}'
     'ilb > lg {display:inline-flex; flex-direction:row; gap:4px; font-size:0.8em; line-height:1.1em;}'
     'lm {display:inline-flex; flex-direction:column; align-items:center; gap:2px;}'
+    # ruby gets native stacked layout on e-Sword iOS regardless of flex
+    # support -- this flex-direction:column is a refinement on top of that,
+    # not the only thing holding the word/transliteration pairing together.
+    'lm ruby {display:inline-flex; flex-direction:column; align-items:center;}'
     'sup.num, sup.morph {font-size:0.9em;} lg t {width:100%; border-bottom:2px solid #222;}'
-    'ilb .heb, ilb .grk {color:#065e69;} ilb .lat {color:green;} ilb i {color: #444;} red i {color: #8f4b4b;}'
+    'lm ruby > ro {color:#065e69;} lm ruby > rt {color:green; font-size:1em !important;} ilb i {color: #444;} red i {color: #8f4b4b;}'
     '.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}'
     '.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}'
     '.pshdg, .inscrip, .selah {font-style:italic;}'
@@ -581,22 +585,22 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                     xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     morph = sw.stem.morph or sw.stem.token_class
                     morph_tags = ''.join([f'<tvm>{mph}</tvm>' for mph in morph.split('|')])
+                    # <ruby><rt>...</rt><ro>...</ro></ruby>, not custom flex-column
+                    # siblings -- a real <ruby> gets native stacked layout on
+                    # e-Sword iOS independent of CSS/flexbox support, which is
+                    # what BSTB/BSXB already rely on; the word+transliteration
+                    # pairing here was custom tags with no such fallback, and
+                    # overlapped on iOS as a result. rt/ro order is inverted
+                    # from what the tag names suggest (rt=transliteration,
+                    # ro=the actual word) -- matches the existing convention.
+                    lang_class = 'grk' if sw.lang == 'G' else 'heb'
                     # The <sb> and <mb> wrappers around the <num> and <tvm> tags are important.
                     # Without them, e-Sword puts a very large space around the links when it does the replacement.
-                    if sw.lang == 'G':
-                        segments.append(
-                            f'<lm><grk>{sw.text}</grk>'
-                            f'<lat>{xlit}</lat>'
-                            f'<sb><num>{sw.stem.strongs}</num></sb>'
-                            f'<mb>{morph_tags}</mb></lm>'
-                        )
-                    else:
-                        segments.append(
-                            f'<lm><heb>{sw.text}</heb>'
-                            f'<lat>{xlit}</lat>'
-                            f'<sb><num>{sw.stem.strongs}</num></sb>'
-                            f'<mb>{morph_tags}</mb></lm>'
-                        )
+                    segments.append(
+                        f'<lm><ruby><rt>{xlit}</rt><ro class="{lang_class}">{sw.text}</ro></ruby>'
+                        f'<sb><num>{sw.stem.strongs}</num></sb>'
+                        f'<mb>{morph_tags}</mb></lm>'
+                    )
 
                 parts.append(
                     f'<ilb><eng>{english}</eng>'
