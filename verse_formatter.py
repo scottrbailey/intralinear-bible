@@ -518,7 +518,7 @@ _ESWORD_INTERLINEAR_CSS = (
     # not the only thing holding the word/transliteration pairing together.
     'lm ruby {display:inline-flex; flex-direction:column; align-items:center;}'
     'sup.num, sup.morph {font-size:0.9em;} lg t {width:100%; border-bottom:2px solid #222;}'
-    'lm ruby > ro {color:#065e69;} lm ruby > rt {color:green;} ilb i {color: #444;} red i {color: #8f4b4b;}'
+    'lm ruby > ro {color:#065e69;} lm ruby > rt {color:green; font-size:1em;} ilb i {color: #444;} red i {color: #8f4b4b;}'
     '.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}'
     '.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}'
     '.pshdg, .inscrip, .selah {font-style:italic;}'
