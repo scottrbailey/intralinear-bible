@@ -522,7 +522,7 @@ _ESWORD_INTERLINEAR_CSS = (
 )
 
 class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSBri+"
+    abbreviation   = "BSRB"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTERLINEAR_CSS
@@ -758,7 +758,7 @@ ilb mg {display:inline-flex; flex-wrap:wrap; gap:3px; justify-content:center; wi
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSBri+"
+    abbreviation   = "BSRB"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
