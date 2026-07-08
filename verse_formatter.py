@@ -510,14 +510,11 @@ class ESwordStackedFormatter(ESwordIntralinearFormatter):
     css            = _ESWORD_STACKED_CSS
 
 _ESWORD_INTERLINEAR_CSS = (
-    'ilb {display:inline-flex; flex-direction:column; align-items:center; text-align:center; vertical-align:top; margin:0 0.2em 0.75em 0;}'
+    'ilb {display:inline-flex; flex-direction:column; align-items:center; text-align:center; vertical-align:top; margin:0.2em 0.2em 0.75em 0;}'
     'ilb > lg {display:inline-flex; flex-direction:row; gap:4px; font-size:0.8em; line-height:1.1em;}'
     'lm {display:inline-flex; flex-direction:column; align-items:center; gap:2px;}'
-    # ruby gets native stacked layout on e-Sword iOS regardless of flex
-    # support -- this flex-direction:column is a refinement on top of that,
-    # not the only thing holding the word/transliteration pairing together.
     'lm ruby {display:inline-flex; flex-direction:column; align-items:center;}'
-    'sup.num, sup.morph {font-size:0.9em;} lg t {width:100%; border-bottom:2px solid #222;}'
+    'sup.num, sup.morph {font-size:0.9em;} ilb .eng {width:100%; border-bottom:2px solid #eee;}'
     'lm ruby > ro {color:#065e69; line-height:1.3;} lm ruby > rt {color:green; font-size:1em !important; line-height:1.3;} ilb i {color: #444;} red i {color: #8f4b4b;}'
     '.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}'
     '.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}'
@@ -747,16 +744,18 @@ class MySwordStackedFormatter(MySwordIntralinearFormatter):
     verse_rules  = _MYSWORD_STACKED_RULES
 
 _MYSWORD_INTERLINEAR_CSS = """
-ilb {display:inline-flex; flex-direction:column; align-items:center; vertical-align:top; margin-bottom:0.75em;}
-ilb > lg {display:inline-flex; flex-direction:row; gap:2px;}
-lm {display:inline-flex; flex-direction:column; align-items:center;}
+ilb {display:inline-flex; flex-direction:column; align-items:stretch; vertical-align:top; margin:0.2em 0.2em 0.75em;}
+ilb t {width: 100%; text-align:center; border-bottom: 2px solid #eee;}
+ilb > lg {display:inline-flex; flex-direction:row; justify-content:center; gap:4px;} 
+lm {display:inline-flex; flex-direction:column; align-items:stretch; width:100%;}
+lm > * {text-align: center}
 ilb ro {color:#065e69;} ilb rt {color:#7a10ad;} ilb i {color: #444;}
 .wjc i {color: #8f4b4b;}
 .strong, .morph {font-size:0.7em}
 .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
 .acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
 .pshdg, .inscrip, .selah {font-style:italic;}
-ilb mg {display:inline-flex; flex-wrap:wrap; gap:3px; justify-content:center; width:100%;}
+ilb mg {display:inline-flex; flex-direction:row; flex-wrap:wrap; gap:3px; justify-content:center}
 """
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword

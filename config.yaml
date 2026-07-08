@@ -48,9 +48,7 @@ output:
   headers:    1          # section headers
   notes:      1          # translator notes
   xref:       1          # cross ref 0: none, 1: beginning of verse, 2: end of verse
-  red_letter: 1          # words of Christ in red (table composer only; NT-only
-                         # since the source data doesn't mark God's OT speech
-                         # the same way — toggle off in-app if that bothers you)
+  red_letter: 1          # words of Christ in red
 
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
