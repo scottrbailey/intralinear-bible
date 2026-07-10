@@ -509,24 +509,25 @@ class ESwordStackedFormatter(ESwordIntralinearFormatter):
     file_extension = ".bbli"
     css            = _ESWORD_STACKED_CSS
 
-_ESWORD_INTERLINEAR_CSS = (
-    'ilb {display:inline-flex; flex-direction:column; align-items:center; text-align:center; vertical-align:top; margin:0.2em 0.2em 0.75em 0;}'
-    'ilb > lg {display:inline-flex; flex-direction:row; gap:4px; font-size:0.8em; line-height:1.1em;}'
-    'lm {display:inline-flex; flex-direction:column; align-items:center; gap:2px;}'
-    'lm ruby {display:inline-flex; flex-direction:column; align-items:center;}'
-    'sup.num, sup.morph {font-size:0.9em;} ilb .eng {width:100%; border-bottom:2px solid #eee;}'
-    'lm ruby > ro {color:#065e69; line-height:1.3;} lm ruby > rt {color:green; font-size:1em !important; line-height:1.3;} ilb i {color: #444;} red i {color: #8f4b4b;}'
-    '.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}'
-    '.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}'
-    '.pshdg, .inscrip, .selah {font-style:italic;}'
-    'lm mb, lm sb {display:inline-flex; flex-wrap:wrap; gap:3px; justify-content:center; width:100%; margin:0 !important; padding: 0 !important;}'
-)
+_ESWORD_INTERLINEAR_CSS = """
+ilb {display:inline-block; vertical-align:top; margin: 0 0.1em 0.75em;}
+ilb > * {display:block; text-align:center; width:100%; max-width:100%;}
+trn {border-bottom:1px solid gray; text-align:center; width:100%; border-bottom:2px solid #DDD; margin-bottom:.1em;}
+lm {display:inline-block; text-align:center; padding: 0.2em; gap: 3px; font-size:.85em; line-height: 1.0em;} 
+ltn {color: green; padding-bottom: 0.2em;} .red i {color: #d6807f;}
+lm mb {max-width:100%;} lm > * {display:block} hb, gr {color:#065e69;} 
+sb > *, mb > * {vertical-align:normal; font-size:.7em; padding:0; line-height:.8em;}
+.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
+.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
+.pshdg, .inscrip, .selah {font-style:italic;}
+"""
 
 class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
     abbreviation   = "BSRB"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTERLINEAR_CSS
+    bracket_replacement = ('<i>', '</i>')
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -582,25 +583,13 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                     xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     morph = sw.stem.morph or sw.stem.token_class
                     morph_tags = ''.join([f'<tvm>{mph}</tvm>' for mph in morph.split('|')])
-                    # <ruby><rt>...</rt><ro>...</ro></ruby>, not custom flex-column
-                    # siblings -- a real <ruby> gets native stacked layout on
-                    # e-Sword iOS independent of CSS/flexbox support, which is
-                    # what BSTB/BSXB already rely on; the word+transliteration
-                    # pairing here was custom tags with no such fallback, and
-                    # overlapped on iOS as a result. rt/ro order is inverted
-                    # from what the tag names suggest (rt=transliteration,
-                    # ro=the actual word) -- matches the existing convention.
-                    lang_class = 'grk' if sw.lang == 'G' else 'heb'
-                    # The <sb> and <mb> wrappers around the <num> and <tvm> tags are important.
-                    # Without them, e-Sword puts a very large space around the links when it does the replacement.
+                    lang_class = 'gr' if sw.lang == 'G' else 'hb'
                     segments.append(
-                        f'<lm><ruby><rt>{xlit}</rt><ro class="{lang_class}">{sw.text}</ro></ruby>'
-                        f'<sb><num>{sw.stem.strongs}</num></sb>'
-                        f'<mb>{morph_tags}</mb></lm>'
+                        f'<lm><{lang_class}>{sw.text}</{lang_class}><ltn>{xlit}</ltn>'
+                        f'<sb><num>{sw.stem.strongs}</num></sb><mb>{morph_tags}</mb></lm>'
                     )
-
                 parts.append(
-                    f'<ilb><eng>{english}</eng>'
+                    f'<ilb><trn>{english}</trn>'
                     f'<lg>{"".join(segments)}</lg></ilb>'
                 )
                 for note in token.notes:
@@ -766,11 +755,6 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
     verse_rules    = _MYSWORD_INTERLINEAR_RULES
-    # Supplied words (no source-language counterpart, e.g. "[he] said") get
-    # italicized here rather than stripped (the base default) or bracketed --
-    # this is the class-attribute override transform_english() is built for,
-    # so it's scoped to just this formatter and doesn't touch the intralinear
-    # ones, which keep stripping.
     bracket_replacement = ('<i>', '</i>')
 
     def render_header(self, raw: str) -> str:
