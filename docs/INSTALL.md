@@ -110,7 +110,8 @@ Most lexicons are for a single language. Try [Brown-Driver-Briggs Hebrew and Eng
 If you want a much richer understanding of the Hebrew language, we highly recommend the [Ancient Hebrew Lexicon of the Bible](https://www.ancient-hebrew.org/ahlb/). It shows the ancient Hebrew pictographs (Paleo Hebrew script) and explains how those pictures form concrete root words and how additional words are built off of that root that share a common theme.
 
 To get the most out of the AHLB, you will need to read the introduction. On e-Sword, the AHLB introduction is available as a "Reference" book once you install the Lexicon. On MySword, the introduction is in the lexicon under the entries "01" through "16", so you will have to search for "01".
-Installing the AHLB lexicon on e-Sword will make the book's foreward available under the "Reference" section. 
+Installing the AHLB lexicon on e-Sword will make the book's introduction available under the "Reference" section. 
+There is also a short YouTube [introduction video](https://www.youtube.com/watch?v=wc1pV8E3L_Q) if you can't find the intro in your Bible app.
 
 
 ---
