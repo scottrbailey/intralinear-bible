@@ -19,7 +19,8 @@ It is available for two Bible apps:
 
 <img src="assets/bsxb_ot_mysword.jpg" width="480" alt="BSXB on MySword"/>
 
-**Berean Standard Reverse Interlinear Bible  (`BSRB`)** - full reverse (English -> Hebrew and Greek) interlinear with original Hebrew, Aramaic and Greek, academic transliteration, Strong's numbers and morphology codes.
+**Berean Standard Reverse Interlinear Bible  (`BSRB`)** - full reverse (English -> Hebrew and Greek) interlinear with original Hebrew, Aramaic and Greek, academic transliteration, Strong's numbers and morphology codes. Tapping the Strong's number will open the word
+in the lexicon. Tapping the morphology code will open the definition in the _Robinson's Morphology Analysis Codes_ dictionary if the RMAC module is installed. 
 
 <img src="assets/bsrb_ot_esword.jpg" width="480"  alt="BSRB on e-Sword"/>
 
@@ -122,4 +123,5 @@ There is also a short YouTube [introduction video](https://www.youtube.com/watch
 Restart the app. If it still doesn't appear, verify the file is in the correct folder and has the correct extension (`.bbl.mybible` for MySword, `.bbli` for e-Sword).
 
 **Tapping a transliteration doesn't open the lexicon.**
-Make sure you have a Hebrew and Greek dictionary/lexicon installed in the app.
+Make sure you have a Hebrew and Greek dictionary/lexicon installed in the app. Both MySword and e-Sword will allow you to configure which lexicon to use for Hebrew and Greek.
+
