@@ -9,15 +9,20 @@ It is available for two Bible apps:
 
 ---
 
-### Choosing Between Transliterated and Translinear
+### Choosing Between Transliterated, Translinear and Interlinear
 
-**Standard (`BSTB`)** — transliteration appears as a superscript after the English word. Tapping the transliterations will open the dictionary entry in whichever lexicon module you have configured.
+**Berean Standard Transliterated Bible (`BSTB`)** — transliteration appears as a superscript after the English word. Tapping the transliterations will open the dictionary entry in whichever lexicon module you have configured.
 
-<img src="assets/bstb_nt_mysword.jpg" width="480" description="BSTB on MySword"/>
+<img src="assets/bstb_nt_mysword.jpg" width="480" alt="BSTB on MySword"/>
 
-**Stacked (`BSXB`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word. The transliterations are links to the lexicon.
+**Berean Standard Translinear Bible  (`BSXB`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word. The transliterations are links to the lexicon.
 
-<img src="assets/bsxb_nt_esword.jpg" width="480" description="BSXB on e-Sword" />
+<img src="assets/bsxb_ot_mysword.jpg" width="480" alt="BSXB on MySword"/>
+
+**Berean Standard Reverse Interlinear Bible  (`BSRB`)** - full reverse (English -> Hebrew and Greek) interlinear with original Hebrew, Aramaic and Greek, academic transliteration, Strong's numbers and morphology codes.
+
+<img src="assets/bsrb_ot_esword.jpg" width="480"  alt="BSRB on e-Sword"/>
+
 
 ## MySword (Android)
 
@@ -36,13 +41,14 @@ The application is free, but requires a $25 "donation" to unlock all features.
 
 1. On your device, open this link to download the module:
    **[BSTB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.bbl.zip)** Berean Standard Transliterated Bible 
-   or **[BSXB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.bbl.zip)** Berean Standard Translinear Bible 
+   **[BSXB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.bbl.zip)** Berean Standard Translinear Bible or  
+   **[BSRB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.bbl.zip)** Berean Standard Reverse Interlinear Bible
 2. When prompted, save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module
 
 1. Open a file manager app on your device (e.g. **Files by Google**).
-2. Move to Internal Storage > mysword folder (not the `mysword/bibles` folder).  
+2. Move to `Internal Storage` > `mysword` folder (not the `mysword/bibles` folder).  
 3. There is no need to unzip, MySword will do this for you automatically when you restart.
 4. Restart the MySword app
 
@@ -67,18 +73,18 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 ### Step 2 — Download the Module
 
 1. On your device, open this link to download the module:
-   **[BSTB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.zip)** -  Berean Standard Transliterated Bible or
+   **[BSTB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.zip)** -  Berean Standard Transliterated Bible 
    **[BSXB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.zip)** - Berean Standard Translinear Bible
+   **[BSRB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.zip)** - Berean Standard Reverse Interlinear Bible + RMAC (morphology) dictionary
 
 2. Save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module 
 
 1. Open a file manager app on your device.
-2. Navigate to your **Downloads** folder and extract the `BSTB.zip` or `BSXB.zip` file.
-3. You should see a file named `BSTB.bbli` or `BSXB.bbli`.
-4. Open e-Sword and tap General > Import. Navigate to your Downloads folder, select the `*.bbli` file and click `Open` to import the module.
-
+2. Navigate to your **Downloads** folder and extract the `BSTB.zip`, `BSXB.zip` `BSRB.zip` file.
+3. You should see a file named `BSTB.bbli`, `BSXB.bbli`, or `BSRB.bbli` (and `rmac.dcti` RMAC dictionary)
+4. Open e-Sword and tap General > Import. Navigate to your Downloads folder, select the unzipped file and click `Open` to import the module.
 
 ---
 

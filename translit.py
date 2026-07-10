@@ -174,6 +174,7 @@ SCHEMES = {
         '\u05B8': '\u0101',   # Qamats ā
         '\u05B9': '\u014D',   # Holam ō
         '\u05BB': '\u00FB',   # Qibbuts û
+        'syllable_sep': '\u00B7',
         'stress_marker': '\u0301',
         'divine_name': 'Ye·hó·vah',
     },
