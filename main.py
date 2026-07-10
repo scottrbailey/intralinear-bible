@@ -208,6 +208,8 @@ def main():
     transliterate = make_transliterator(
         hebrew_scheme=xlit_cfg.get('hebrew', 'brill_simple'),
         greek_scheme=xlit_cfg.get('greek', 'SIMPLE'),
+        syllable_sep=xlit_cfg.get('syllable_sep'),
+        stress_marker=xlit_cfg.get('stress_marker'),
     )
 
     output_cfg = config['output']

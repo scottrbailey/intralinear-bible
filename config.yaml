@@ -37,6 +37,15 @@ sources:
 transliteration:
   hebrew:  sbl_academic   # brill_simple, sbl_simple, sbl_academic, phonetic_dot, null (use source)
   greek:   ACADEMIC
+  # Override the Hebrew scheme's own bundled syllable_sep/stress_marker --
+  # deliberate, so OT and NT read as one consistent format rather than Greek
+  # silently inheriting whatever the Hebrew scheme happens to bundle. Also
+  # what Greek's marker-insertion falls back to when hebrew is null (Greek's
+  # own provided transliteration has no syllable dots baked in the way
+  # Hebrew's does, so without this it gets none at all). null/omit either
+  # to fall back to the Hebrew scheme's own bundled value.
+  syllable_sep: "·"
+  stress_marker: null
 
 # ── Annotations ──────────────────────────────────────────────
 annotations: "data/bsb_annotations.json"
