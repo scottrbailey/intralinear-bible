@@ -47,6 +47,7 @@ MAQAF      = '\u05BE'
 SOF_PASUQ  = '\u05C3'
 METEG      = '\u05BD'
 PASEQ      = '\u05C0'  # vertical bar used as separator between words
+NUN_HAFUKHA = '\u05C6'  # "inverted nun" bracket mark (e.g. around Num 10:34-36)
 
 GUTTURALS  = {'\u05D0', '\u05D4', '\u05D7', '\u05E2', '\u05E8'}  # א ה ח ע ר
 BEGADKEFAT = {'\u05D1', '\u05D2', '\u05D3', '\u05DB', '\u05E4', '\u05EA'}  # ב ג ד כ פ ת
@@ -591,11 +592,6 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
                         push_unit('-', is_word_break=False)
                 elif char == ' ':
                     push_unit(' ', is_word_break=True)
-                elif ord(char) == 0x05E4 and i > 0 and chars[i-1] == SOF_PASUQ:
-                    pass  # paragraph pe after sof pasuq — drop
-                elif is_hebrew(char) and char == '\u05E4':
-                    # Pe used as paragraph marker — drop
-                    pass
                 else:
                     push_unit(char)
             i += 1
@@ -609,18 +605,31 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
             continue
 
         # ---- Skip paragraph markers (pe/samekh after sof pasuq) ----
-        # Pe (פ) or Samekh (ס) with no vowel points and no geresh = paragraph marker
-        # Geresh (׳ U+05F3) or gershayim (״ U+05F4) indicate numeric usage
+        # Pe (פ) or Samekh (ס) with no vowel points and no geresh = paragraph marker.
+        # Geresh (׳ U+05F3) or gershayim (״ U+05F4) indicate numeric usage.
+        # Qualifies either standalone (the whole text passed in is just this
+        # one marker) or positionally (it directly follows a sof pasuq, even
+        # when that sof pasuq is glued onto the end of a real word's string,
+        # e.g. source_text אֲבָרֲכֵֽם׃פ — that trailing פ is a
+        # section marker, not part of the word, regardless of what else the
+        # string contains).
         if char in {'\u05E4', '\u05E1'}:
             marks_ahead = get_marks(chars, i)
             has_vowel  = any(m in VOWEL_POINTS - {DAGESH, METEG, SHIN_DOT, SIN_DOT}
                              for m in marks_ahead)
             j = i + 1 + len(marks_ahead)
             has_geresh = j < tlen and chars[j] in {'\u05F3', '\u05F4'}
+            # Skip back over any inverted-nun bracket mark(s) too — they can
+            # sit between the sof pasuq and the paragraph marker (e.g. around
+            # Num 10:34-36's bracketed verses) without breaking the adjacency.
+            back = i - 1
+            while back >= 0 and chars[back] == NUN_HAFUKHA:
+                back -= 1
+            is_after_sof_pasuq = back >= 0 and chars[back] == SOF_PASUQ
             is_standalone = not any(
                 is_hebrew(chars[k]) for k in range(tlen) if k != i
             )
-            if not has_vowel and not has_geresh and is_standalone:
+            if not has_vowel and not has_geresh and (is_standalone or is_after_sof_pasuq):
                 i += 1
                 continue
 
