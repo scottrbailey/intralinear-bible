@@ -174,7 +174,9 @@ SCHEMES = {
         '\u05B8': '\u0101',   # Qamats ā
         '\u05B9': '\u014D',   # Holam ō
         '\u05BB': '\u00FB',   # Qibbuts û
+        'syllable_sep': '\u00B7',
         'stress_marker': '\u0301',
+        'divine_name': 'Ye·hó·vah',
     },
 
     'phonetic_dot': {
@@ -538,11 +540,12 @@ def has_cantillation(marks: list) -> bool:
 
 # ================== MAIN TRANSLITERATOR ==================
 
-def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
+def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
+                     scheme_overrides: dict | None = None) -> str:
     """
     Transliterate Hebrew text using the specified scheme.
     """
-    scheme      = SCHEMES.get(scheme_name, SCHEMES['brill_simple'])
+    scheme      = {**SCHEMES.get(scheme_name, SCHEMES['brill_simple']), **(scheme_overrides or {})}
     divine      = scheme.get('divine_name', 'Yehovah')
     syl_sep     = scheme.get('syllable_sep', '')
     stress_mark = scheme.get('stress_marker', None)
@@ -981,6 +984,15 @@ def _greek_nuclei(greek: str) -> list[tuple[int, bool, bool, int]]:
 _XLIT_VOWELS = set('aeiouy')  # y covers upsilon in SIMPLE scheme
 
 
+def _xlit_base_vowel(ch: str) -> str:
+    """Strip combining diacritics (macron, breve, ...) to get the base
+    letter -- BSB's own provided Greek transliteration uses precomposed
+    long-vowel marks (ē, ō) that a plain ASCII vowel set wouldn't match,
+    unlike bt.GreekTransliterator's own (undiacritic'd) SIMPLE-scheme output."""
+    decomposed = unicodedata.normalize('NFD', ch)
+    return decomposed[0] if decomposed else ch
+
+
 def _xlit_vowel_spans(xlit: str,
                       nuclei: list[tuple[int, bool, bool, int]]) -> list[tuple[int, int]]:
     """Return (start, end) index pairs for each vowel span in xlit,
@@ -994,7 +1006,7 @@ def _xlit_vowel_spans(xlit: str,
     """
     vowel_positions: list[int] = []
     for i, ch in enumerate(xlit):
-        if ch.lower() in _XLIT_VOWELS:
+        if _xlit_base_vowel(ch).lower() in _XLIT_VOWELS:
             vowel_positions.append(i)
 
     spans: list[tuple[int, int]] = []
@@ -1103,41 +1115,77 @@ def add_greek_syllable_markers(greek: str, xlit: str,
 
 # ================== TRANSLITERATOR FACTORY ==================
 
-def make_transliterator(hebrew_scheme: str = "brill_simple",
-                        greek_scheme: str = "SIMPLE") -> callable:
-    """Return a configured transliterate(text, lang, is_proper) function.
+def make_transliterator(hebrew_scheme: str | None = "brill_simple",
+                        greek_scheme: str | None = "SIMPLE",
+                        syllable_sep: str | None = None,
+                        stress_marker: str | None = None) -> callable:
+    """Return a configured transliterate(text, lang, is_proper, provided) function.
 
     Hebrew/Aramaic: uses our HebrewTransliterator if hebrew_scheme is in SCHEMES,
                     otherwise delegates to bt.HebrewTransliterator (falling back to
                     bt.HebrewScheme.SIMPLE if the name isn't a valid bt scheme).
     Greek:          routed through bt.GreekTransliterator.
+
+    Either scheme can be None (config.yaml's transliteration.hebrew/greek set
+    to null) -- for the "academic interlinear" case, where the source data's
+    own provided transliteration (bsb_tables.tsv's Translit column, threaded
+    through as SourceToken.translit) should be used as-is instead of computing
+    one. When None, that language's branch skips its scheme entirely and
+    returns whatever `provided` the caller passes in (falling back to the raw
+    source text if the token didn't carry one).
+
+    syllable_sep/stress_marker override the chosen Hebrew scheme's own bundled
+    values (deliberate: OT and NT should read as one consistent format, not
+    Greek silently inheriting whatever the Hebrew scheme happens to bundle).
+    They're also what Greek's marker-insertion falls back to when hebrew_scheme
+    is None -- previously nothing, since there was no scheme dict to pull from
+    at all, so Greek's *provided* transliteration got no syllable dots even
+    though Hebrew's provided column already has its own baked in.
     """
-    if hebrew_scheme in SCHEMES:
-        _hebrew_t = HebrewTransliterator(hebrew_scheme)
-    else:
-        bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
-        _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
-        _hebrew_t  = _bt_hebrew.transliterate
+    overrides = {}
+    if syllable_sep is not None:
+        overrides['syllable_sep'] = syllable_sep
+    if stress_marker is not None:
+        overrides['stress_marker'] = stress_marker
 
-    _greek_t = bt.GreekTransliterator(bt.GreekOptions(
-        scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)
-    ))
+    # One resolved dict, shared by Hebrew's own transliterator (when it's one
+    # of our SCHEMES) and by Greek's marker-insertion below -- both read the
+    # same syllable_sep/stress_marker, whichever source they came from.
+    scheme_dict = {**SCHEMES.get(hebrew_scheme, {}), **overrides}
 
-    def transliterate(text: str, lang: str, is_proper: bool = False) -> str:
+    _hebrew_t = None
+    if hebrew_scheme is not None:
+        if hebrew_scheme in SCHEMES:
+            _hebrew_t = HebrewTransliterator(hebrew_scheme, scheme_overrides=overrides)
+        else:
+            bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
+            _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
+            _hebrew_t  = _bt_hebrew.transliterate
+
+    _greek_t = None
+    if greek_scheme is not None:
+        _greek_t = bt.GreekTransliterator(bt.GreekOptions(
+            scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)
+        ))
+
+    def _add_greek_markers(greek_text: str, xlit: str) -> str:
+        sep    = scheme_dict.get('syllable_sep', '')
+        stress = scheme_dict.get('stress_marker', None)
+        if not (sep or stress):
+            return xlit
+        return add_greek_syllable_markers(greek_text, xlit, sep=sep or '', stress=stress or '')
+
+    def transliterate(text: str, lang: str, is_proper: bool = False, provided: str = '') -> str:
         if lang == 'G':
+            if _greek_t is None:
+                return _add_greek_markers(text, provided or text)
             result = _greek_t.transliterate(text)
             if not is_proper:
                 result = lowercase_translit(result)
-            sep    = SCHEMES.get(hebrew_scheme, {}).get('syllable_sep', '')
-            stress = SCHEMES.get(hebrew_scheme, {}).get('stress_marker', None)
-            if sep or stress:
-                result = add_greek_syllable_markers(
-                    text, result,
-                    sep=sep or '',
-                    stress=stress or '',
-                )
-            return result
+            return _add_greek_markers(text, result)
         else:  # H or A
+            if _hebrew_t is None:
+                return provided or text
             return _hebrew_t(text)
 
     return transliterate
@@ -1155,15 +1203,21 @@ class HebrewTransliterator:
         t('יְהוָה')
     """
 
-    def __init__(self, scheme_name: str = 'brill_simple'):
+    def __init__(self, scheme_name: str = 'brill_simple', scheme_overrides: dict | None = None):
         if scheme_name not in SCHEMES:
             raise ValueError(f"Unknown scheme '{scheme_name}'. "
                              f"Available: {list(SCHEMES.keys())}")
         self.scheme_name = scheme_name
-        self.scheme      = SCHEMES[scheme_name]
+        self._overrides  = scheme_overrides or {}
+        # A copy, not the shared SCHEMES[scheme_name] dict itself -- overrides
+        # (e.g. make_transliterator's syllable_sep/stress_marker) must not
+        # mutate the module-level scheme every other caller uses too. Kept
+        # for inspection; transliterate() re-passes _overrides through to
+        # hebrew_translit() itself, which is what actually applies them.
+        self.scheme      = {**SCHEMES[scheme_name], **self._overrides}
 
     def transliterate(self, text: str) -> str:
-        return hebrew_translit(text, self.scheme_name)
+        return hebrew_translit(text, self.scheme_name, scheme_overrides=self._overrides)
 
     def __call__(self, text: str) -> str:
         return self.transliterate(text)

@@ -21,6 +21,7 @@ Usage:
 
 import argparse
 import csv
+import json
 import re
 import sqlite3
 import sys
@@ -32,6 +33,7 @@ sys.path.insert(0, str(ROOT))
 DEFAULT_SOURCE = ROOT / "local" / "bsb_tables.tsv"
 DEFAULT_OUTPUT = ROOT / "data" / "bsb_tables.db"
 BOOKS_DB       = ROOT / "data" / "books.db"
+RMAC_JSON      = ROOT / "data" / "rmac.json"
 
 # Full English book name, as cited in bsb_tables.tsv's VerseId column
 # (e.g. "Genesis 1:1", "1 Samuel 3:2") -> OSIS book id, in canonical order.
@@ -240,10 +242,324 @@ def _parse_crossref_cell(raw: str) -> str | None:
         return None
     return '; '.join(_convert_xref_label(lbl) for lbl in labels)
 
+# BSB's own Parsing (short) column already matches RMAC one-for-one for every
+# non-verb Hebrew/Greek category (nouns, adjectives, articles, prepositions,
+# pronouns, the direct-object marker, numbers) and for the great majority of
+# Greek verb forms — just not case-for-case, and RMAC spells the ambiguous
+# middle/passive slash as a hyphen (`V-PIM/P-1P` -> `V-PIM-P-1P`). Confirmed
+# against data/rmac.json (2,492 codes extracted from the real MySword/e-Sword
+# RMAC dictionary module — not ours to extend, since that module is already
+# installed by thousands of readers): every one of those categories resolves
+# once normalized this way.
+#
+# A compound Parsing value (a fused Hebrew word carrying more than one
+# morpheme, joined with " | ", e.g. `Prep-b | N-fs`, sometimes with several
+# stacked prefixes comma-separated within one slot, e.g.
+# `Conj-w, Prep-l, Art | N-ms`) is resolved segment-by-segment and stored
+# pipe-delimited (`PREP-B|N-FS`) so the verse renderer can split it back
+# apart and emit one linked <tvm> per morpheme.
+#
+# A trailing bare pronominal-suffix segment (`2ms`, `3fs`...) is NOT a
+# separate linkable morpheme -- confirmed against data/rmac.json: it's fused
+# onto the *stem's own* code with a hyphen (`N-fsc | 3ms` -> `N-FSC-3MS`,
+# `Prep | 3ms` -> `PREP-3MS`), not stored as its own pipe segment. A rare
+# variant-form suffix carries a trailing digit BSB's own data doesn't explain
+# (`2fs2`); tried as-is first, then with the digit stripped.
+#
+# One segment shape never resolves, and the whole token's morph is left NULL
+# rather than a partial/guessed result: Hebrew/Aramaic verb stem+conjugation
+# forms (`V-Qal-Perf-3ms`, `V-Hifil-Prtcpl-ms`) -- RMAC has no Hebrew verb
+# morphology at all; needs a real stem/conjugation equivalence table, not
+# attempted here. (A small number of other combinations -- proper noun +
+# suffix, interjection + suffix -- also have no fused entry in rmac.json;
+# same treatment, left NULL rather than guessed.)
+with open(RMAC_JSON, encoding='utf-8') as _f:
+    _RMAC_CODES = set(json.load(_f))
+
+# Hebrew's article and conjunctive waw carry no case/gender/number of their
+# own (unlike Greek's), so a bare `ART`/`CONJ-W` code is the linguistically
+# correct one even though the real RMAC dictionary — Greek-only — has no
+# entry for either. Stored anyway: it'll display as plain, unlinked text in
+# the reader (the popup dictionary just won't resolve it), which beats
+# dropping the tag entirely.
+_KNOWN_GOOD_UNLINKED = {'ART', 'CONJ-W'}
+
+_SUFFIX_PRONOUN_RE = re.compile(r'^[1-3][a-z]{2}[a-z0-9]?$', re.IGNORECASE)
+
+_HEBREW_VERB_STEMS = frozenset({
+    'QAL', 'NIFAL', 'NIPHAL', 'PIEL', 'PUAL', 'HIFIL', 'HIPHIL', 'HOFAL',
+    'HOPHAL', 'HITPAEL', 'HITHPAEL', 'NITHPAEL', 'QALPASS', 'POLEL', 'POLAL',
+    'HITPOLEL', 'PILPEL', 'PALEL', 'PULAL', 'HISHTAPHEL', 'TIPHIL', 'POEL',
+    'POAL',
+})
+
+# Hebrew's binyan (stem) encodes voice-like distinctions derivationally --
+# there's no 1:1 match to Greek's three voices, but this is the standard
+# approximation: Qal/Piel/Hifil are the "active" stems (simple/intensive/
+# causative); Nifal/Pual/Hofal are their passives; Hitpael/Nithpael are
+# reflexive/reciprocal, closest to Greek's middle.
+_BINYAN_VOICE = {
+    'QAL': 'A', 'PIEL': 'A', 'HIFIL': 'A', 'HIPHIL': 'A',
+    'NIFAL': 'P', 'NIPHAL': 'P', 'PUAL': 'P', 'HOFAL': 'P', 'HOPHAL': 'P',
+    'HITPAEL': 'M', 'HITHPAEL': 'M', 'NITHPAEL': 'M',
+    'QALPASS': 'P',
+    'POLEL': 'A', 'PILPEL': 'A', 'PALEL': 'A', 'POEL': 'A', 'TIPHIL': 'A',
+    'POAL': 'P', 'PULAL': 'P',
+    'HITPOLEL': 'M', 'HISHTAPHEL': 'M',
+}
+
+# Hebrew's conjugation (aspect-based) has no 1:1 match to Greek's tense
+# system either. Approximation used here, to be revisited once checked
+# against real usage:
+#   Perfect / wayyiqtol (narrative past) -> Aorist Indicative -- Hebrew's
+#     two main "completed action" forms, both read as simple past in
+#     narrative; RMAC's Perfect tense is stative/resultative and would
+#     overstate that nuance across thousands of tokens.
+#   Imperfect / weqatal (prospective/incomplete) -> Future Indicative.
+#   Cohortative/jussive (volitional) -> Aorist Subjunctive -- Greek has no
+#     future subjunctive, and subjunctive is the closest functional match
+#     for "let it happen" volitional forms.
+#   Imperative -> Aorist Imperative.
+#   Infinitive construct/absolute -> both collapse to one Aorist Infinitive
+#     code; RMAC has no construct/absolute distinction to preserve.
+#   Participle -> Present Participle -- Hebrew's participle is durative/
+#     ongoing in force, closer to Greek's present than aorist participle.
+# (tense, mood) letters; voice comes from _BINYAN_VOICE separately.
+_CONJUGATION_TENSE_MOOD = {
+    'PERF': ('A', 'I'), 'CONSECIMPERF': ('A', 'I'),
+    'IMPERF': ('F', 'I'), 'CONJPERF': ('F', 'I'), 'CONJIMPERF': ('F', 'I'),
+    'IMP': ('A', 'M'),
+    'INF': ('A', 'N'), 'INFABS': ('A', 'N'),
+    'PRTCPL': ('P', 'P'), 'QALPASSPRTCPL': ('P', 'P'),
+}
+# Cohortative/jussive variants (encoded as e.g. "Imperf.Cohort",
+# "ConjImperf.Jus") each override mood regardless of the base conjugation --
+# see _compose_hebrew_verb for why they DON'T share one mapping. The
+# paragogic-he variant (".h") carries no mood change of its own -- same
+# (tense, mood) as its base conjugation.
+
+_PERSON_NUMBER_RE = re.compile(r'^([1-3])[cmf]([sp])$', re.IGNORECASE)
+_GENDER_NUMBER_RE = re.compile(r'^([cmf])([sp])(?:[cd])?$', re.IGNORECASE)
+_IMPERATIVE_TAIL_RE = re.compile(r'^[cmf]([sp])$', re.IGNORECASE)
+
+_PARTICIPLE_GENDER = {'M': 'M', 'F': 'F', 'C': 'M'}  # RMAC has no common gender; default to masculine
+
+# Hebrew's directional/locative *he* (e.g. Egypt -> "Egypt-ward") is
+# orthographically identical to a 3rd-person singular possessive suffix --
+# same final letter either way -- so BSB's data tags it with the same
+# `3fs`/`3ms`-shaped code, even though it's not a possessor at all.
+# Confirmed against real examples (Gen 10:19, 12:10, 18:22, 26:1...): every
+# `N-proper-fs | 3fs` gloss is directional ("toward Gerar", "to Egypt", "at
+# Sodom"), never possessive ("her Egypt"). The tell: a genuine possessive
+# suffix's person/gender/number is independent of the noun's own -- it
+# would be a coincidence for a random possessor to always match the head
+# noun's own gender/number. Here it always does, because it's the same
+# marker. Greek has its own tag for exactly this use (a place name used
+# adverbially for direction), the "Location" suffix -- reused here instead
+# of a fictitious possessive fusion.
+_DIRECTIONAL_HE_LOCATION = {'FS': 'N-ASF-L', 'MS': 'N-ASM-L'}
+
+
+def _directional_he_location(stem_upper: str, suffix: str) -> str | None:
+    if not stem_upper.startswith('N-PROPER-'):
+        return None
+    gender_number = stem_upper[len('N-PROPER-'):]
+    if suffix[:1] != '3' or suffix[1:] != gender_number:
+        return None
+    return _resolve_code(_DIRECTIONAL_HE_LOCATION.get(gender_number))
+
+
+_OBJECT_SUFFIX_RE = re.compile(r'^([1-3])([CMF])([SP])[A-Z0-9]?$')
+
+
+def _compose_object_pronoun(suffix: str) -> str | None:
+    """A verb's pronominal suffix is a direct object -- maps to RMAC's
+    accusative personal pronoun. Hebrew's 1st person suffix carries no
+    gender (always common), matching RMAC's genderless PPRO-A1S/A1P forms;
+    2nd/3rd person are always gendered in Hebrew, matching RMAC's gendered
+    PPRO-AM.../PPRO-AF... forms."""
+    m = _OBJECT_SUFFIX_RE.match(suffix)
+    if not m:
+        return None
+    person, gender, number = m.groups()
+    if gender == 'C':
+        return _resolve_code(f'PPRO-A{person}{number}')
+    return _resolve_code(f'PPRO-A{gender}{person}{number}')
+
+
+def _compose_hebrew_verb(segment: str) -> str | None:
+    """Compose an RMAC verb code from a Hebrew Parsing value the CSV
+    catalogued but never translated (e.g. `V-Qal-ConsecImperf-3ms` ->
+    `V-AAI-3S`). See the module docstring above for the binyan/conjugation
+    approximations this rests on -- a real linguistic judgment call, not a
+    mechanical fact, and worth revisiting against real usage."""
+    parts = segment.split('-')
+    if len(parts) < 3 or parts[0].upper() != 'V':
+        return None
+    binyan = parts[1].upper()
+    voice = _BINYAN_VOICE.get(binyan)
+    if voice is None:
+        return None
+
+    conj_field = parts[2]
+    conj_base, _, variant = conj_field.upper().partition('.')
+    if conj_base == 'QALPASSPRTCPL':
+        voice = 'P'  # passive regardless of binyan -- that's the whole point of this form
+
+    tail = parts[3] if len(parts) > 3 else None
+
+    # Cohortative (1st person volitional) and jussive (3rd person volitional)
+    # DON'T share a mapping, confirmed against real LXX renderings (Gen
+    # 1:3, 1:26): cohortative POIHSWMEN "let us make" is Aorist Active
+    # SUBJUNCTIVE (Greek has no 1st-person imperative, subjunctive is the
+    # functional match) -- but jussive GENHQHTW "let there be" and
+    # ARXETWSAN "let them rule" are both Aorist/Present *Imperative*,
+    # 3rd person -- because Greek, unlike English, actually has a 3rd
+    # person imperative, and that's what jussive maps onto directly.
+    if variant == 'COHORT':
+        tense, mood = 'A', 'S'
+    elif variant == 'JUS':
+        tense, mood = 'A', 'M'
+        if tail is None:
+            return None
+        m = _PERSON_NUMBER_RE.match(tail)
+        if not m:
+            return None
+        person, number = m.groups()
+        return _resolve_code(f'V-{tense}{voice}{mood}-{person}{number.upper()}')
+    else:
+        tense_mood = _CONJUGATION_TENSE_MOOD.get(conj_base)
+        if tense_mood is None:
+            return None
+        tense, mood = tense_mood
+
+    if mood == 'N':  # infinitive: no person/number
+        return _resolve_code(f'V-{tense}{voice}{mood}')
+
+    if mood == 'P':  # participle: case(default N)+number+gender, no construct
+        if tail is None:
+            return None
+        m = _GENDER_NUMBER_RE.match(tail)
+        if not m:
+            return None
+        gender, number = m.groups()
+        gender = _PARTICIPLE_GENDER.get(gender.upper())
+        if gender is None:
+            return None
+        return _resolve_code(f'V-{tense}{voice}{mood}-N{number.upper()}{gender}')
+
+    if mood == 'M':  # imperative (from the Imp conjugation itself): always 2nd person
+        if tail is None:
+            return None
+        m = _IMPERATIVE_TAIL_RE.match(tail)
+        if not m:
+            return None
+        return _resolve_code(f'V-{tense}{voice}{mood}-2{m.group(1).upper()}')
+
+    # indicative / subjunctive: person + number, gender dropped
+    if tail is None:
+        return None
+    m = _PERSON_NUMBER_RE.match(tail)
+    if not m:
+        return None
+    person, number = m.groups()
+    return _resolve_code(f'V-{tense}{voice}{mood}-{person}{number.upper()}')
+
+
+def _is_hebrew_verb_stem(segment: str) -> bool:
+    parts = segment.upper().split('-')
+    return len(parts) > 1 and parts[0] == 'V' and parts[1] in _HEBREW_VERB_STEMS
+
+
+def _resolve_code(code: str) -> str | None:
+    return code if (code in _RMAC_CODES or code in _KNOWN_GOOD_UNLINKED) else None
+
+
+def _resolve_segment(segment: str) -> str | None:
+    if _is_hebrew_verb_stem(segment):
+        return _compose_hebrew_verb(segment)
+    return _resolve_code(segment.upper().replace('/', '-'))
+
+
+def _resolve_morph(parsing_short: str | None) -> str | None:
+    if not parsing_short:
+        return None
+    groups = [g.strip() for g in parsing_short.split('|') if g.strip()]
+    if not groups:
+        return None
+
+    # Paragogic nun ("Pn") is an emphatic/energic marker on some imperfect
+    # 2nd/3rd plural forms -- no RMAC morpheme of its own, so it's dropped
+    # rather than treated as an unresolvable suffix. It can appear alone
+    # (`V-Qal-Imperf-3mp | Pn`) or alongside a real object suffix
+    # (`V-Piel-Imperf-3mp | 1cs, Pn`).
+    if len(groups) >= 2:
+        last_items = [x.strip() for x in groups[-1].split(',')]
+        if any(x.upper() == 'PN' for x in last_items):
+            remaining = [x for x in last_items if x.upper() != 'PN']
+            if remaining:
+                groups[-1] = ', '.join(remaining)
+            else:
+                groups.pop()
+
+    # A trailing bare suffix isn't its own morpheme -- it fuses onto the
+    # stem's own code with a hyphen (N-fsc | 3ms -> N-FSC-3MS). A rare
+    # variant-form suffix carries a trailing digit or letter BSB's own data
+    # doesn't explain (`2fs2`, `1cse`) -- ignored, resolved as the base form.
+    suffix = None
+    if len(groups) >= 2 and _SUFFIX_PRONOUN_RE.match(groups[-1]):
+        suffix = groups.pop().upper()
+
+    segments = [s.strip() for group in groups for s in group.split(',') if s.strip()]
+    if not segments:
+        return None
+
+    codes = [_resolve_segment(s) for s in segments[:-1]]
+    stem = segments[-1]
+
+    if suffix is None:
+        codes.append(_resolve_segment(stem))
+    elif _is_hebrew_verb_stem(stem):
+        # A verb's own suffix is a pronominal *object*, not a possessive
+        # like a noun's -- Greek has no equivalent fused verb+object-pronoun
+        # code, so this stores it as its own separate linked morpheme
+        # (an accusative personal pronoun) rather than trying to fuse it.
+        # If the verb itself resolves but we don't have a confident mapping
+        # for this particular suffix, the verb code is still worth keeping
+        # -- the raw suffix rides along bracketed (unlinked) rather than
+        # losing the verb's own match entirely.
+        verb_code = _compose_hebrew_verb(stem)
+        codes.append(verb_code)
+        if verb_code is not None:
+            pronoun_code = _compose_object_pronoun(suffix)
+            codes.append(pronoun_code if pronoun_code is not None else f'[{suffix}]')
+    else:
+        stem_upper = stem.upper().replace('/', '-')
+        fused = (_resolve_code(f'{stem_upper}-{suffix}')
+                 or _resolve_code(f'{stem_upper}-{re.sub(r"[0-9]$", "", suffix)}')
+                 or _directional_he_location(stem_upper, suffix))
+        if fused is not None:
+            codes.append(fused)
+        else:
+            # No fused or composed form exists for this stem+suffix pairing
+            # (e.g. Number-mdc | 3mp, Interjection | 1cs -- rmac.json has no
+            # entry either way). Rather than lose a stem that resolves fine
+            # on its own, link that and carry the raw suffix along
+            # unlinked/bracketed instead of discarding the whole token.
+            bare = _resolve_code(stem_upper)
+            codes.append(bare)
+            if bare is not None:
+                codes.append(f'[{suffix}]')
+
+    if any(code is None for code in codes):
+        return None
+    return '|'.join(codes)
+
+
 _INSERT_COLUMNS = [
     'bsb_sort', 'verse_id', 'source_sort', 'language',
     'source_text', 'translit', 'strongs', 'parsing_short', 'parsing_full',
-    'gloss_type', 'english', 'parent_id',
+    'morph', 'gloss_type', 'english', 'parent_id',
     'beg_quote', 'end_quote', 'punctuation', 'space',
     'suffix_html', 'par_class', 'footnote',
 ]
@@ -269,6 +585,7 @@ CREATE TABLE tokens (
     strongs       TEXT,
     parsing_short TEXT,
     parsing_full  TEXT,
+    morph         TEXT,  -- RMAC code, populated only where parsing_short maps directly (see _resolve_morph)
     gloss_type    TEXT NOT NULL
                   CHECK(gloss_type IN ('text','untranslated',
                                        'continuation_after','continuation_before')),
@@ -406,6 +723,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
                 strongs=strongs,
                 parsing_short=cols[COL_PARSING_SHORT] or None,
                 parsing_full=cols[COL_PARSING_FULL] or None,
+                morph=_resolve_morph(cols[COL_PARSING_SHORT]),
                 gloss_type=gloss_type,
                 english=english,
                 parent_id=None,

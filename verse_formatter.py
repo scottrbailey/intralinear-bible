@@ -468,7 +468,7 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
                     # yes I know the ruby / rt tags are semantically inverted - easier to hide rt
                     # <num> is invisible (opacity:0) and only overlays <rt> so e-Sword's own
@@ -509,25 +509,25 @@ class ESwordStackedFormatter(ESwordIntralinearFormatter):
     file_extension = ".bbli"
     css            = _ESWORD_STACKED_CSS
 
-
-
-_ESWORD_INTERLINEAR_CSS = (
-    'qi{display:inline-flex;flex-direction:column;align-items:center;'
-    'vertical-align:top;margin:0 3px}'
-    'e{white-space:nowrap}'
-    'qi>span{display:flex;flex-direction:row;gap:0px}'
-    'lem {display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;'
-    'font-size:.9em;margin-top:2px;padding-top:2px;gap:2px;line-height:1 !important;}'
-    'lem sup{display:block;vertical-align:baseline;margin:0;padding:0;line-height:1}'
-    '.xlit{color:#2244aa}'
-    'tvm{color:#666}'
-)
+_ESWORD_INTERLINEAR_CSS = """
+ilb {display:inline-block; vertical-align:top; margin: 0 0.1em 0.75em;}
+ilb > * {display:block; text-align:center; width:100%; max-width:100%;}
+trn {border-bottom:1px solid gray; text-align:center; width:100%; border-bottom:2px solid #DDD; margin-bottom:.1em;}
+lm {display:inline-block; text-align:center; padding: 0.2em; gap: 3px; font-size:.85em; line-height: 1.0em;} 
+ltn {color: green; padding-bottom: 0.2em;} .red i {color: #d6807f;}
+lm mb {max-width:100%;} lm > * {display:block} hb, gr {color:#065e69;} 
+sb > *, mb > * {vertical-align:normal; font-size:.7em; padding:0; line-height:.8em;}
+.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
+.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
+.pshdg, .inscrip, .selah {font-style:italic;}
+"""
 
 class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSBri"
+    abbreviation   = "BSRB"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTERLINEAR_CSS
+    bracket_replacement = ('<i>', '</i>')
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -561,7 +561,7 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 else:
                     text    = pending + english_text
                     pending = ''
-                    parts.append(f'<q><e>{text}</e></q>')
+                    parts.append(f'<ilb><eng>{text}</eng><lg></lg></ilb>')
             else:
                 english = pending + self.transform_english(token.english, token.par_class, token.is_red)
                 pending = ''
@@ -580,25 +580,17 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
                 segments = []
                 for sw in token.source_words:
-                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper)
-                    strongs = sw.stem.strongs
-                    if sw.lang == 'G':
-                        segments.append(
-                            f'<lem><gs>{sw.text}</gs>'
-                            f'<xlit>{xlit}</xlit>'
-                            f'<num>{strongs}</num>'
-                            f'<tvm>{sw.stem.morph}</tvm></lem>'
-                        )
-                    else:
-                        segments.append(
-                            f'<lem><heb>{sw.text}</heb>'
-                            f'<xlit>{xlit}</xlit>'
-                            f'<tvm>{sw.stem.morph}</tvm></lem>'
-                        )
-
+                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
+                    morph = sw.stem.morph or sw.stem.token_class
+                    morph_tags = ''.join([f'<tvm>{mph}</tvm>' for mph in morph.split('|')])
+                    lang_class = 'gr' if sw.lang == 'G' else 'hb'
+                    segments.append(
+                        f'<lm><{lang_class}>{sw.text}</{lang_class}><ltn>{xlit}</ltn>'
+                        f'<sb><num>{sw.stem.strongs}</num></sb><mb>{morph_tags}</mb></lm>'
+                    )
                 parts.append(
-                    f'<qi><e>{english}</e>'
-                    f'<span>{"".join(segments)}</span></qi>'
+                    f'<ilb><trn>{english}</trn>'
+                    f'<lg>{"".join(segments)}</lg></ilb>'
                 )
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
@@ -701,7 +693,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
                     # With no strongs number, `<a href="s">` would be a real but broken
                     # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
@@ -741,18 +733,47 @@ class MySwordStackedFormatter(MySwordIntralinearFormatter):
     verse_rules  = _MYSWORD_STACKED_RULES
 
 _MYSWORD_INTERLINEAR_CSS = """
-sup { font-size: 70%; }
-.xlit a { color: blue; text-decoration: none; }
+ilb {display:inline-flex; flex-direction:column; align-items:stretch; vertical-align:top; margin:0.2em 0.2em 0.75em;}
+ilb t {width: 100%; text-align:center; border-bottom: 2px solid #eee;}
+ilb > lg {display:inline-flex; flex-direction:row; justify-content:center; gap:4px;} 
+lm {display:inline-flex; flex-direction:column; align-items:stretch; width:100%;}
+lm > * {text-align: center}
+ilb ro {color:#065e69;} ilb rt {color:#7a10ad;} ilb i {color: #444;}
+.wjc i {color: #8f4b4b;}
+.strong, .morph {font-size:0.7em}
+.acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
+.acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
+.pshdg, .inscrip, .selah {font-style:italic;}
+ilb mg {display:inline-flex; flex-direction:row; flex-wrap:wrap; gap:3px; justify-content:center}
 """
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSBri"
+    abbreviation   = "BSRB"
     module_name    = "BSB Reverse Interlinear Bible"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
     verse_rules    = _MYSWORD_INTERLINEAR_RULES
+    bracket_replacement = ('<i>', '</i>')
+
+    def render_header(self, raw: str) -> str:
+        """Unlike the other MySword formatters (which dump every header class
+        into <TS>, undifferentiated -- see _MySwordXrefMixin), the interlinear
+        keeps acrostic/ihdg/subhdg as inline spans+<br/> instead (same markup
+        the base class's default policy uses for e-Sword): those read as part
+        of the verse's own running text here, not a section title, so folding
+        them into MySword's native title bar alongside real headings would
+        lose that. hdg/suphdg still go through <TS> -- that's the only way
+        MySword shows a heading at all, unlike e-Sword's always-on pericopes.
+        """
+        parts = []
+        for cls, text in parse_headers(raw):
+            if cls in _INLINE_HEADER_CLASSES:
+                parts.append(f'<span class="{cls}">{text}</span><br/>')
+            else:
+                parts.append(f"<TS>{text}<Ts>")
+        return ''.join(parts)
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -775,17 +796,43 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
             else:
                 segments = []
                 for sw in token.source_words:
-                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper)
+                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
-                    tag     = 'G' if sw.lang == 'G' else 'H'
-                    end     = 'g' if sw.lang == 'G' else 'h'
-                    segments.append(f"<{tag}>{sw.text}<W{strongs}><X>{xlit}<x><{end}>")
+                    # Some source words genuinely have no Strong's number (the
+                    # direct object marker, prefixed prepositions/conjunctions
+                    # as their own token, etc.) -- a bare <W> tag with no
+                    # number doesn't reserve a row the way a real <WH.../WG...>
+                    # link does, so sibling <lm>s in the same row go out of
+                    # vertical alignment. A truly empty <span> doesn't fix
+                    # this either: every direct child of <lm> is a flex item
+                    # (lm's own display:inline-flex; flex-direction:column),
+                    # and flex items size to their content -- an empty span
+                    # has zero content, so it collapses to zero height
+                    # regardless of font-size. A non-breaking space gives it
+                    # real content to size against, so it reserves the row.
+                    strong_tag = f'<W{strongs}>' if strongs else '<span class="strong">&nbsp;</span>'
+                    # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
+                    # falls back to the raw BSB Parsing string when unresolved -- still
+                    # displayed for the reader, just not a dictionary-linkable code, so
+                    # MySword's own lookup silently fails to match it rather than showing
+                    # nothing at all.
+                    morph = sw.stem.morph or sw.stem.token_class
+                    morph_tags = ''.join([f'<WT{mph}>' for mph in morph.split('|')])
+
+                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}<mg>{morph_tags}</mg></lm>")
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
-                    f"<Q>{''.join(segments)}<E>{english}<e><q>"
+                    f"<ilb><t>{english}</t><lg>{''.join(segments)}</lg></ilb>"
                 )
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+
+            # A Psalm superscription (pshdg) runs across several tokens (see
+            # table_composer.py's forward par_class tracking) -- add a break
+            # once at the end of that run, not after every token in it, so
+            # the poem body starts on its own line instead of running on.
+            if token.par_class == 'pshdg' and (next_token is None or next_token.par_class != 'pshdg'):
+                parts.append('<br/>')
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')

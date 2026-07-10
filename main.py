@@ -178,6 +178,13 @@ def build_writers(output_format: str, render_mode: str,
 
 # ----------------------------------------------------------------- zip
 
+def writer_abbreviation(writer) -> str:
+    """A writer's module abbreviation (BSTB, BSRB, ...) -- MySword/e-Sword
+    writers carry it on their profile (formatter instance); OSISWriter has
+    no profile and carries it directly on itself."""
+    return getattr(writer, 'profile', writer).abbreviation
+
+
 def zip_outputs(paths: list, zip_path: Path) -> None:
     """Zip this run's output file(s) (flat, no directory structure) into one archive."""
     zip_path.parent.mkdir(parents=True, exist_ok=True)
@@ -201,6 +208,8 @@ def main():
     transliterate = make_transliterator(
         hebrew_scheme=xlit_cfg.get('hebrew', 'brill_simple'),
         greek_scheme=xlit_cfg.get('greek', 'SIMPLE'),
+        syllable_sep=xlit_cfg.get('syllable_sep'),
+        stress_marker=xlit_cfg.get('stress_marker'),
     )
 
     output_cfg = config['output']
@@ -233,7 +242,11 @@ def main():
         writer.write()
 
     if args.zip:
-        zip_path = output_dir / f"{config['translation']}_{args.output_format}.zip"
+        # Dedupe while preserving order -- a multi-format run (e.g. one
+        # writer per platform for the same module) shouldn't repeat the
+        # same abbreviation twice in the file name.
+        seen = dict.fromkeys(writer_abbreviation(writer) for writer in writers)
+        zip_path = output_dir / f"{'_'.join(seen)}.zip"
         zip_outputs([writer.output_path for writer in writers], zip_path)
 
 
