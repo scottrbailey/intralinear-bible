@@ -4,8 +4,8 @@ import datetime as dt
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MODULE_NAME='Robinson\'s Morphological Analysis Codes Extended'
-MODULE_ABBREV='RMACE'
+MODULE_NAME='Robinson\'s Morphological Analysis Codes - Extended'
+MODULE_ABBREV='RMAC'
 MODULE_VERSION='1.3'
 MODULE_CREATOR='Costas Stergiou (root@theword.gr), Rúbio Terra (rubio.terra@gmail.com)'
 MODULE_DESCRIPTION='''This is a list of abbreviations for the grammar morphology codes that are used in various Bible texts. Several New Testament texts are tagged with an abbreviation code after each word that explains its grammar, and this dictionary contains the analytical explanation of each abbreviation. This has been extended to cover Hebrew morphologies.'''
@@ -39,7 +39,9 @@ class EswordDictionaryWriter(DictionaryWriter):
         self.cursor.execute(f"""
             CREATE VIEW Dictionary AS
             SELECT Topic,
-                '<style>{MODULE_CSS}</style>' || Definition AS Definition
+              CASE WHEN Topic != 'entree' THEN
+                '<style>{MODULE_CSS}</style>\n<p>' || Definition ||'</p>' 
+                ELSE Definition END AS Definition
             FROM _Dictionary
         """)
 
@@ -82,8 +84,8 @@ class MyswordDictionaryWriter(DictionaryWriter):
 
 
 if __name__ == '__main__':
-    ES_TARGET = ROOT / 'output' / 'rmace.dcti'
-    MS_TARGET = ROOT / 'output' / 'rmace.dct.mybible'
+    ES_TARGET = ROOT / 'output' / 'rmac.dcti'
+    MS_TARGET = ROOT / 'output' / 'rmac.dct.mybible'
     SRC_FILE = ROOT / 'data' / 'rmac.json'
 
     if ES_TARGET.exists():
@@ -94,6 +96,7 @@ if __name__ == '__main__':
     ms_db = sqlite3.connect(MS_TARGET)
     es_writer = EswordDictionaryWriter(es_db.cursor())
     ms_writer = MyswordDictionaryWriter(ms_db.cursor())
+    es_writer.write_entry(('entree', 'description'))
     rmac_data = json.load(open(SRC_FILE))
     for i, (key, val) in enumerate(rmac_data.items()):
         params = (key, val, i+1)
