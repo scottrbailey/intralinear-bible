@@ -42,8 +42,10 @@ transliteration:
   # silently inheriting whatever the Hebrew scheme happens to bundle. Also
   # what Greek's marker-insertion falls back to when hebrew is null (Greek's
   # own provided transliteration has no syllable dots baked in the way
-  # Hebrew's does, so without this it gets none at all). null/omit either
-  # to fall back to the Hebrew scheme's own bundled value.
+  # Hebrew's does, so without this it gets none at all).
+  # null/omit either one to fall back to the Hebrew scheme's own bundled
+  # value -- NOT the same as "": "" is a real override too, an explicit
+  # "no marker at all" even if the scheme itself bundles one.
   syllable_sep: "·"
   stress_marker: null
 
