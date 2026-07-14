@@ -9,7 +9,7 @@ MODULE_ABBREV='RMAC'
 MODULE_VERSION='1.3'
 MODULE_CREATOR='Costas Stergiou (root@theword.gr), Rúbio Terra (rubio.terra@gmail.com)'
 MODULE_DESCRIPTION='''This is a list of abbreviations for the grammar morphology codes that are used in various Bible texts. Several New Testament texts are tagged with an abbreviation code after each word that explains its grammar, and this dictionary contains the analytical explanation of each abbreviation. This has been extended to cover Hebrew morphologies.'''
-MODULE_CSS='dl dt {font-weight: bold; color:blue}'
+MODULE_CSS=''
 REF_AUTHOR='Maurice A. Robinson'
 
 class DictionaryWriter:
@@ -34,26 +34,18 @@ class EswordDictionaryWriter(DictionaryWriter):
         self.cursor.execute(sql_insert, (MODULE_NAME, MODULE_ABBREV, MODULE_DESCRIPTION, 4))
 
         # Create and populate Dictionary table
-        self.cursor.execute('CREATE TABLE _Dictionary (Topic NVARCHAR(100), Definition TEXT)')
-        self.cursor.execute('CREATE INDEX TopicIndex ON _Dictionary (Topic)')
-        self.cursor.execute(f"""
-            CREATE VIEW Dictionary AS
-            SELECT Topic,
-              CASE WHEN Topic != 'entree' THEN
-                '<style>{MODULE_CSS}</style>\n<p>' || Definition ||'</p>' 
-                ELSE Definition END AS Definition
-            FROM _Dictionary
-        """)
+        self.cursor.execute('CREATE TABLE Dictionary (Topic NVARCHAR(100), Definition TEXT)')
+        self.cursor.execute('CREATE INDEX TopicIndex ON Dictionary (Topic)')
 
     def write_entry(self, parms):
         if len(parms) > 2:
            parms = parms[:2]
-        self.cursor.execute("INSERT INTO _Dictionary (Topic, Definition) VALUES (?, ?)", parms)
+        self.cursor.execute("INSERT INTO Dictionary (Topic, Definition) VALUES (?, ?)", parms)
 
 class MyswordDictionaryWriter(DictionaryWriter):
     def init_tables(self):
         # Create and populate details table
-        self.cursor.execute("""CREATE TABLE details (
+        self.cursor.execute("""CREATE TABLE Details (
                 title TEXT,
                 abbreviation TEXT,
                 description TEXT,
@@ -96,7 +88,7 @@ if __name__ == '__main__':
     ms_db = sqlite3.connect(MS_TARGET)
     es_writer = EswordDictionaryWriter(es_db.cursor())
     ms_writer = MyswordDictionaryWriter(ms_db.cursor())
-    es_writer.write_entry(('entree', 'description'))
+    # es_writer.write_entry(('entree', 'description'))
     rmac_data = json.load(open(SRC_FILE))
     for i, (key, val) in enumerate(rmac_data.items()):
         params = (key, val, i+1)
