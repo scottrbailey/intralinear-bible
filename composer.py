@@ -1,15 +1,17 @@
 """
 composer.py
 
-BibleComposer: loads source data and yields aligned verse tokens.
+Composer: ABC for anything that yields aligned verse tokens.
+AlignmentComposer: loads source/alignment/target files and joins them live.
 """
 
 import csv
 import json
 import re
+import sqlite3
+from abc import ABC, abstractmethod
 from pathlib import Path
 
-import dbtk.readers
 from biblelib.book import Books
 
 from models import (
@@ -21,9 +23,14 @@ from models import (
 # Build at module load — one-time cost, used by composer and writers alike.
 BOOK_NUM_MAP: dict = {book.usfmnumber: book.osisID for book in Books().values()}
 
-_book_abbrev = [book.osisID for book in Books().values()]
-_OT_ABBREV   = set(_book_abbrev[:39])
-_NT_ABBREV   = set(_book_abbrev[60:87])
+# data/books.db (see utils/build_books_table.py) gives an explicit testament
+# per book rather than slicing into biblelib's own (apocrypha-inclusive)
+# iteration order, which put the NT at index 60, not immediately after the
+# 39 OT books.
+_BOOKS_DB = Path(__file__).resolve().parent / "data" / "books.db"
+with sqlite3.connect(_BOOKS_DB) as _conn:
+    _OT_ABBREV = {r[0] for r in _conn.execute("SELECT osis_id FROM books WHERE testament='OT'")}
+    _NT_ABBREV = {r[0] for r in _conn.execute("SELECT osis_id FROM books WHERE testament='NT'")}
 
 
 def verse_id_to_osis(verse_id: str) -> str:
@@ -35,8 +42,22 @@ def verse_id_to_osis(verse_id: str) -> str:
     return f"{book_name}.{chapter}.{verse}"
 
 
-class BibleComposer:
-    """Loads source data and yields (osis_ref, tokens, header, xrefs) per verse.
+class Composer(ABC):
+    """Yields (osis_ref, [AlignedToken], header, xrefs) per verse.
+
+    Implementations differ in where the joined data comes from — a live
+    join across source/alignment/target files (AlignmentComposer) or a
+    precomputed table (TableComposer) — but writers and formatters only
+    ever see this interface.
+    """
+
+    @abstractmethod
+    def iter_verses(self):
+        """Yield (osis_ref, [AlignedToken], header, xrefs) across all testaments."""
+
+
+class AlignmentComposer(Composer):
+    """Loads source/alignment/target files and joins them live, per verse.
 
     direction controls the join strategy:
       TARGET_TO_SOURCE — English-primary tokens (current, used for intralinear
@@ -154,9 +175,23 @@ def _load_source_index(path: Path, testament: str) -> dict:
                            or row.get('strongs') or '')
             if raw_strongs:
                 raw_strongs = re.sub(r'^[HGA]', '', raw_strongs)
-                raw_strongs = re.sub(r'^0*(\d+)[a-z]*$', r'\1', raw_strongs)
-                strongs_prefix = 'H' if lang in ('H', 'A') else lang
-                raw_strongs = strongs_prefix + raw_strongs
+                # A trailing letter ('0871a', '2050b') marks a grammatical
+                # morpheme (preposition/article/conjunction) tagged with a
+                # pseudo-Strong's slot borrowed from an unrelated real entry's
+                # number, not a genuine sense-disambiguated Strong's number —
+                # confirmed against the classic Strong's dictionary: '0871a'
+                # (the bare preposition bet) strips to H871, which is really
+                # 'Atharim' (Num 21:1); '2050b' (the conjunction waw) strips
+                # to H2050, which is really 'imagine mischief' (Ps 62:3).
+                # Stripping the letter and linking anyway would point readers
+                # at the wrong, unrelated dictionary entry, so it's suppressed
+                # entirely rather than resolved.
+                m = re.match(r'^0*(\d+)([a-z]*)$', raw_strongs)
+                if m and not m.group(2):
+                    strongs_prefix = 'H' if lang in ('H', 'A') else lang
+                    raw_strongs = strongs_prefix + m.group(1)
+                else:
+                    raw_strongs = ''
 
             index[row['xml:id']] = SourceToken(
                 id=row['xml:id'],
@@ -181,6 +216,7 @@ def _load_alignment_index(path: Path) -> dict:
             data = json.load(f)
         rows = data['records']
     elif path.suffix == '.ndjson':
+        import dbtk.readers  # optional dependency, only needed for this format
         rows = dbtk.readers.get_reader(path)
     index = {}
     for rec in rows:

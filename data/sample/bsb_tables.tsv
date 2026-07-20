@@ -1,0 +1,211 @@
+Heb Sort	Greek Sort	BSB Sort	Verse	Language	WLC / Nestle Base TR RP WH NE NA SBL	WLC / Nestle Base {TR} ⧼RP⧽ (WH) 〈NE〉 [NA] ‹SBL› [[ECM]]	Translit	Parsing	Parsing	Str Heb	Str Grk	VerseId	Hdg	Crossref	Par	Space	begQ	 BSB version 	pnc	endQ	footnotes	End text
+1	0	1	1	Hebrew	בְּרֵאשִׁ֖ית	בְּרֵאשִׁ֖ית	bə·rê·šîṯ	Prep-b | N-fs	Preposition-b | Noun - feminine singular	7225		Genesis 1:1	<p class=|hdg|>The Creation	<br /><span class=|cross|>(<a href =|../john/1.htm|>John 1:1–5</a>; <a href =|../hebrews/11.htm|>Hebrews 11:1–3</a>)</span>	<p class=|reg|>			 In the beginning 				
+3	0	2	1	Hebrew	אֱלֹהִ֑ים	אֱלֹהִ֑ים	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430								 God 				
+4	0	3	1	Hebrew	אֵ֥ת	אֵ֥ת	’êṯ	DirObjM	Direct object marker	853								 - 				
+2	0	4	1	Hebrew	בָּרָ֣א	בָּרָ֣א	bā·rā	V-Qal-Perf-3ms	Verb - Qal - Perfect - third person masculine singular	1254								 created 				
+5	0	5	1	Hebrew	הַשָּׁמַ֖יִם	הַשָּׁמַ֖יִם	haš·šā·ma·yim	Art | N-mp	Article | Noun - masculine plural	8064								 the heavens 				
+6	0	6	1	Hebrew	וְאֵ֥ת	וְאֵ֥ת	wə·’êṯ	Conj-w | DirObjM	Conjunctive waw | Direct object marker	853								 and 				
+7	0	7	1	Hebrew	הָאָֽרֶץ׃	הָאָֽרֶץ׃	hā·’ā·reṣ	Art | N-fs	Article | Noun - feminine singular	776								 the earth 	.			
+18	0	18	2	Hebrew	וְהָאָ֗רֶץ	וְהָאָ֗רֶץ	wə·hā·’ā·reṣ	Conj-w, Art | N-fs	Conjunctive waw, Article | Noun - feminine singular	776		Genesis 1:2			<p class=|reg|>			 Now the earth 				
+19	0	19	2	Hebrew	הָיְתָ֥ה	הָיְתָ֥ה	hā·yə·ṯāh	V-Qal-Perf-3fs	Verb - Qal - Perfect - third person feminine singular	1961								 was 				
+20	0	20	2	Hebrew	תֹ֙הוּ֙	תֹ֙הוּ֙	ṯō·hū	N-ms	Noun - masculine singular	8414								 formless 				
+21	0	21	2	Hebrew	וָבֹ֔הוּ	וָבֹ֔הוּ	wā·ḇō·hū	Conj-w | N-ms	Conjunctive waw | Noun - masculine singular	922								 and void 	,			
+22	0	22	2	Hebrew	וְחֹ֖שֶׁךְ	וְחֹ֖שֶׁךְ	wə·ḥō·šeḵ	Conj-w | N-ms	Conjunctive waw | Noun - masculine singular	2822								 and darkness 				
+23	0	23	2	Hebrew	עַל־	עַל־	‘al-	Prep	Preposition	5921								 was over 				
+24	0	24	2	Hebrew	פְּנֵ֣י	פְּנֵ֣י	pə·nê	N-cpc	Noun - common plural construct	6440								 the surface 				
+25	0	25	2	Hebrew	תְה֑וֹם	תְה֑וֹם	ṯə·hō·wm	N-cs	Noun - common singular	8415								 of the deep 	.			
+26	0	26	2	Hebrew	וְר֣וּחַ	וְר֣וּחַ	wə·rū·aḥ	Conj-w | N-csc	Conjunctive waw | Noun - common singular construct	7307								 And the Spirit 				
+27	0	27	2	Hebrew	אֱלֹהִ֔ים	אֱלֹהִ֔ים	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430								 of God 				
+28	0	28	2	Hebrew	מְרַחֶ֖פֶת	מְרַחֶ֖פֶת	mə·ra·ḥe·p̄eṯ	V-Piel-Prtcpl-fs	Verb - Piel - Participle - feminine singular	7363								 was hovering 				
+29	0	29	2	Hebrew	עַל־	עַל־	‘al-	Prep	Preposition	5921								 over 				
+30	0	30	2	Hebrew	פְּנֵ֥י	פְּנֵ֥י	pə·nê	N-cpc	Noun - common plural construct	6440								 the surface 				
+31	0	31	2	Hebrew	הַמָּֽיִם׃	הַמָּֽיִם׃	ham·mā·yim	Art | N-mp	Article | Noun - masculine plural	4325								 of the waters 	.			
+43	0	42	3	Hebrew	אֱלֹהִ֖ים	אֱלֹהִ֖ים	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430		Genesis 1:3	<p class=|subhdg|>The First Day		<p class=|tab1stline|>			 And God 				
+42	0	43	3	Hebrew	וַיֹּ֥אמֶר	וַיֹּ֥אמֶר	way·yō·mer	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	559								 said 	,			
+44	0	44	3	Hebrew	יְהִ֣י	יְהִ֣י	yə·hî	V-Qal-Imperf.Jus-3ms	Verb - Qal - Imperfect Jussive - third person masculine singular	1961							“	 Let there be 				
+45	0	45	3	Hebrew	א֑וֹר	א֑וֹר	’ō·wr	N-cs	Noun - common singular	216								 light 	,	” 	Cited in 2 Corinthians 4:6	
+46	0	46	3	Hebrew	וַֽיְהִי־	וַֽיְהִי־	way·hî-	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	1961								 and there was 				
+47	0	47	3	Hebrew	אֽוֹר׃	אֽוֹר׃	’ō·wr	N-cs	Noun - common singular	216								 light 	.			
+59	0	58	4	Hebrew	אֱלֹהִ֛ים	אֱלֹהִ֛ים	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430		Genesis 1:4						 And God 				
+60	0	59	4	Hebrew	אֶת־	אֶת־	’eṯ-	DirObjM	Direct object marker	853								 - 				
+58	0	60	4	Hebrew	וַיַּ֧רְא	וַיַּ֧רְא	way·yar	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	7200								 saw 				
+62	0	61	4	Hebrew	כִּי־	כִּי־	kî-	Conj	Conjunction	3588								 that 				
+61	0	62	4	Hebrew	הָא֖וֹר	הָא֖וֹר	hā·’ō·wr	Art | N-cs	Article | Noun - common singular	216								 the light 				
+63	0	63	4	Hebrew	ט֑וֹב	ט֑וֹב	ṭō·wḇ	Adj-ms	Adjective - masculine singular	2896								 [was] good 	,			
+65	0	64	4	Hebrew	אֱלֹהִ֔ים	אֱלֹהִ֔ים	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430								 and [He] 				
+64	0	65	4	Hebrew	וַיַּבְדֵּ֣ל	וַיַּבְדֵּ֣ל	way·yaḇ·dêl	Conj-w | V-Hifil-ConsecImperf-3ms	Conjunctive waw | Verb - Hifil - Consecutive imperfect - third person masculine singular	914								 separated 				
+67	0	66	4	Hebrew	הָא֖וֹר	הָא֖וֹר	hā·’ō·wr	Art | N-cs	Article | Noun - common singular	216								 the light 				
+68	0	67	4	Hebrew	וּבֵ֥ין	וּבֵ֥ין	ū·ḇên	Conj-w | Prep	Conjunctive waw | Preposition	996								 from 				
+66	0	68	4	Hebrew	בֵּ֥ין	בֵּ֥ין	bên	Prep	Preposition	996								 . . . 				
+69	0	69	4	Hebrew	הַחֹֽשֶׁךְ׃	הַחֹֽשֶׁךְ׃	ha·ḥō·šeḵ	Art | N-ms	Article | Noun - masculine singular	2822								 the darkness 	.			
+81	0	80	5	Hebrew	אֱלֹהִ֤ים׀	אֱלֹהִ֤ים׀	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430		Genesis 1:5						 God 				
+80	0	81	5	Hebrew	וַיִּקְרָ֨א	וַיִּקְרָ֨א	way·yiq·rā	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	7121								 called 				
+82	0	82	5	Hebrew	לָאוֹר֙	לָאוֹר֙	lā·’ō·wr	Prep-l, Art | N-cs	Preposition-l, Article | Noun - common singular	216								 the light 				
+83	0	83	5	Hebrew	י֔וֹם	י֔וֹם	yō·wm	N-ms	Noun - masculine singular	3117							“ 	 day 	,	”		
+84	0	84	5	Hebrew	וְלַחֹ֖שֶׁךְ	וְלַחֹ֖שֶׁךְ	wə·la·ḥō·šeḵ	Conj-w, Prep-l, Art | N-ms	Conjunctive waw, Preposition-l, Article | Noun - masculine singular	2822								 and the darkness 				
+85	0	85	5	Hebrew	קָ֣רָא	קָ֣רָא	qā·rā	V-Qal-Perf-3ms	Verb - Qal - Perfect - third person masculine singular	7121								 He called 				
+86	0	86	5	Hebrew	לָ֑יְלָה	לָ֑יְלָה	lā·yə·lāh	N-ms	Noun - masculine singular	3915							“ 	 night 	.	”		
+87	0	87	5	Hebrew	וַֽיְהִי־	וַֽיְהִי־	way·hî-	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	1961					<p class=|tab1stline|>			 And there was 				
+88	0	88	5	Hebrew	עֶ֥רֶב	עֶ֥רֶב	‘e·reḇ	N-ms	Noun - masculine singular	6153								 evening 	,			
+89	0	89	5	Hebrew	וַֽיְהִי־	וַֽיְהִי־	way·hî-	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	1961								 and there was 				
+90	0	90	5	Hebrew	בֹ֖קֶר	בֹ֖קֶר	ḇō·qer	N-ms	Noun - masculine singular	1242								 morning 	 — 			
+92	0	91	5	Hebrew	אֶחָֽד׃פ	אֶחָֽד׃פ	’e·ḥāḏ	Number-ms	Number - masculine singular	259								 the first 				
+91	0	92	5	Hebrew	י֥וֹם	י֥וֹם	yō·wm	N-ms	Noun - masculine singular	3117								 day 	.		Literally <i>day one</i>	
+105	0	103	6	Hebrew	אֱלֹהִ֔ים	אֱלֹהִ֔ים	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430		Genesis 1:6	<p class=|subhdg|>The Second Day		<p class=|tab1stline|>			 And God 				
+104	0	104	6	Hebrew	וַיֹּ֣אמֶר	וַיֹּ֣אמֶר	way·yō·mer	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	559								 said 	,			
+106	0	105	6	Hebrew	יְהִ֥י	יְהִ֥י	yə·hî	V-Qal-Imperf.Jus-3ms	Verb - Qal - Imperfect Jussive - third person masculine singular	1961							“	 Let there be 				
+107	0	106	6	Hebrew	רָקִ֖יעַ	רָקִ֖יעַ	rā·qî·a‘	N-ms	Noun - masculine singular	7549								 an expanse 			Or <i>a canopy</i> or <i>a firmament</i> or <i>a vault</i>; also in verses 7, 8, 14, 15, 17, and 20	
+108	0	107	6	Hebrew	בְּת֣וֹךְ	בְּת֣וֹךְ	bə·ṯō·wḵ	Prep-b | N-msc	Preposition-b | Noun - masculine singular construct	8432								 between 				
+109	0	108	6	Hebrew	הַמָּ֑יִם	הַמָּ֑יִם	ham·mā·yim	Art | N-mp	Article | Noun - masculine plural	4325								 the waters 	,			
+110	0	109	6	Hebrew	וִיהִ֣י	וִיהִ֣י	wî·hî	Conj-w | V-Qal-ConjImperf.Jus-3ms	Conjunctive waw | Verb - Qal - Conjunctive imperfect Jussive - third person masculine singular	1961								 to 				
+111	0	110	6	Hebrew	מַבְדִּ֔יל	מַבְדִּ֔יל	maḇ·dîl	V-Hifil-Prtcpl-ms	Verb - Hifil - Participle - masculine singular	914								 separate 				
+112	0	111	6	Hebrew	בֵּ֥ין	בֵּ֥ין	bên	Prep	Preposition	996								 . . . 				
+113	0	112	6	Hebrew	מַ֖יִם	מַ֖יִם	ma·yim	N-mp	Noun - masculine plural	4325								 the waters 				
+114	0	113	6	Hebrew	לָמָֽיִם׃	לָמָֽיִם׃	lā·mā·yim	Prep-l | N-mp	Preposition-l | Noun - masculine plural	4325								 from the waters 	.	” 		
+126	0	124	7	Hebrew	אֱלֹהִים֮	אֱלֹהִים֮	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430		Genesis 1:7						 So God 				
+127	0	125	7	Hebrew	אֶת־	אֶת־	’eṯ-	DirObjM	Direct object marker	853								 - 				
+125	0	126	7	Hebrew	וַיַּ֣עַשׂ	וַיַּ֣עַשׂ	way·ya·‘aś	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	6213								 made 				
+128	0	127	7	Hebrew	הָרָקִיעַ֒	הָרָקִיעַ֒	hā·rā·qî·a‘	Art | N-ms	Article | Noun - masculine singular	7549								 the expanse 				
+129	0	128	7	Hebrew	וַיַּבְדֵּ֗ל	וַיַּבְדֵּ֗ל	way·yaḇ·dêl	Conj-w | V-Hifil-ConsecImperf-3ms	Conjunctive waw | Verb - Hifil - Consecutive imperfect - third person masculine singular	914								 and separated 				
+130	0	129	7	Hebrew	בֵּ֤ין	בֵּ֤ין	bên	Prep	Preposition	996								 . . . 				
+131	0	130	7	Hebrew	הַמַּ֙יִם֙	הַמַּ֙יִם֙	ham·ma·yim	Art | N-mp	Article | Noun - masculine plural	4325								 the waters 				
+132	0	131	7	Hebrew	אֲשֶׁר֙	אֲשֶׁר֙	’ă·šer	Pro-r	Pronoun - relative	834								 - 				
+133	0	132	7	Hebrew	מִתַּ֣חַת	מִתַּ֣חַת	mit·ta·ḥaṯ	Prep-m	Preposition-m	8478								 beneath 				
+134	0	133	7	Hebrew	לָרָקִ֔יעַ	לָרָקִ֔יעַ	lā·rā·qî·a‘	Prep-l, Art | N-ms	Preposition-l, Article | Noun - masculine singular	7549								 [it] 				
+135	0	134	7	Hebrew	וּבֵ֣ין	וּבֵ֣ין	ū·ḇên	Conj-w | Prep	Conjunctive waw | Preposition	996								 from 				
+136	0	135	7	Hebrew	הַמַּ֔יִם	הַמַּ֔יִם	ham·ma·yim	Art | N-mp	Article | Noun - masculine plural	4325								 the waters 				
+137	0	136	7	Hebrew	אֲשֶׁ֖ר	אֲשֶׁ֖ר	’ă·šer	Pro-r	Pronoun - relative	834								 - 				
+138	0	137	7	Hebrew	מֵעַ֣ל	מֵעַ֣ל	mê·‘al	Prep-m	Preposition-m	5921								 above 				
+139	0	138	7	Hebrew	לָרָקִ֑יעַ	לָרָקִ֑יעַ	lā·rā·qî·a‘	Prep-l, Art | N-ms	Preposition-l, Article | Noun - masculine singular	7549								 - 	.			
+140	0	139	7	Hebrew	וַֽיְהִי־	וַֽיְהִי־	way·hî-	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	1961								 And it was 				
+141	0	140	7	Hebrew	כֵֽן׃	כֵֽן׃	ḵên	Adv	Adverb	3651								 so 	.			
+153	0	151	8	Hebrew	אֱלֹהִ֛ים	אֱלֹהִ֛ים	’ĕ·lō·hîm	N-mp	Noun - masculine plural	430		Genesis 1:8						 God 				
+152	0	152	8	Hebrew	וַיִּקְרָ֧א	וַיִּקְרָ֧א	way·yiq·rā	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	7121								 called 				
+154	0	153	8	Hebrew	לָֽרָקִ֖יעַ	לָֽרָקִ֖יעַ	lā·rā·qî·a‘	Prep-l, Art | N-ms	Preposition-l, Article | Noun - masculine singular	7549								 the expanse 				
+155	0	154	8	Hebrew	שָׁמָ֑יִם	שָׁמָ֑יִם	šā·mā·yim	N-mp	Noun - masculine plural	8064							“	 sky 	.	”		
+156	0	155	8	Hebrew	וַֽיְהִי־	וַֽיְהִי־	way·hî-	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	1961					<p class=|tab1stline|>			 And there was 				
+157	0	156	8	Hebrew	עֶ֥רֶב	עֶ֥רֶב	‘e·reḇ	N-ms	Noun - masculine singular	6153								 evening 	,			
+158	0	157	8	Hebrew	וַֽיְהִי־	וַֽיְהִי־	way·hî-	Conj-w | V-Qal-ConsecImperf-3ms	Conjunctive waw | Verb - Qal - Consecutive imperfect - third person masculine singular	1961								 and there was 				
+159	0	158	8	Hebrew	בֹ֖קֶר	בֹ֖קֶר	ḇō·qer	N-ms	Noun - masculine singular	1242								 morning 	 — 			
+161	0	159	8	Hebrew	שֵׁנִֽי׃פ	שֵׁנִֽי׃פ	šê·nî	Number-oms	Number - ordinal masculine singular	8145								 the second 				
+160	0	160	8	Hebrew	י֥וֹם	י֥וֹם	yō·wm	N-ms	Noun - masculine singular	3117								 day 	.			
+513652	0	506993	21898	Aramaic	הִתְרוֹמַ֡מְתָּ	הִתְרוֹמַ֡מְתָּ	hiṯ·rō·w·mam·tā	V-Hitpael-Perf-2ms	Verb - Hitpael - Perfect - second person masculine singular	7313		Daniel 5:23						 Instead, you have exalted 				
+513649	0	506994	21898	Aramaic	וְעַ֣ל	וְעַ֣ל	wə·‘al	Conj-w | Prep	Conjunctive waw | Preposition	5922								 yourself against 				
+513650	0	506995	21898	Aramaic	מָרֵֽא־	מָרֵֽא־	mā·rê-	N-msc	Noun - masculine singular construct	4756								 the Lord 				
+513651	0	506996	21898	Aramaic	שְׁמַיָּ֣א׀	שְׁמַיָּ֣א׀	šə·may·yā	N-mdd	Noun - mdd	8065								 of heaven 	.			
+513653	0	506997	21898	Aramaic	וּלְמָֽאנַיָּ֨א	וּלְמָֽאנַיָּ֨א	ū·lə·mā·nay·yā	Conj-w, Prep-l | N-mpd	Conjunctive waw, Preposition-l | Noun - masculine plural determinate	3984								 The vessels 				
+513654	0	506998	21898	Aramaic	דִֽי־	דִֽי־	ḏî-	Pro-r	Pronoun - relative	1768								 from 				
+513655	0	506999	21898	Aramaic	בַיְתֵ֜הּ	בַיְתֵ֜הּ	ḇay·ṯêh	N-msc | 3ms	Noun - masculine singular construct | third person masculine singular	1005								 His house 				
+513656	0	507000	21898	Aramaic	הַיְתִ֣יו	הַיְתִ֣יו	hay·ṯîw	V-Hifil-Perf-3mp	Verb - Hifil - Perfect - third person masculine plural	858								 were brought 				
+513659	0	507001	21898	Aramaic	קָדָמַיִךְ	קָדָמַיִךְ	qå̄·ḏå̄·ma·yiḵ	Prep | 2ms	Preposition | second person masculine singular	6925								 to you 	,			
+513663	0	507002	21898	Aramaic	וְאַנְתָּה	וְאַנְתָּה	wə·ʾan·tå̄h	Conj-w | Pro-2ms	Conjunctive waw | Pronoun - second person masculine singular	607								 and as you 				
+513672	0	507003	21898	Aramaic	שָׁתַ֣יִן	שָׁתַ֣יִן	šā·ṯa·yin	V-Qal-Prtcpl-mp	Verb - Qal - Participle - masculine plural	8355								 drank 				
+513671	0	507004	21898	Aramaic	חַמְרָא֮	חַמְרָא֮	ḥam·rā	N-msd	Noun - masculine singular determinate	2562								 wine 				
+513673	0	507005	21898	Aramaic	בְּהוֹן֒	בְּהוֹן֒	bə·hō·wn	Prep | 3mp	Preposition | third person masculine plural									 from them 				
+513667	0	507006	21898	Aramaic	וְרַבְרְבָנַיִךְ	וְרַבְרְבָנַיִךְ	wə·raḇ·rə·ḇå̄·na·yiḵ	Conj-w | N-mpc | 2ms	Conjunctive waw | Noun - masculine plural construct | second person masculine singular	7261								 with your nobles 	,			
+513669	0	507007	21898	Aramaic	שֵֽׁגְלָתָ֣ךְ	שֵֽׁגְלָתָ֣ךְ	šê·ḡə·lā·ṯāḵ	N-fpc | 2ms	Noun - feminine plural construct | second person masculine singular	7695								 wives 	,			
+513670	0	507008	21898	Aramaic	וּלְחֵנָתָךְ֮	וּלְחֵנָתָךְ֮	ū·lə·ḥê·nā·ṯāḵ	Conj-w | N-fpc | 2ms	Conjunctive waw | Noun - feminine plural construct | second person masculine singular	3904								 and concubines 	,			
+513688	0	507009	21898	Aramaic	שַׁבַּ֑חְתָּ	שַׁבַּ֑חְתָּ	šab·baḥ·tā	V-Piel-Perf-2ms	Verb - Piel - Perfect - second person masculine singular	7624								 you praised 				
+513674	0	507010	21898	Aramaic	וְלֵֽאלָהֵ֣י	וְלֵֽאלָהֵ֣י	wə·lê·lā·hê	Conj-w, Prep-l | N-mpc	Conjunctive waw, Preposition-l | Noun - masculine plural construct	426								 [your] gods 				
+513675	0	507011	21898	Aramaic	כַסְפָּֽא־	כַסְפָּֽא־	ḵas·pā-	N-msd	Noun - masculine singular determinate	3702								 of silver 				
+513676	0	507012	21898	Aramaic	וְ֠דַהֲבָא	וְ֠דַהֲבָא	wə·ḏa·hă·ḇā	Conj-w | N-msd	Conjunctive waw | Noun - masculine singular determinate	1722								 and gold 	,			
+513677	0	507013	21898	Aramaic	נְחָשָׁ֨א	נְחָשָׁ֨א	nə·ḥā·šā	N-msd	Noun - masculine singular determinate	5174								 bronze 				
+513678	0	507014	21898	Aramaic	פַרְזְלָ֜א	פַרְזְלָ֜א	p̄ar·zə·lā	N-msd	Noun - masculine singular determinate	6523								 and iron 	,			
+513679	0	507015	21898	Aramaic	אָעָ֣א	אָעָ֣א	’ā·‘ā	N-msd	Noun - masculine singular determinate	636								 wood 				
+513680	0	507016	21898	Aramaic	וְאַבְנָ֗א	וְאַבְנָ֗א	wə·’aḇ·nā	Conj-w | N-fsd	Conjunctive waw | Noun - feminine singular determinate	69								 and stone 	,			
+513681	0	507017	21898	Aramaic	דִּ֠י	דִּ֠י	dî	Pro-r	Pronoun - relative	1768								 which 				
+513682	0	507018	21898	Aramaic	לָֽא־	לָֽא־	lā-	Adv-NegPrt	Adverb - Negative particle	3809								 cannot 				
+513683	0	507019	21898	Aramaic	חָזַ֧יִן	חָזַ֧יִן	ḥā·za·yin	V-Qal-Prtcpl-mp	Verb - Qal - Participle - masculine plural	2370								 see 				
+513684	0	507020	21898	Aramaic	וְלָא־	וְלָא־	wə·lā-	Conj-w | Adv-NegPrt	Conjunctive waw | Adverb - Negative particle	3809								 or 				
+513685	0	507021	21898	Aramaic	שָׁמְעִ֛ין	שָׁמְעִ֛ין	šā·mə·‘în	V-Qal-Prtcpl-mp	Verb - Qal - Participle - masculine plural	8086								 hear 				
+513686	0	507022	21898	Aramaic	וְלָ֥א	וְלָ֥א	wə·lā	Conj-w | Adv-NegPrt	Conjunctive waw | Adverb - Negative particle	3809								 or 				
+513687	0	507023	21898	Aramaic	יָדְעִ֖ין	יָדְעִ֖ין	yā·ḏə·‘în	V-Qal-Prtcpl-mp	Verb - Qal - Participle - masculine plural	3046								 understand 	.			
+513696	0	507024	21898	Aramaic	לָ֥א	לָ֥א	lā	Adv-NegPrt	Adverb - Negative particle	3809								 But you have failed to 				
+513697	0	507025	21898	Aramaic	הַדַּֽרְתָּ׃	הַדַּֽרְתָּ׃	had·dar·tā	V-Piel-Perf-2ms	Verb - Piel - Perfect - second person masculine singular	1922								 glorify 				
+513689	0	507026	21898	Aramaic	וְלֵֽאלָהָ֞א	וְלֵֽאלָהָ֞א	wə·lê·lā·hā	Conj-w, Prep-l | N-msd	Conjunctive waw, Preposition-l | Noun - masculine singular determinate	426								 the God 				
+513690	0	507027	21898	Aramaic	דִּֽי־	דִּֽי־	dî-	Pro-r	Pronoun - relative	1768								 who 				
+513695	0	507028	21898	Aramaic	לֵ֖הּ	לֵ֖הּ	lêh	Prep | 3ms	Preposition | third person masculine singular									 holds 				
+513692	0	507029	21898	Aramaic	בִּידֵ֛הּ	בִּידֵ֛הּ	bî·ḏêh	Prep-b | N-fsc | 3ms	Preposition-b | Noun - feminine singular construct | third person masculine singular	3028								 in His hand 				
+513691	0	507030	21898	Aramaic	נִשְׁמְתָ֥ךְ	נִשְׁמְתָ֥ךְ	niš·mə·ṯāḵ	N-fsc | 2ms	Noun - feminine singular construct | second person masculine singular	5396								 your very breath 				
+513693	0	507031	21898	Aramaic	וְכָל־	וְכָל־	wə·ḵāl	Conj-w | N-msc	Conjunctive waw | Noun - masculine singular construct	3606								 and all 				
+513694	0	507032	21898	Aramaic	אֹרְחָתָ֥ךְ	אֹרְחָתָ֥ךְ	’ō·rə·ḥā·ṯāḵ	N-fpc | 2ms	Noun - feminine plural construct | second person masculine singular	735								 your ways 	.			
+999999	29084	566030	24217	Greek	Ἀρχὴ	Ἀρχὴ	Archē	N-NFS	Noun - Nominative Feminine Singular		746	Mark 1:1	<p class=|hdg|>The Mission of John the Baptist	<br /><span class=|cross|>(<a href =|../isaiah/40.htm|>Isaiah 40:1–5</a>; <a href =|../matthew/3.htm|>Matthew 3:1–17</a>; <a href =|../luke/3.htm|>Luke 3:1–22</a>; <a href =|../john/1.htm#19|>John 1:19–34</a>)</span>	<p class=|reg|>			 [This is the] beginning 				
+999999	29085	566031	24217	Greek	τοῦ	τοῦ	tou	Art-GNS	Article - Genitive Neuter Singular		3588							 of the 				
+999999	29086	566032	24217	Greek	εὐαγγελίου	εὐαγγελίου	euangeliou	N-GNS	Noun - Genitive Neuter Singular		2098							 gospel 				
+999999	29087	566033	24217	Greek	Ἰησοῦ	Ἰησοῦ	Iēsou	N-GMS	Noun - Genitive Masculine Singular		2424							 of Jesus 				
+999999	29088	566034	24217	Greek	Χριστοῦ	Χριστοῦ	Christou	N-GMS	Noun - Genitive Masculine Singular		5547							 Christ 	,			
+999999	29089	566035	24217	Greek	Υἱοῦ	Υἱοῦ	Huiou	N-GMS	Noun - Genitive Masculine Singular		5207							 [the] Son 				
+999999	29090	566036	24217	Greek	τοῦ	τοῦ	tou	Art-GMS	Article - Genitive Masculine Singular		3588							 - 				
+999999	29091	566037	24217	Greek	Θεοῦ	Θεοῦ	Theou	N-GMS	Noun - Genitive Masculine Singular		2316							 of God 	.		ECM, NE, BYZ, and TR; SBL and WH <i>the beginning of the gospel of Jesus Christ.</i>	
+999999	29102	566048	24218	Greek	Καθὼς	Καθὼς	Kathōs	Adv	Adverb		2531	Mark 1:2						 As 				
+999999	29103	566049	24218	Greek	γέγραπται	γέγραπται	gegraptai	V-RIM/P-3S	Verb - Perfect Indicative Middle or Passive - 3rd Person Singular		1125							 it is written 				
+999999	29104	566050	24218	Greek	ἐν	ἐν	en	Prep	Preposition		1722							 in 				
+999999	29105	566051	24218	Greek	τῷ	τῷ	tō	Art-DMS	Article - Dative Masculine Singular		3588							 - 				
+999999	29106	566052	24218	Greek	Ἠσαΐᾳ	Ἠσαΐᾳ	Ēsaia	N-DMS	Noun - Dative Masculine Singular		2268							 Isaiah 				
+999999	29107	566053	24218	Greek	τῷ	τῷ	tō	Art-DMS	Article - Dative Masculine Singular		3588							 the 				
+999999	29108	566054	24218	Greek	προφήτῃ	προφήτῃ	prophētē	N-DMS	Noun - Dative Masculine Singular		4396							 prophet 	:		BYZ and TR <i>in the prophets:</i>	
+999999	29109	566055	24218	Greek	Ἰδοὺ	Ἰδοὺ	Idou	V-AMA-2S	Verb - Aorist Imperative Active - 2nd Person Singular		2400				<p class=|indent1stline|>		“	 Behold 	,			
+999999	29110	566056	24218	Greek	ἀποστέλλω	ἀποστέλλω	apostellō	V-PIA-1S	Verb - Present Indicative Active - 1st Person Singular		649							 I will send 				
+999999	29113	566057	24218	Greek	μου	μου	mou	PPro-G1S	Personal / Possessive Pronoun - Genitive 1st Person Singular		1473							 My 				
+999999	29111	566058	24218	Greek	τὸν	τὸν	ton	Art-AMS	Article - Accusative Masculine Singular		3588							 - 				
+999999	29112	566059	24218	Greek	ἄγγελόν	ἄγγελόν	angelon	N-AMS	Noun - Accusative Masculine Singular		32							 messenger 				
+999999	29114	566060	24218	Greek	πρὸ	πρὸ	pro	Prep	Preposition		4253							 ahead of You 				
+999999	29116	566061	24218	Greek	σου	σου	sou	PPro-G2S	Personal / Possessive Pronoun - Genitive 2nd Person Singular		4771							 . . . 				
+999999	29115	566062	24218	Greek	προσώπου	προσώπου	prosōpou	N-GNS	Noun - Genitive Neuter Singular		4383							 . . . 	,			
+999999	29117	566063	24218	Greek	ὃς	ὃς	hos	RelPro-NMS	Personal / Relative Pronoun - Nominative Masculine Singular		3739				<p class=|indent2|>			 who 				
+999999	29118	566064	24218	Greek	κατασκευάσει	κατασκευάσει	kataskeuasei	V-FIA-3S	Verb - Future Indicative Active - 3rd Person Singular		2680							 will prepare 				
+999999	29121	566065	24218	Greek	σου	σου	sou	PPro-G2S	Personal / Possessive Pronoun - Genitive 2nd Person Singular		4771							 Your 				
+999999	29119	566066	24218	Greek	τὴν	τὴν	tēn	Art-AFS	Article - Accusative Feminine Singular		3588							 - 				
+999999	29120	566067	24218	Greek	ὁδόν	ὁδόν	hodon	N-AFS	Noun - Accusative Feminine Singular		3598							 way 	.”		Malachi 3:1	
+999999	29132	566078	24219	Greek	Φωνὴ	Φωνὴ	Phōnē	N-NFS	Noun - Nominative Feminine Singular		5456	Mark 1:3			<p class=|indent1|>		“	 A voice 				
+999999	29133	566079	24219	Greek	βοῶντος	βοῶντος	boōntos	V-PPA-GMS	Verb - Present Participle Active - Genitive Masculine Singular		994							 of one calling 				
+999999	29134	566080	24219	Greek	ἐν	ἐν	en	Prep	Preposition		1722							 in 				
+999999	29135	566081	24219	Greek	τῇ	τῇ	tē	Art-DFS	Article - Dative Feminine Singular		3588							 the 				
+999999	29136	566082	24219	Greek	ἐρήμῳ	ἐρήμῳ	erēmō	Adj-DFS	Adjective - Dative Feminine Singular		2048							 wilderness 	,			
+999999	29137	566083	24219	Greek	Ἑτοιμάσατε	Ἑτοιμάσατε	Hetoimasate	V-AMA-2P	Verb - Aorist Imperative Active - 2nd Person Plural		2090				<p class=|indent2|>		‘	 Prepare 				
+999999	29138	566084	24219	Greek	τὴν	τὴν	tēn	Art-AFS	Article - Accusative Feminine Singular		3588							 the 				
+999999	29139	566085	24219	Greek	ὁδὸν	ὁδὸν	hodon	N-AFS	Noun - Accusative Feminine Singular		3598							 way 				
+999999	29140	566086	24219	Greek	Κυρίου	Κυρίου	Kyriou	N-GMS	Noun - Genitive Masculine Singular		2962							 for [the] Lord 	,			
+999999	29142	566087	24219	Greek	ποιεῖτε	ποιεῖτε	poieite	V-PMA-2P	Verb - Present Imperative Active - 2nd Person Plural		4160				<p class=|indent2|>			 make 				
+999999	29141	566088	24219	Greek	εὐθείας	εὐθείας	eutheias	Adj-AFP	Adjective - Accusative Feminine Plural		2117							 straight 				
+999999	29143	566089	24219	Greek	τὰς	τὰς	tas	Art-AFP	Article - Accusative Feminine Plural		3588							 - 				
+999999	29144	566090	24219	Greek	τρίβους	τρίβους	tribous	N-AFP	Noun - Accusative Feminine Plural		5147							 paths 				
+999999	29145	566091	24219	Greek	αὐτοῦ	αὐτοῦ	autou	PPro-GM3S	Personal / Possessive Pronoun - Genitive Masculine 3rd Person Singular		846							 for Him 	.’”		Isaiah 40:3 (see also LXX)	
+999999	29157	566102	24220	Greek	Ἰωάννης	Ἰωάννης	Iōannēs	N-NMS	Noun - Nominative Masculine Singular		2491	Mark 1:4			<p class=|reg|>			 John 				
+999999	29158	566103	24220	Greek	ὁ	ὁ	ho	Art-NMS	Article - Nominative Masculine Singular		3588							 the 				
+999999	29159	566104	24220	Greek	βαπτίζων	βαπτίζων	baptizōn	V-PPA-NMS	Verb - Present Participle Active - Nominative Masculine Singular		907							 Baptist 				
+999999	29156	566105	24220	Greek	Ἐγένετο	Ἐγένετο	Egeneto	V-AIM-3S	Verb - Aorist Indicative Middle - 3rd Person Singular		1096							 appeared 				
+999999	29160	566106	24220	Greek	ἐν	ἐν	en	Prep	Preposition		1722							 in 				
+999999	29161	566107	24220	Greek	τῇ	τῇ	tē	Art-DFS	Article - Dative Feminine Singular		3588							 the 				
+999999	29162	566108	24220	Greek	ἐρήμῳ	ἐρήμῳ	erēmō	Adj-DFS	Adjective - Dative Feminine Singular		2048							 wilderness 	,			
+999999	29163	566109	24220	Greek	καὶ	[καὶ]	kai	Conj	Conjunction		2532							 - 				
+999999	29164	566110	24220	Greek	κηρύσσων	κηρύσσων	kēryssōn	V-PPA-NMS	Verb - Present Participle Active - Nominative Masculine Singular		2784							 preaching 				
+999999	29165	566111	24220	Greek	βάπτισμα	βάπτισμα	baptisma	N-ANS	Noun - Accusative Neuter Singular		908							 [a] baptism 				
+999999	29166	566112	24220	Greek	μετανοίας	μετανοίας	metanoias	N-GFS	Noun - Genitive Feminine Singular		3341							 of repentance 				
+999999	29167	566113	24220	Greek	εἰς	εἰς	eis	Prep	Preposition		1519							 for 				
+999999	29168	566114	24220	Greek	ἄφεσιν	ἄφεσιν	aphesin	N-AFS	Noun - Accusative Feminine Singular		859							 [the] forgiveness 				
+999999	29169	566115	24220	Greek	ἁμαρτιῶν	ἁμαρτιῶν	hamartiōn	N-GFP	Noun - Genitive Feminine Plural		266							 of sins 	.			
+999999	29180	566126	24221	Greek	καὶ	καὶ	kai	Conj	Conjunction		2532	Mark 1:5						 - 				
+999999	29181	566127	24221	Greek	ἐξεπορεύετο	ἐξεπορεύετο	exeporeueto	V-IIM/P-3S	Verb - Imperfect Indicative Middle or Passive - 3rd Person Singular		1607							 [People] went out 				
+999999	29182	566128	24221	Greek	πρὸς	πρὸς	pros	Prep	Preposition		4314							 to 				
+999999	29183	566129	24221	Greek	αὐτὸν	αὐτὸν	auton	PPro-AM3S	Personal / Possessive Pronoun - Accusative Masculine 3rd Person Singular		846							 him 				
+999999	29189	566130	24221	Greek	οἱ	οἱ	hoi	Art-NMP	Article - Nominative Masculine Plural		3588							 . . . 				
+999999	29191	566131	24221	Greek	πάντες	πάντες	pantes	Adj-NMP	Adjective - Nominative Masculine Plural		3956							 from all 				
+999999	29190	566132	24221	Greek	Ἱεροσολυμῖται	Ἱεροσολυμῖται	Hierosolymitai	N-NMP	Noun - Nominative Masculine Plural		2415							 of Jerusalem 				
+999999	29188	566133	24221	Greek	καὶ	καὶ	kai	Conj	Conjunction		2532							 and 				
+999999	29184	566134	24221	Greek	πᾶσα	πᾶσα	pasa	Adj-NFS	Adjective - Nominative Feminine Singular		3956							 - 				
+999999	29185	566135	24221	Greek	ἡ	ἡ	hē	Art-NFS	Article - Nominative Feminine Singular		3588							 the 				
+999999	29187	566136	24221	Greek	χώρα	χώρα	chōra	N-NFS	Noun - Nominative Feminine Singular		5561							 countryside 				
+999999	29186	566137	24221	Greek	Ἰουδαία	Ἰουδαία	Ioudaia	N-NFS	Noun - Nominative Feminine Singular		2449							 of Judea 	.			
+999999	29192	566138	24221	Greek	καὶ	καὶ	kai	Conj	Conjunction		2532							 - 				
+999999	29200	566139	24221	Greek	ἐξομολογούμενοι	ἐξομολογούμενοι	exomologoumenoi	V-PPM-NMP	Verb - Present Participle Middle - Nominative Masculine Plural		1843							 Confessing 				
+999999	29203	566140	24221	Greek	αὐτῶν	αὐτῶν	autōn	PPro-GM3P	Personal / Possessive Pronoun - Genitive Masculine 3rd Person Plural		846							 their 				
+999999	29201	566141	24221	Greek	τὰς	τὰς	tas	Art-AFP	Article - Accusative Feminine Plural		3588							 - 				
+999999	29202	566142	24221	Greek	ἁμαρτίας	ἁμαρτίας	hamartias	N-AFP	Noun - Accusative Feminine Plural		266							 sins 	,			
+999999	29193	566143	24221	Greek	ἐβαπτίζοντο	ἐβαπτίζοντο	ebaptizonto	V-IIM/P-3P	Verb - Imperfect Indicative Middle or Passive - 3rd Person Plural		907							 they were baptized 				
+999999	29194	566144	24221	Greek	ὑπ’	ὑπ’	hyp’	Prep	Preposition		5259							 by 				
+999999	29195	566145	24221	Greek	αὐτοῦ	αὐτοῦ	autou	PPro-GM3S	Personal / Possessive Pronoun - Genitive Masculine 3rd Person Singular		846							 him 				
+999999	29196	566146	24221	Greek	ἐν	ἐν	en	Prep	Preposition		1722							 in 				
+999999	29197	566147	24221	Greek	τῷ	τῷ	tō	Art-DMS	Article - Dative Masculine Singular		3588							 the 				
+999999	29198	566148	24221	Greek	Ἰορδάνῃ	Ἰορδάνῃ	Iordanē	N-DMS	Noun - Dative Masculine Singular		2446							 Jordan 				
+999999	29199	566149	24221	Greek	ποταμῷ	ποταμῷ	potamō	N-DMS	Noun - Dative Masculine Singular		4215							 River 	.			

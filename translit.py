@@ -47,6 +47,7 @@ MAQAF      = '\u05BE'
 SOF_PASUQ  = '\u05C3'
 METEG      = '\u05BD'
 PASEQ      = '\u05C0'  # vertical bar used as separator between words
+NUN_HAFUKHA = '\u05C6'  # "inverted nun" bracket mark (e.g. around Num 10:34-36)
 
 GUTTURALS  = {'\u05D0', '\u05D4', '\u05D7', '\u05E2', '\u05E8'}  # א ה ח ע ר
 BEGADKEFAT = {'\u05D1', '\u05D2', '\u05D3', '\u05DB', '\u05E4', '\u05EA'}  # ב ג ד כ פ ת
@@ -174,7 +175,9 @@ SCHEMES = {
         '\u05B8': '\u0101',   # Qamats ā
         '\u05B9': '\u014D',   # Holam ō
         '\u05BB': '\u00FB',   # Qibbuts û
+        'syllable_sep': '\u00B7',
         'stress_marker': '\u0301',
+        'divine_name': 'Ye·hó·vah',
     },
 
     'phonetic_dot': {
@@ -538,11 +541,12 @@ def has_cantillation(marks: list) -> bool:
 
 # ================== MAIN TRANSLITERATOR ==================
 
-def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
+def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
+                     scheme_overrides: dict | None = None) -> str:
     """
     Transliterate Hebrew text using the specified scheme.
     """
-    scheme      = SCHEMES.get(scheme_name, SCHEMES['brill_simple'])
+    scheme      = {**SCHEMES.get(scheme_name, SCHEMES['brill_simple']), **(scheme_overrides or {})}
     divine      = scheme.get('divine_name', 'Yehovah')
     syl_sep     = scheme.get('syllable_sep', '')
     stress_mark = scheme.get('stress_marker', None)
@@ -552,13 +556,20 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
     )
 
     chars  = list(text)
-    # Each unit: (text, has_vowel, has_stress, is_word_break)
+    # Each unit: (text, has_vowel, has_stress, is_word_break, closes_syllable)
+    # closes_syllable only matters for vowel-less units: True means this bare
+    # consonant (silent sheva, or the first half of a dagesh-forte pair)
+    # closes the syllable already in progress. False means it's a bare
+    # consonant whose vowel hasn't been written yet (about to arrive via a
+    # mater lectionis letter, or the second half of a dagesh-forte pair) —
+    # it opens the next syllable instead.
     units  = []
     i      = 0
     tlen   = len(chars)
 
-    def push_unit(text, has_vowel=False, has_stress=False, is_word_break=False):
-        units.append((text, has_vowel, has_stress, is_word_break))
+    def push_unit(text, has_vowel=False, has_stress=False, is_word_break=False,
+                  closes_syllable=False):
+        units.append((text, has_vowel, has_stress, is_word_break, closes_syllable))
 
     while i < tlen:
         char = chars[i]
@@ -581,11 +592,6 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
                         push_unit('-', is_word_break=False)
                 elif char == ' ':
                     push_unit(' ', is_word_break=True)
-                elif ord(char) == 0x05E4 and i > 0 and chars[i-1] == SOF_PASUQ:
-                    pass  # paragraph pe after sof pasuq — drop
-                elif is_hebrew(char) and char == '\u05E4':
-                    # Pe used as paragraph marker — drop
-                    pass
                 else:
                     push_unit(char)
             i += 1
@@ -599,18 +605,31 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
             continue
 
         # ---- Skip paragraph markers (pe/samekh after sof pasuq) ----
-        # Pe (פ) or Samekh (ס) with no vowel points and no geresh = paragraph marker
-        # Geresh (׳ U+05F3) or gershayim (״ U+05F4) indicate numeric usage
+        # Pe (פ) or Samekh (ס) with no vowel points and no geresh = paragraph marker.
+        # Geresh (׳ U+05F3) or gershayim (״ U+05F4) indicate numeric usage.
+        # Qualifies either standalone (the whole text passed in is just this
+        # one marker) or positionally (it directly follows a sof pasuq, even
+        # when that sof pasuq is glued onto the end of a real word's string,
+        # e.g. source_text אֲבָרֲכֵֽם׃פ — that trailing פ is a
+        # section marker, not part of the word, regardless of what else the
+        # string contains).
         if char in {'\u05E4', '\u05E1'}:
             marks_ahead = get_marks(chars, i)
             has_vowel  = any(m in VOWEL_POINTS - {DAGESH, METEG, SHIN_DOT, SIN_DOT}
                              for m in marks_ahead)
             j = i + 1 + len(marks_ahead)
             has_geresh = j < tlen and chars[j] in {'\u05F3', '\u05F4'}
+            # Skip back over any inverted-nun bracket mark(s) too — they can
+            # sit between the sof pasuq and the paragraph marker (e.g. around
+            # Num 10:34-36's bracketed verses) without breaking the adjacency.
+            back = i - 1
+            while back >= 0 and chars[back] == NUN_HAFUKHA:
+                back -= 1
+            is_after_sof_pasuq = back >= 0 and chars[back] == SOF_PASUQ
             is_standalone = not any(
                 is_hebrew(chars[k]) for k in range(tlen) if k != i
             )
-            if not has_vowel and not has_geresh and is_standalone:
+            if not has_vowel and not has_geresh and (is_standalone or is_after_sof_pasuq):
                 i += 1
                 continue
 
@@ -658,13 +677,14 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
                      has_preceding_vowel_point(chars, i)))
         if is_forte and syl_sep:
             # Emit closing consonant now, then fall through to emit opening consonant+vowel
-            push_unit(consonant, has_vowel=False, has_stress=False)
+            push_unit(consonant, has_vowel=False, has_stress=False, closes_syllable=True)
             # don't double — the same consonant will be emitted again below with its vowels
         elif is_forte and len(consonant) == 1:
             consonant = consonant + consonant
 
         # ---- Process vowels ----
         vowels = []
+        silent_sheva = False
         for mark in marks:
             if mark in {DAGESH, METEG, SHIN_DOT, SIN_DOT}:
                 continue
@@ -674,6 +694,8 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
                 if mark == '\u05B0':  # sheva
                     if is_vocal_sheva(chars, i):
                         vowels.append(scheme.get('\u05B0', ''))
+                    else:
+                        silent_sheva = True
                 elif mark == '\u05B8':  # qamats
                     if is_qamats_qatan(chars, i):
                         vowels.append(scheme.get('\u05C7', 'o'))
@@ -710,7 +732,8 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple') -> str:
 
         has_v = bool(vowels)
         unit_text = consonant + ''.join(vowels)
-        push_unit(unit_text, has_vowel=has_v, has_stress=stressed)
+        push_unit(unit_text, has_vowel=has_v, has_stress=stressed,
+                  closes_syllable=silent_sheva)
         i += 1 + len(marks)
 
     # ---- Post-process units into final string ----
@@ -759,48 +782,45 @@ def _group_syllables(word_units: list) -> list:
     Each syllable is: zero or more consonant-only units + one vowel-bearing unit.
     Trailing consonant-only units are appended to the last syllable.
 
-    Special case: forte split — a vowel-less unit immediately followed by an
-    identical vowel-bearing unit (e.g. sh + sha) means the first closes the
-    previous syllable rather than opening the next. Gives hash·sha not ha·shsha.
+    Each consonant-only unit carries closes_syllable: True for a silent sheva
+    or the first half of a dagesh-forte pair — it closes the syllable already
+    in progress. False for a bare consonant whose vowel hasn't appeared yet
+    (about to arrive via a mater lectionis letter, e.g. cholam-vav) or the
+    second half of a dagesh-forte pair — it opens the next syllable together
+    with the upcoming vowel instead. Gives am·tᵉ not a·mtᵉ, e·dom not ed·om,
+    and men·nu not me·nnu.
 
     Returns list of (syllable_text, has_stress) tuples.
     """
     syllables = []
-    pending   = []   # consonant-only units accumulating before next vowel
+    pending   = []   # (text, closes_syllable) accumulating before next vowel
     stressed  = False
 
-    for idx, (text, has_vowel, has_s, _) in enumerate(word_units):
+    for text, has_vowel, has_s, _, closes in word_units:
         if not text:
             continue
         if has_s:
             stressed = True
         if has_vowel:
-            # Check for forte split: pending has one unit whose text matches
-            # the consonant prefix of this unit (e.g. pending=['sh'], this='sha')
-            if (pending and len(pending) == 1
-                    and text.startswith(pending[0][0])
-                    and len(pending[0][0]) > 0):
-                # This is a forte split — attach the closing consonant to prev syllable
-                closing = pending[0][0]
-                if syllables:
-                    last_text, last_stress = syllables[-1]
-                    syllables[-1] = (last_text + closing, last_stress)
-                    pending = []
-                    syllables.append((text, stressed))
-                else:
-                    # Word-initial forte: no previous syllable to close.
-                    # Merge the bare consonant into the opening unit (mm·á vs m·má).
-                    pending = []
-                    syllables.append((closing + text, stressed))
-                stressed = False
-            else:
-                # Normal case: pending consonants + this vowel-bearing unit
-                syl_text = ''.join(p[0] for p in pending) + text
-                syllables.append((syl_text, stressed))
-                pending  = []
-                stressed = False
+            # A trailing opener (closes_syllable=False) pairs with this vowel
+            # to open the new syllable; everything before it closes the
+            # syllable already in progress.
+            opener = ''
+            if pending and not pending[-1][1]:
+                opener  = pending[-1][0]
+                pending = pending[:-1]
+            closing = ''.join(p[0] for p in pending)
+            pending = []
+            if closing and syllables:
+                last_text, last_stress = syllables[-1]
+                syllables[-1] = (last_text + closing, last_stress)
+            elif closing:
+                # Word-initial: no previous syllable to close.
+                opener = closing + opener
+            syllables.append((opener + text, stressed))
+            stressed = False
         else:
-            pending.append((text, has_vowel, has_s, False))
+            pending.append((text, closes))
 
     # Trailing consonant-only units — attach to last syllable
     if pending:
@@ -829,7 +849,7 @@ def _build_output(units: list, syl_sep: str, stress_mark,
     words   = []
     current = []
     for unit in units:
-        text, has_vowel, has_stress, is_word_break = unit
+        text, has_vowel, has_stress, is_word_break, _closes = unit
         if is_word_break:
             if current:
                 words.append(('word', current))
@@ -981,6 +1001,15 @@ def _greek_nuclei(greek: str) -> list[tuple[int, bool, bool, int]]:
 _XLIT_VOWELS = set('aeiouy')  # y covers upsilon in SIMPLE scheme
 
 
+def _xlit_base_vowel(ch: str) -> str:
+    """Strip combining diacritics (macron, breve, ...) to get the base
+    letter -- BSB's own provided Greek transliteration uses precomposed
+    long-vowel marks (ē, ō) that a plain ASCII vowel set wouldn't match,
+    unlike bt.GreekTransliterator's own (undiacritic'd) SIMPLE-scheme output."""
+    decomposed = unicodedata.normalize('NFD', ch)
+    return decomposed[0] if decomposed else ch
+
+
 def _xlit_vowel_spans(xlit: str,
                       nuclei: list[tuple[int, bool, bool, int]]) -> list[tuple[int, int]]:
     """Return (start, end) index pairs for each vowel span in xlit,
@@ -994,7 +1023,7 @@ def _xlit_vowel_spans(xlit: str,
     """
     vowel_positions: list[int] = []
     for i, ch in enumerate(xlit):
-        if ch.lower() in _XLIT_VOWELS:
+        if _xlit_base_vowel(ch).lower() in _XLIT_VOWELS:
             vowel_positions.append(i)
 
     spans: list[tuple[int, int]] = []
@@ -1103,41 +1132,77 @@ def add_greek_syllable_markers(greek: str, xlit: str,
 
 # ================== TRANSLITERATOR FACTORY ==================
 
-def make_transliterator(hebrew_scheme: str = "brill_simple",
-                        greek_scheme: str = "SIMPLE") -> callable:
-    """Return a configured transliterate(text, lang, is_proper) function.
+def make_transliterator(hebrew_scheme: str | None = "brill_simple",
+                        greek_scheme: str | None = "SIMPLE",
+                        syllable_sep: str | None = None,
+                        stress_marker: str | None = None) -> callable:
+    """Return a configured transliterate(text, lang, is_proper, provided) function.
 
     Hebrew/Aramaic: uses our HebrewTransliterator if hebrew_scheme is in SCHEMES,
                     otherwise delegates to bt.HebrewTransliterator (falling back to
                     bt.HebrewScheme.SIMPLE if the name isn't a valid bt scheme).
     Greek:          routed through bt.GreekTransliterator.
+
+    Either scheme can be None (config.yaml's transliteration.hebrew/greek set
+    to null) -- for the "academic interlinear" case, where the source data's
+    own provided transliteration (bsb_tables.tsv's Translit column, threaded
+    through as SourceToken.translit) should be used as-is instead of computing
+    one. When None, that language's branch skips its scheme entirely and
+    returns whatever `provided` the caller passes in (falling back to the raw
+    source text if the token didn't carry one).
+
+    syllable_sep/stress_marker override the chosen Hebrew scheme's own bundled
+    values (deliberate: OT and NT should read as one consistent format, not
+    Greek silently inheriting whatever the Hebrew scheme happens to bundle).
+    They're also what Greek's marker-insertion falls back to when hebrew_scheme
+    is None -- previously nothing, since there was no scheme dict to pull from
+    at all, so Greek's *provided* transliteration got no syllable dots even
+    though Hebrew's provided column already has its own baked in.
     """
-    if hebrew_scheme in SCHEMES:
-        _hebrew_t = HebrewTransliterator(hebrew_scheme)
-    else:
-        bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
-        _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
-        _hebrew_t  = _bt_hebrew.transliterate
+    overrides = {}
+    if syllable_sep is not None:
+        overrides['syllable_sep'] = syllable_sep
+    if stress_marker is not None:
+        overrides['stress_marker'] = stress_marker
 
-    _greek_t = bt.GreekTransliterator(bt.GreekOptions(
-        scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)
-    ))
+    # One resolved dict, shared by Hebrew's own transliterator (when it's one
+    # of our SCHEMES) and by Greek's marker-insertion below -- both read the
+    # same syllable_sep/stress_marker, whichever source they came from.
+    scheme_dict = {**SCHEMES.get(hebrew_scheme, {}), **overrides}
 
-    def transliterate(text: str, lang: str, is_proper: bool = False) -> str:
+    _hebrew_t = None
+    if hebrew_scheme is not None:
+        if hebrew_scheme in SCHEMES:
+            _hebrew_t = HebrewTransliterator(hebrew_scheme, scheme_overrides=overrides)
+        else:
+            bt_scheme = getattr(bt.HebrewScheme, hebrew_scheme, bt.HebrewScheme.SIMPLE)
+            _bt_hebrew = bt.HebrewTransliterator(bt.HebrewOptions(scheme=bt_scheme))
+            _hebrew_t  = _bt_hebrew.transliterate
+
+    _greek_t = None
+    if greek_scheme is not None:
+        _greek_t = bt.GreekTransliterator(bt.GreekOptions(
+            scheme=getattr(bt.GreekScheme, greek_scheme, bt.GreekScheme.SIMPLE)
+        ))
+
+    def _add_greek_markers(greek_text: str, xlit: str) -> str:
+        sep    = scheme_dict.get('syllable_sep', '')
+        stress = scheme_dict.get('stress_marker', None)
+        if not (sep or stress):
+            return xlit
+        return add_greek_syllable_markers(greek_text, xlit, sep=sep or '', stress=stress or '')
+
+    def transliterate(text: str, lang: str, is_proper: bool = False, provided: str = '') -> str:
         if lang == 'G':
+            if _greek_t is None:
+                return _add_greek_markers(text, provided or text)
             result = _greek_t.transliterate(text)
             if not is_proper:
                 result = lowercase_translit(result)
-            sep    = SCHEMES.get(hebrew_scheme, {}).get('syllable_sep', '')
-            stress = SCHEMES.get(hebrew_scheme, {}).get('stress_marker', None)
-            if sep or stress:
-                result = add_greek_syllable_markers(
-                    text, result,
-                    sep=sep or '',
-                    stress=stress or '',
-                )
-            return result
+            return _add_greek_markers(text, result)
         else:  # H or A
+            if _hebrew_t is None:
+                return provided or text
             return _hebrew_t(text)
 
     return transliterate
@@ -1155,15 +1220,21 @@ class HebrewTransliterator:
         t('יְהוָה')
     """
 
-    def __init__(self, scheme_name: str = 'brill_simple'):
+    def __init__(self, scheme_name: str = 'brill_simple', scheme_overrides: dict | None = None):
         if scheme_name not in SCHEMES:
             raise ValueError(f"Unknown scheme '{scheme_name}'. "
                              f"Available: {list(SCHEMES.keys())}")
         self.scheme_name = scheme_name
-        self.scheme      = SCHEMES[scheme_name]
+        self._overrides  = scheme_overrides or {}
+        # A copy, not the shared SCHEMES[scheme_name] dict itself -- overrides
+        # (e.g. make_transliterator's syllable_sep/stress_marker) must not
+        # mutate the module-level scheme every other caller uses too. Kept
+        # for inspection; transliterate() re-passes _overrides through to
+        # hebrew_translit() itself, which is what actually applies them.
+        self.scheme      = {**SCHEMES[scheme_name], **self._overrides}
 
     def transliterate(self, text: str) -> str:
-        return hebrew_translit(text, self.scheme_name)
+        return hebrew_translit(text, self.scheme_name, scheme_overrides=self._overrides)
 
     def __call__(self, text: str) -> str:
         return self.transliterate(text)

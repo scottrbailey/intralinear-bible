@@ -13,6 +13,8 @@ class BibleWriter(ABC):
 
     A writer owns one output file and knows how to persist verses to it.
     Verse rendering is delegated to the VerseFormatter injected at construction.
+    Concrete writers set self.output_path in open() to the file they'll
+    produce, so callers (main.py's --zip) can find it after write().
     """
 
     @abstractmethod

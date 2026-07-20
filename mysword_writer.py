@@ -13,10 +13,31 @@ from sqlite_writer import SQLiteBibleWriter
 class MySwordWriter(SQLiteBibleWriter):
     """Writes MySword .bbl.mybible SQLite Bible modules."""
 
-    _table_name = 'Bible'
+    _table_name  = 'Bible'
+    _format_name = 'mysword'
+
+    def __init__(self, profile, **kwargs):
+        super().__init__(profile, **kwargs)
+        self._note_counter    = 0
+        self._current_chapter = None
 
     def add_verse(self, osis_ref: str, tokens: list,
                   header: str = None, xrefs: dict = None) -> None:
+        chapter = int(osis_ref.split('.')[1])
+        if chapter != self._current_chapter:
+            self._note_counter    = 0
+            self._current_chapter = chapter
+
+        # Raw noteIds (e.g. TableComposer's "F{bsb_sort}") are large and
+        # meaningless as a display id — remap to small numbers, reset each
+        # chapter, same convention as ESwordWriter's Notes table ids.
+        note_id_map = {}
+        if self.notes:
+            for token in tokens:
+                for note in token.notes:
+                    self._note_counter += 1
+                    note_id_map[note['noteId']] = self._note_counter
+
         verse_xrefs = []
         if self.xref and xrefs:
             verse_xrefs = [{'key': k, 'text': v} for k, v in xrefs.items()]
@@ -24,6 +45,7 @@ class MySwordWriter(SQLiteBibleWriter):
         self._add_verse_impl(
             osis_ref, tokens,
             header=header,
+            note_id_map=note_id_map,
             xrefs=verse_xrefs,
             xref_placement=self.xref,
         )

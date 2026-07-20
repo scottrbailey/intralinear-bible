@@ -31,6 +31,7 @@ class SourceToken:
     lang: str
     lemma: str = ""
     after: str = " "    # '' = join to next token (same display-word); ' ' = word boundary
+    translit: str = ""  # source's own provided transliteration, if any (e.g. bsb_tables.tsv's Translit column)
 
 
 @dataclass
@@ -75,3 +76,12 @@ class AlignedToken:
     source_words: list = field(default_factory=list)    # list[SourceWord]
     is_plain_text: bool = False
     notes: list = field(default_factory=list)           # list of {noteId, text} dicts
+    par_class: str | None = None    # TableComposer only: bare Par-column paragraph
+                                     # class in effect for this token (e.g. 'reg',
+                                     # 'indent1', 'pshdg') — AlignmentComposer never
+                                     # sets this (stays None). VerseFormatter decides
+                                     # which classes (if any) affect rendering.
+    is_red: bool = False            # TableComposer only: red-letter (words of
+                                     # Christ) state in effect for this token —
+                                     # tracked independently of par_class since it
+                                     # can co-occur with any paragraph type.

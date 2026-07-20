@@ -2,14 +2,21 @@
 # Run: python main.py [--format esword|mysword|osis] [--mode intralinear|stacked|interlinear]
 
 # ── Module identity ──────────────────────────────────────────
-version: "1.0.2"
-translation: "BSB"                    # Module abbreviations derived as:
-                                      #   intralinear:         {translation}i
-                                      #   intralinear stacked: {translation}is
-                                      #   interlinear:         {translation}ri+
+version: "1.1.2"
+translation: "BSB"
 description: "Berean Standard Bible"
 
+# ── Composer ─────────────────────────────────────────────────
+# table_db points at a precomputed database (built by utils/import_bsb_table.py).
+# If that file exists, it's used automatically and the text sources below are
+# never loaded — no need to touch anything else in this file. Set "composer"
+# explicitly (alignment|table) only to force one path regardless of whether
+# table_db exists (e.g. to rebuild from live sources for comparison).
+table_db: "data/bsb_tables.db"
+# composer: alignment
+
 # ── Source data ──────────────────────────────────────────────
+# Only used when composer resolves to "alignment" (see above)
 data_root: "../"
 
 sources:
@@ -23,9 +30,24 @@ sources:
     target:    "Alignments/data/eng/targets/BSB/nt_BSB.tsv"
 
 # ── Transliteration ──────────────────────────────────────────
+# Set either to null to skip our own scheme-based transliteration and use
+# the source's own provided transliteration instead (bsb_tables.tsv's
+# Translit column -- table composer only; falls back to the raw source
+# text if a given token has none).
 transliteration:
-  hebrew:  "brill_simple"   # brill_simple, sbl_simple, sbl_academic, phonetic_dot
-  greek:   "SIMPLE"
+  hebrew:  null   # brill_simple, sbl_simple, sbl_academic, phonetic_dot, null (use source)
+  greek:   null
+  # Override the Hebrew scheme's own bundled syllable_sep/stress_marker --
+  # deliberate, so OT and NT read as one consistent format rather than Greek
+  # silently inheriting whatever the Hebrew scheme happens to bundle. Also
+  # what Greek's marker-insertion falls back to when hebrew is null (Greek's
+  # own provided transliteration has no syllable dots baked in the way
+  # Hebrew's does, so without this it gets none at all).
+  # null/omit either one to fall back to the Hebrew scheme's own bundled
+  # value -- NOT the same as "": "" is a real override too, an explicit
+  # "no marker at all" even if the scheme itself bundles one.
+  syllable_sep: "·"
+  stress_marker: null
 
 # ── Annotations ──────────────────────────────────────────────
 annotations: "data/bsb_annotations.json"
@@ -33,11 +55,12 @@ crossrefs:   "data/bsb_xrefs.json"
 
 # ── Output ───────────────────────────────────────────────────
 output:
-  dir:     "output"
-  headers: 0             # section headers
-  notes:   1             # translator notes
-  xref:    1             # cross ref 0: none, 1: beginning of verse, 2: end of verse
+  dir:        "output"
+  headers:    1          # section headers
+  notes:      1          # translator notes
+  xref:       1          # cross ref 0: none, 1: beginning of verse, 2: end of verse
+  red_letter: 1          # words of Christ in red
 
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
-books: null
+books: null #[Gen, Matt]

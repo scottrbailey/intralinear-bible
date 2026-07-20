@@ -22,6 +22,7 @@ Usage:
 import argparse
 import json
 import re
+import sqlite3
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -29,10 +30,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from bible_books import USX_TO_ABBREV, BOOK_ORDER, BOOK_NUMBER
-
 DEFAULT_SOURCE = ROOT / "local" / "bsb_usx"
 DEFAULT_OUTPUT = ROOT / "output" / "bsb_xrefs.json"
+
+# data/books.db (see utils/build_books_table.py)
+with sqlite3.connect(ROOT / "data" / "books.db") as _conn:
+    _books = _conn.execute(
+        "SELECT usx_code, display_abbrev, usfm_number FROM books ORDER BY canon_order"
+    ).fetchall()
+USX_TO_ABBREV = {usx: abbrev for usx, abbrev, _ in _books}
+BOOK_NUMBER   = {usx: f"{num:02d}" for usx, _, num in _books}
+BOOK_ORDER    = [usx for usx, _, _ in _books]
 
 _LOC_RE = re.compile(r'^(\S+)\s+(.*)$')
 
