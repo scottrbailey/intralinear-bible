@@ -174,6 +174,46 @@ def _split_trailing_punct(text: str) -> tuple:
     return text[:m.start()].rstrip(), m.group(1)
 
 
+# ==================================================== overlong lemma rows
+
+# Reverse-interlinear rows go ragged when one English gloss aligns to many
+# source words (a multi-word Hebrew number under a short English numeral) or
+# to one long-transliteration word -- e-Sword's CSS wraps the overflow into
+# uneven sub-rows, and MySword doesn't wrap at all, just runs the row off
+# the page (bad: swipe-to-change-chapter makes that unrecoverable). Grouping
+# by rendered length up front and emitting one <ilb>/<ilbc> block per group
+# sidesteps both: each block's own row is never wider than the English
+# label it's grouped against, regardless of what the renderer's CSS does.
+_TAG_RE = re.compile(r'<[^>]+>')
+
+
+def _visible_len(html_text: str) -> int:
+    """Approximate on-screen character length of already-transformed English
+    (transform_english() output), ignoring markup added along the way."""
+    return len(_TAG_RE.sub('', html_text))
+
+
+def _group_source_words(source_words: list, xlits: list, target_len: int) -> list:
+    """Group aligned (source_word, transliteration) pairs into rows whose
+    cumulative transliteration length roughly matches target_len -- the
+    English label's visible width. Only the first group is meant to carry
+    the real English label; callers render '&nbsp;' in the same tag for the
+    rest, so the label's border-bottom rule still draws under every row and
+    the continuation rows read as part of the same block instead of an
+    unrelated tail.
+    """
+    target_len = max(target_len, 1)
+    groups = [[]]
+    length = 0
+    for sw, xlit in zip(source_words, xlits):
+        if groups[-1] and length >= target_len:
+            groups.append([])
+            length = 0
+        groups[-1].append((sw, xlit))
+        length += len(xlit) + 1
+    return groups
+
+
 # ============================================================ Par-column classes
 
 # Par-column paragraph classes that apply to a *run* of tokens' English text
@@ -510,8 +550,9 @@ class ESwordStackedFormatter(ESwordIntralinearFormatter):
     css            = _ESWORD_STACKED_CSS
 
 _ESWORD_INTERLINEAR_CSS = """
-ilb {display:inline-block; vertical-align:top; margin: 0 0.1em 0.75em;}
-ilb > * {display:block; text-align:center; width:100%; max-width:100%;}
+ilb, ilbc {display:inline-block; vertical-align:top; margin: 0 0.1em 0.75em;}
+ilbc {margin-left:0;}
+ilb > *, ilbc > * {display:block; text-align:center; width:100%; max-width:100%;}
 trn {border-bottom:1px solid gray; text-align:center; width:100%; border-bottom:2px solid #DDD; margin-bottom:.1em;}
 lm {display:inline-block; text-align:center; padding: 0.2em; gap: 3px; font-size:.85em; line-height: 1.0em;} 
 ltn {color: green; padding-bottom: 0.2em;} .red i {color: #d6807f;}
@@ -578,20 +619,23 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                     else:
                         break
 
-                segments = []
-                for sw in token.source_words:
-                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    morph = sw.stem.morph or sw.stem.token_class
-                    morph_tags = ''.join([f'<tvm>{mph}</tvm>' for mph in morph.split('|')])
-                    lang_class = 'gr' if sw.lang == 'G' else 'hb'
-                    segments.append(
-                        f'<lm><{lang_class}>{sw.text}</{lang_class}><ltn>{xlit}</ltn>'
-                        f'<sb><num>{sw.stem.strongs}</num></sb><mb>{morph_tags}</mb></lm>'
-                    )
-                parts.append(
-                    f'<ilb><trn>{english}</trn>'
-                    f'<lg>{"".join(segments)}</lg></ilb>'
-                )
+                xlits = [self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
+                         for sw in token.source_words]
+                groups = _group_source_words(token.source_words, xlits, _visible_len(english))
+
+                for gi, group in enumerate(groups):
+                    segments = []
+                    for sw, xlit in group:
+                        morph = sw.stem.morph or sw.stem.token_class
+                        morph_tags = ''.join([f'<tvm>{mph}</tvm>' for mph in morph.split('|')])
+                        lang_class = 'gr' if sw.lang == 'G' else 'hb'
+                        segments.append(
+                            f'<lm><{lang_class}>{sw.text}</{lang_class}><ltn>{xlit}</ltn>'
+                            f'<sb><num>{sw.stem.strongs}</num></sb><mb>{morph_tags}</mb></lm>'
+                        )
+                    label = english if gi == 0 else '&nbsp;'
+                    tag   = 'ilb' if gi == 0 else 'ilbc'
+                    parts.append(f'<{tag}><trn>{label}</trn><lg>{"".join(segments)}</lg></{tag}>')
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
                     parts.append(f' <not>N{seq}</not>')
@@ -733,18 +777,19 @@ class MySwordStackedFormatter(MySwordIntralinearFormatter):
     verse_rules  = _MYSWORD_STACKED_RULES
 
 _MYSWORD_INTERLINEAR_CSS = """
-ilb {display:inline-flex; flex-direction:column; align-items:stretch; vertical-align:top; margin:0.2em 0.2em 0.75em;}
-ilb t {width: 100%; text-align:center; border-bottom: 2px solid #eee;}
-ilb > lg {display:inline-flex; flex-direction:row; justify-content:center; gap:4px;} 
+ilb, ilbc {display:inline-flex; flex-direction:column; align-items:stretch; vertical-align:top; margin:0.2em 0.2em 0.75em;}
+ilbc {margin-left:0;}
+ilb t, ilbc t {width: 100%; text-align:center; border-bottom: 2px solid #eee;}
+ilb > lg, ilbc > lg {display:inline-flex; flex-direction:row; justify-content:center; gap:4px;}
 lm {display:inline-flex; flex-direction:column; align-items:stretch; width:100%;}
 lm > * {text-align: center}
-ilb ro {color:#065e69;} ilb rt {color:#7a10ad;} ilb i {color: #444;}
+ilb ro, ilbc ro {color:#065e69;} ilb rt, ilbc rt {color:#7a10ad;} ilb i, ilbc i {color: #444;}
 .wjc i {color: #8f4b4b;}
 .strong, .morph {font-size:0.7em}
 .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
 .acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
 .pshdg, .inscrip, .selah {font-style:italic;}
-ilb mg {display:inline-flex; flex-direction:row; flex-wrap:wrap; gap:3px; justify-content:center}
+ilb mg, ilbc mg {display:inline-flex; flex-direction:row; flex-wrap:wrap; gap:3px; justify-content:center}
 """
 
 _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
@@ -794,36 +839,40 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
-                segments = []
-                for sw in token.source_words:
-                    xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    strongs = sw.stem.strongs
-                    # Some source words genuinely have no Strong's number (the
-                    # direct object marker, prefixed prepositions/conjunctions
-                    # as their own token, etc.) -- a bare <W> tag with no
-                    # number doesn't reserve a row the way a real <WH.../WG...>
-                    # link does, so sibling <lm>s in the same row go out of
-                    # vertical alignment. A truly empty <span> doesn't fix
-                    # this either: every direct child of <lm> is a flex item
-                    # (lm's own display:inline-flex; flex-direction:column),
-                    # and flex items size to their content -- an empty span
-                    # has zero content, so it collapses to zero height
-                    # regardless of font-size. A non-breaking space gives it
-                    # real content to size against, so it reserves the row.
-                    strong_tag = f'<W{strongs}>' if strongs else '<span class="strong">&nbsp;</span>'
-                    # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
-                    # falls back to the raw BSB Parsing string when unresolved -- still
-                    # displayed for the reader, just not a dictionary-linkable code, so
-                    # MySword's own lookup silently fails to match it rather than showing
-                    # nothing at all.
-                    morph = sw.stem.morph or sw.stem.token_class
-                    morph_tags = ''.join([f'<WT{mph}>' for mph in morph.split('|')])
-
-                    segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}<mg>{morph_tags}</mg></lm>")
                 english = self.transform_english(token.english, token.par_class, token.is_red)
-                parts.append(
-                    f"<ilb><t>{english}</t><lg>{''.join(segments)}</lg></ilb>"
-                )
+                xlits = [self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
+                         for sw in token.source_words]
+                groups = _group_source_words(token.source_words, xlits, _visible_len(english))
+
+                for gi, group in enumerate(groups):
+                    segments = []
+                    for sw, xlit in group:
+                        strongs = sw.stem.strongs
+                        # Some source words genuinely have no Strong's number (the
+                        # direct object marker, prefixed prepositions/conjunctions
+                        # as their own token, etc.) -- a bare <W> tag with no
+                        # number doesn't reserve a row the way a real <WH.../WG...>
+                        # link does, so sibling <lm>s in the same row go out of
+                        # vertical alignment. A truly empty <span> doesn't fix
+                        # this either: every direct child of <lm> is a flex item
+                        # (lm's own display:inline-flex; flex-direction:column),
+                        # and flex items size to their content -- an empty span
+                        # has zero content, so it collapses to zero height
+                        # regardless of font-size. A non-breaking space gives it
+                        # real content to size against, so it reserves the row.
+                        strong_tag = f'<W{strongs}>' if strongs else '<span class="strong">&nbsp;</span>'
+                        # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
+                        # falls back to the raw BSB Parsing string when unresolved -- still
+                        # displayed for the reader, just not a dictionary-linkable code, so
+                        # MySword's own lookup silently fails to match it rather than showing
+                        # nothing at all.
+                        morph = sw.stem.morph or sw.stem.token_class
+                        morph_tags = ''.join([f'<WT{mph}>' for mph in morph.split('|')])
+
+                        segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}<mg>{morph_tags}</mg></lm>")
+                    label = english if gi == 0 else '&nbsp;'
+                    tag   = 'ilb' if gi == 0 else 'ilbc'
+                    parts.append(f"<{tag}><t>{label}</t><lg>{''.join(segments)}</lg></{tag}>")
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
 
