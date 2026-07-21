@@ -182,8 +182,21 @@ def _split_trailing_punct(text: str) -> tuple:
 # uneven sub-rows, and MySword doesn't wrap at all, just runs the row off
 # the page (bad: swipe-to-change-chapter makes that unrecoverable). Grouping
 # by rendered length up front and emitting one <ilb>/<ilbc> block per group
-# sidesteps both: each block's own row is never wider than the English
-# label it's grouped against, regardless of what the renderer's CSS does.
+# sidesteps both: each block's own row is never wider than its target budget,
+# regardless of what the renderer's CSS does.
+#
+# That budget can't just be the English label's own length, though -- a
+# short gloss like a number ("43,730.") would then cap every group at ~1
+# lemma, leaving row-breaking to fall back on the renderer's own inline-wrap
+# of a pile of tiny separate blocks. That's exactly the fragile case this
+# was meant to avoid: how many tiny blocks fit per line depends on the
+# renderer's own font metrics and box model, which varies enough between
+# e-Sword and MySword (and between devices) that it can't be relied on to
+# group evenly -- VerseFormatter.min_lemma_row_len is a floor under the
+# English length so short glosses still get deliberate multi-lemma groups
+# instead of leaving that to chance. It's a rough character-count proxy for
+# on-screen width, not a real layout measurement, so it's meant to be tuned
+# by eye against the actual target apps rather than derived precisely.
 _TAG_RE = re.compile(r'<[^>]+>')
 
 
@@ -338,6 +351,13 @@ class VerseFormatter(ABC):
                      (<red>...</red>, <FR>...<Fr>) so the reader's own
                      display-setting toggle controls visibility, rather than
                      baking a fixed color into the module's CSS.
+      min_lemma_row_len — reverse-interlinear only: floor (character count)
+                     under the English label's own length when grouping an
+                     aligned token's source words into <ilb>/<ilbc> rows
+                     (see _group_source_words()). A rough proxy for on-screen
+                     width, not a real measurement -- tune by eye against
+                     e-Sword/MySword's actual rendering, independently per
+                     formatter if their real layouts diverge.
     """
 
     abbreviation:   str = ""
@@ -350,6 +370,7 @@ class VerseFormatter(ABC):
     bracket_replacement: tuple = ('', '')
     brace_replacement:   tuple = ('', '')
     red_letter_tags:     tuple = ('<span class="red">', '</span>')
+    min_lemma_row_len:   int = 24
 
     def __init__(self, transliterate: Callable = None):
         self.transliterate = transliterate or make_transliterator()
@@ -621,7 +642,8 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
                 xlits = [self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                          for sw in token.source_words]
-                groups = _group_source_words(token.source_words, xlits, _visible_len(english))
+                groups = _group_source_words(token.source_words, xlits,
+                                               max(_visible_len(english), self.min_lemma_row_len))
 
                 for gi, group in enumerate(groups):
                     segments = []
@@ -842,7 +864,8 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 xlits = [self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                          for sw in token.source_words]
-                groups = _group_source_words(token.source_words, xlits, _visible_len(english))
+                groups = _group_source_words(token.source_words, xlits,
+                                               max(_visible_len(english), self.min_lemma_row_len))
 
                 for gi, group in enumerate(groups):
                     segments = []
