@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.3] - 2026-07-21
+
+### Fixed
+- **Overlong reverse-interlinear lemma rows** (`ESwordReverseInterlinearFormatter`, `MySwordReverseInterlinearFormatter`): an aligned token with many source words under a short English gloss (a multi-word Hebrew number under a numeral like "43,730.") or one long-transliteration word used to either wrap unevenly across sub-rows (e-Sword's CSS) or run the row off the page with no wrap at all (MySword — bad, since swiping is also the chapter-navigation gesture, making the overflow unrecoverable). `_group_source_words()` now builds one length-matched first `<ilb>` row — lemmas added while their cumulative transliteration length stays under the English label's width, floored by the new `VerseFormatter.min_lemma_row_len` so a short gloss still gathers more than one lemma instead of collapsing to a single lemma per row — then breaks every remaining source word out into its own singleton `<ilbc>` continuation block, rather than re-grouping them further. Continuation blocks reuse the same `<trn>`/`<t>` tag with `&nbsp;` so the label's `border-bottom` underline keeps drawing under them, and sit flush against the previous block (`margin-left:0`) so the underline reads as one unbroken line tying the continuation back to its English label.
+
 ## [1.1.2] - 2026-07-10
 
 ### Added
