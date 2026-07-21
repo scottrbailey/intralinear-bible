@@ -180,23 +180,20 @@ def _split_trailing_punct(text: str) -> tuple:
 # source words (a multi-word Hebrew number under a short English numeral) or
 # to one long-transliteration word -- e-Sword's CSS wraps the overflow into
 # uneven sub-rows, and MySword doesn't wrap at all, just runs the row off
-# the page (bad: swipe-to-change-chapter makes that unrecoverable). Grouping
-# by rendered length up front and emitting one <ilb>/<ilbc> block per group
-# sidesteps both: each block's own row is never wider than its target budget,
-# regardless of what the renderer's CSS does.
+# the page (bad: swipe-to-change-chapter makes that unrecoverable). Splitting
+# the row up front and emitting one <ilb>/<ilbc> block per lemma-group
+# sidesteps both, regardless of what the renderer's CSS does.
 #
-# That budget can't just be the English label's own length, though -- a
-# short gloss like a number ("43,730.") would then cap every group at ~1
-# lemma, leaving row-breaking to fall back on the renderer's own inline-wrap
-# of a pile of tiny separate blocks. That's exactly the fragile case this
-# was meant to avoid: how many tiny blocks fit per line depends on the
-# renderer's own font metrics and box model, which varies enough between
-# e-Sword and MySword (and between devices) that it can't be relied on to
-# group evenly -- VerseFormatter.min_lemma_row_len is a floor under the
-# English length so short glosses still get deliberate multi-lemma groups
-# instead of leaving that to chance. It's a rough character-count proxy for
-# on-screen width, not a real layout measurement, so it's meant to be tuned
-# by eye against the actual target apps rather than derived precisely.
+# Only the *first* group is length-matched against the English label -- the
+# lemmas that fit within roughly its width. Every source word after that
+# gets its own singleton group rather than being packed into further
+# multi-lemma rows: re-applying the length target past the first row tried
+# to keep rows evenly sized, but that's a look nobody asked for and it
+# obscures which lemma is which. A plain English length would also cap the
+# first group at a single lemma whenever a short gloss (e.g. a number)
+# aligns to longer transliterations, so VerseFormatter.min_lemma_row_len
+# floors it -- a rough character-count proxy for on-screen width, not a
+# real measurement, meant to be tuned by eye against the actual target apps.
 _TAG_RE = re.compile(r'<[^>]+>')
 
 
@@ -207,24 +204,28 @@ def _visible_len(html_text: str) -> int:
 
 
 def _group_source_words(source_words: list, xlits: list, target_len: int) -> list:
-    """Group aligned (source_word, transliteration) pairs into rows whose
-    cumulative transliteration length roughly matches target_len -- the
-    English label's visible width. Only the first group is meant to carry
-    the real English label; callers render '&nbsp;' in the same tag for the
-    rest, so the label's border-bottom rule still draws under every row and
-    the continuation rows read as part of the same block instead of an
+    """Build one length-matched first group of aligned (source_word,
+    transliteration) pairs -- lemmas added while their cumulative
+    transliteration length stays under target_len (the English label's
+    visible width) -- then break every remaining source word out into its
+    own singleton group. Only the first group is meant to carry the real
+    English label; callers render '&nbsp;' in the same tag for the rest, so
+    the label's border-bottom rule still draws under every row and the
+    continuation rows read as part of the same block instead of an
     unrelated tail.
     """
     target_len = max(target_len, 1)
-    groups = [[]]
+    pairs = list(zip(source_words, xlits))
+    first = []
     length = 0
-    for sw, xlit in zip(source_words, xlits):
-        if groups[-1] and length >= target_len:
-            groups.append([])
-            length = 0
-        groups[-1].append((sw, xlit))
-        length += len(xlit) + 1
-    return groups
+    i = 0
+    while i < len(pairs):
+        if first and length >= target_len:
+            break
+        first.append(pairs[i])
+        length += len(pairs[i][1]) + 1
+        i += 1
+    return [first] + [[pair] for pair in pairs[i:]]
 
 
 # ============================================================ Par-column classes
@@ -352,11 +353,13 @@ class VerseFormatter(ABC):
                      display-setting toggle controls visibility, rather than
                      baking a fixed color into the module's CSS.
       min_lemma_row_len — reverse-interlinear only: floor (character count)
-                     under the English label's own length when grouping an
-                     aligned token's source words into <ilb>/<ilbc> rows
-                     (see _group_source_words()). A rough proxy for on-screen
-                     width, not a real measurement -- tune by eye against
-                     e-Sword/MySword's actual rendering, independently per
+                     under the English label's own length when sizing an
+                     aligned token's *first* <ilb> lemma row (see
+                     _group_source_words()); every source word past that
+                     first row is always its own singleton <ilbc>, never
+                     grouped further. A rough proxy for on-screen width, not
+                     a real measurement -- tune by eye against e-Sword/
+                     MySword's actual rendering, independently per
                      formatter if their real layouts diverge.
     """
 
@@ -370,7 +373,7 @@ class VerseFormatter(ABC):
     bracket_replacement: tuple = ('', '')
     brace_replacement:   tuple = ('', '')
     red_letter_tags:     tuple = ('<span class="red">', '</span>')
-    min_lemma_row_len:   int = 24
+    min_lemma_row_len:   int = 16
 
     def __init__(self, transliterate: Callable = None):
         self.transliterate = transliterate or make_transliterator()
