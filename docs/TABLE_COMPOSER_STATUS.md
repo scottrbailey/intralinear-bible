@@ -28,6 +28,19 @@ architecture; this doc tracks the newer, still-settling parts.
   and the `sources` block (macula-hebrew/macula-greek/Alignments paths) is
   never touched in that case either. An explicit `composer` still forces
   one path over the other regardless of what's on disk.
+- `TableComposer(direction=MappingDirection.SOURCE_TO_TARGET)` (forward
+  interlinear) — a per-source-token, ungrouped build (`_build_verse_source_order()`),
+  deliberately not a source-order reordering of the grouped `TARGET_TO_SOURCE`
+  model: rows are walked in `(verse_id, source_sort)` order with no par_class/
+  is_red (that state only makes sense in `bsb_sort`/document order, which this
+  path doesn't walk) and no cross-row punctuation/quote reassembly (a quote
+  mark can land on a different row than the phrase it wraps once a BSB group's
+  members reorder between `bsb_sort` and `source_sort` — e.g. Gen 5:23's "365"
+  scattering — so it can occasionally display out of place; accepted as a
+  known limit rather than solved). Verified against a synthetic scattered-
+  group case reproducing that scenario, plus multi-verse/books-filter
+  iteration; not yet exercised end-to-end through a writer/formatter (no
+  forward-interlinear `VerseFormatter` exists yet).
 
 ## Resolved this session
 
@@ -250,14 +263,14 @@ architecture; this doc tracks the newer, still-settling parts.
    style patterns in 2Chr.32.11, Ezek.13.12, Job.6.23, etc.) haven't been
    looked at — could be the same mechanism, could be something new.
 
-3. **`SOURCE_TO_TARGET` (forward interlinear) not implemented** —
-   `TableComposer.__init__` raises `NotImplementedError`, same gap as
-   `AlignmentComposer`. Blocked on a real design question: groups are only
-   guaranteed contiguous in `bsb_sort` order, not `source_sort` order (the
-   Gen 5:23 "365" group scatters non-monotonically: Heb Sort
-   3003,3004,3002,3001,3000), so the grouped-AlignedToken approach this
-   direction currently uses won't directly reorder — forward interlinear
-   likely needs a per-row (ungrouped) rendering strategy instead.
+3. **`SOURCE_TO_TARGET` (forward interlinear) still only implemented for
+   `TableComposer`** — `AlignmentComposer._join_verse` still raises
+   `NotImplementedError` for this direction. Likely an easier join there,
+   not a port of `TableComposer`'s: macula's per-word `gloss` column gives
+   each source token its own literal gloss independent of BSB's grouped
+   translation text, so there's no group-scattering concern to work around
+   in the first place — just no writer/formatter exists yet to consume
+   either path's forward-interlinear output.
 
 4. **The `Space` column's meaning is still unconfirmed** — blank in every
    row seen so far across all investigation in this session. Not used for

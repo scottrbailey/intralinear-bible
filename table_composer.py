@@ -156,20 +156,16 @@ class TableComposer(Composer):
       - The 'space' column's meaning is still unconfirmed (blank in every
         row seen so far); spacing between tokens uses AlignedToken's normal
         default (space after) rather than reading it.
+
+    direction=SOURCE_TO_TARGET (forward interlinear) is a genuinely
+    different build, not a reordering of the above: see
+    _build_verse_source_order() for what it deliberately drops (par_class,
+    is_red) and accepts as a known limit (occasional quote/punctuation
+    misplacement) to get a per-source-token, ungrouped display.
     """
 
     def __init__(self, db_path: Path, config: dict = None,
                  direction: MappingDirection = MappingDirection.TARGET_TO_SOURCE):
-        if direction == MappingDirection.SOURCE_TO_TARGET:
-            # Groups are only guaranteed contiguous in bsb_sort order — the
-            # Genesis 5:23 "365" group scatters non-monotonically in
-            # source_sort order (Heb Sort 3003,3004,3002,3001,3000). Forward
-            # interlinear needs a per-row (ungrouped) rendering strategy,
-            # not this grouped one; deferred, same as AlignmentComposer.
-            raise NotImplementedError(
-                "Source-primary ordering not yet implemented for TableComposer "
-                "(see class docstring / comment above)."
-            )
         self.db_path        = Path(db_path)
         self.config         = config or {}
         self.direction       = direction
@@ -193,6 +189,25 @@ class TableComposer(Composer):
             where  = (f"WHERE verse_id IN (SELECT verse_id FROM verses "
                       f"WHERE book IN ({placeholders}))")
             params = tuple(self._books_filter)
+
+        if self.direction == MappingDirection.SOURCE_TO_TARGET:
+            # verse_id is an explicit sort key here (unlike the bsb_sort path
+            # below) because source_sort only orders tokens *within* one
+            # verse — it's the source language's own word position in that
+            # verse, not a whole-Bible ordinal the way bsb_sort is, so
+            # nothing else keeps same-verse rows contiguous.
+            cur.execute(f"SELECT * FROM tokens {where} ORDER BY verse_id, source_sort", params)
+            current_verse_id, verse_rows = None, []
+            for row in cur:
+                if row['verse_id'] != current_verse_id:
+                    if verse_rows:
+                        yield self._build_verse_source_order(verse_info[current_verse_id], verse_rows)
+                    current_verse_id, verse_rows = row['verse_id'], []
+                verse_rows.append(row)
+            if verse_rows:
+                yield self._build_verse_source_order(verse_info[current_verse_id], verse_rows)
+            conn.close()
+            return
 
         cur.execute(f"SELECT * FROM tokens {where} ORDER BY bsb_sort", params)
 
@@ -326,3 +341,54 @@ class TableComposer(Composer):
                                             par_class=current_par_class, is_red=current_is_red))
 
         return (osis_ref, tokens, header, xrefs), current_par_class, current_is_red
+
+    @staticmethod
+    def _build_verse_source_order(verse_info, rows) -> tuple:
+        """Forward-interlinear build: one AlignedToken per source token, in
+        the source language's own reading order (source_sort) rather than
+        grouped by English alignment (see _build_verse). Deliberately not a
+        source-order reordering of that grouped model:
+
+        - No par_class/is_red. Both are forward state tracked walking rows
+          in bsb_sort (document) order — this path doesn't walk that order,
+          and re-deriving them here isn't worth it for what's fundamentally
+          a word-order/annotation display, not a natural-reading one.
+        - beg_quote/punctuation/english/end_quote are rendered exactly as
+          stored on each row, no cross-row reassembly. A multi-word BSB
+          group's decorations don't all sit on the same row (e.g. a comma
+          landing on a continuation row, not the owner — see
+          _assemble_group_text()'s docstring), and that row's position in
+          source_sort order isn't guaranteed to match its position in the
+          group's bsb_sort order (the Gen 5:23 "365" scattering case), so a
+          quote mark can occasionally land visually out of place relative
+          to the phrase it belongs to. Accepted as a known limit of this
+          direction rather than solved — the source word content itself,
+          the point of this mode, is unaffected either way.
+        """
+        osis_ref = f"{verse_info['book']}.{verse_info['chapter']}.{verse_info['verse']}"
+        header   = verse_info['heading']
+        xrefs    = {'1': verse_info['crossref']} if verse_info['crossref'] else {}
+
+        tokens = []
+        for row in rows:
+            parts = []
+            if row['beg_quote']:
+                parts.append(row['beg_quote'])
+            if row['english']:
+                parts.append(row['english'].strip())
+            if row['punctuation']:
+                parts.append(row['punctuation'])
+            if row['end_quote']:
+                parts.append(row['end_quote'])
+            english = ''.join(parts).strip()
+
+            notes = [{'noteId': f"F{row['bsb_sort']}", 'text': row['footnote']}] if row['footnote'] else []
+
+            tokens.append(AlignedToken(
+                english=english,
+                skip_space_after=False,
+                source_words=[_to_source_word(row)],
+                notes=notes,
+            ))
+
+        return osis_ref, tokens, header, xrefs
