@@ -14,10 +14,10 @@ transliteration linked to Strong's concordance.
 |----------|----------------------|--------------|----------------------|
 | e-Sword  | Intralinear          | `BSTB`       | `BSTB.bbli`          |
 | e-Sword  | Intralinear stacked  | `BSXB`       | `BSXB.bbli`          |
-| e-Sword  | Reverse interlinear  | `BSBri`      | `BSBri.bbli`         |
+| e-Sword  | Reverse interlinear  | `BSRB`       | `BSRB.bbli`          |
 | MySword  | Intralinear          | `BSTB`       | `BSTB.bbl.mybible`   |
 | MySword  | Intralinear stacked  | `BSXB`       | `BSXB.bbl.mybible`   |
-| MySword  | Reverse interlinear  | `BSBri`      | `BSBri.bbl.mybible`  |
+| MySword  | Reverse interlinear  | `BSRB`       | `BSRB.bbl.mybible`   |
 | OSIS XML | Intralinear          | `BSBi`       | `BSBi.osis.xml`      |
 
 ---
