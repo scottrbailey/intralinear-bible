@@ -12,6 +12,10 @@ Organized by what you're actually editing at once, not by platform:
                              side by side (edited together to keep them matched).
   reverse_interlinear.py  -- BSRB: e-Sword and MySword formatters + CSS,
                              same reasoning.
+  forward_interlinear.py  -- ROUGH DRAFT, layout/CSS not settled yet (see
+                             its module docstring) -- e-Sword and MySword
+                             formatters for TableComposer's
+                             SOURCE_TO_TARGET direction.
 
 This __init__ re-exports the full public surface so callers keep using
 `from verse_formatter import X` exactly as before the package split.
@@ -38,6 +42,10 @@ from .reverse_interlinear import (
     ESwordReverseInterlinearFormatter,
     MySwordReverseInterlinearFormatter,
 )
+from .forward_interlinear import (
+    ESwordForwardInterlinearFormatter,
+    MySwordForwardInterlinearFormatter,
+)
 
 __all__ = [
     'VerseFormatter',
@@ -55,4 +63,6 @@ __all__ = [
     'MySwordStackedFormatter',
     'ESwordReverseInterlinearFormatter',
     'MySwordReverseInterlinearFormatter',
+    'ESwordForwardInterlinearFormatter',
+    'MySwordForwardInterlinearFormatter',
 ]
