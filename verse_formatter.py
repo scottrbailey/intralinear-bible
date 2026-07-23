@@ -33,9 +33,11 @@ with sqlite3.connect(_BOOKS_DB) as _conn:
 
 MODULE_DESCRIPTION = dedent("""\
     Berean Standard Bible with inline Hebrew and Greek transliteration.
-    Source language data from WLC (OT) and SBLGNT (NT) via Clear Bible
-    Alignments project (CC BY 4.0).""")
+    Source language data from BSB Translation Tables - https://berean.bible/downloads.htm""")
 
+COLOR_TRANSLIT = '#475eaf'
+COLOR_ANCIENT = '#479faf'
+COLOR_UNLINKED = '#666666'
 
 # ============================================================ cross-references
 
@@ -311,17 +313,17 @@ _INLINE_HEADER_CLASSES = {'acrostic', 'ihdg', 'subhdg'}
 # rendering engine too) — render_header() appends a literal <br/> after each
 # span instead, which is guaranteed to force the wrap without touching
 # whatever precedes it on the line.
-_INTRALINEAR_CSS = dedent('''\
-    .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
-    .acrostic {text-align:center;}
-    .ihdg {font-weight:normal;}
-    .subhdg {font-style:normal;}
-    .pshdg, .inscrip, .selah {font-style:italic;}
-    .ilb {display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
-    .ilb ruby {display:inline-flex; flex-direction:column;}
-    ruby > ro {display:block; color:#1ca0b1; text-align:center;}
-    ruby > rt {display:block; font-size:1.1em; color: blue;}
-    ruby > rt.unlinked {color: #7a8fa6;}
+_INTRALINEAR_CSS = dedent(f'''\
+    .acrostic, .ihdg, .subhdg {{color:#777; font-style:italic; font-weight:bold;}}
+    .acrostic {{text-align:center;}}
+    .ihdg {{font-weight:normal;}}
+    .subhdg {{font-style:normal;}}
+    .pshdg, .inscrip, .selah {{font-style:italic;}}
+    .ilb {{display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}}
+    .ilb ruby {{display:inline-flex; flex-direction:column;}}
+    .hb ruby ro {{font-size:1.2em;}}
+    ruby ro {{display:block; color:{COLOR_ANCIENT}; text-align:center;}}
+    ruby rt {{display:block; font-size:1.1em;}} ruby rt.unlinked {{color: {COLOR_UNLINKED};}}
 ''')
 
 # ================================================================ base class
@@ -495,9 +497,8 @@ class _ESwordXrefMixin:
     def render_crossref(self, xrefs: list) -> str:
         return ''.join(f' <not>R{vx["key"]}</not>' for vx in xrefs)
 
-
 _ESWORD_INTRALINEAR_CSS = (_INTRALINEAR_CSS +
-    '\nruby > ro {opacity:0}\n' +
+    f'ruby > ro {{opacity:0}} ruby rt {{color:{COLOR_TRANSLIT};}}\n' +
     '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 )
 
@@ -534,15 +535,11 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
-                    # yes I know the ruby / rt tags are semantically inverted - easier to hide rt
-                    # <num> is invisible (opacity:0) and only overlays <rt> so e-Sword's own
-                    # tap handling resolves a Strong's popup there. With no strongs number,
-                    # that tap would silently do nothing, so <rt> gets 'unlinked' instead —
-                    # a dimmer, grayish blue reads as "known unavailable" rather than "broken".
+                    lang = 'gk' if sw.lang == 'G' else 'hb'
                     rt_class = ' class="unlinked"' if not strongs else ''
                     num_tag  = f'<num>{strongs}</num>' if strongs else ''
                     lemmas.append(
-                        f'<span class="ilb">'
+                        f'<span class="ilb {lang}">'
                         f'<ruby><rt{rt_class}>{xlit}</rt><ro>{sw.text}</ro></ruby>'
                         f'{num_tag}'
                         f'</span>'
@@ -563,7 +560,7 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
 
 _ESWORD_STACKED_CSS = _INTRALINEAR_CSS + \
-    '\nruby > ro {opacity:1}' + \
+    f'ruby > ro {{opacity:1}} ruby rt {{color:{COLOR_TRANSLIT};}}' + \
     '\n.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 
 
@@ -580,7 +577,7 @@ ilb > *, ilbc > * {display:block; text-align:center; width:100%; max-width:100%;
 trn {border-bottom:1px solid gray; text-align:center; width:100%; border-bottom:2px solid #DDD; margin-bottom:.1em;}
 lm {display:inline-block; text-align:center; padding: 0.2em; gap: 3px; font-size:.85em; line-height: 1.0em;} 
 ltn {color: green; padding-bottom: 0.2em;} .red i {color: #d6807f;}
-lm mb {max-width:100%;} lm > * {display:block} hb, gr {color:#065e69;} 
+lm mb {max-width:100%;} lm > * {display:block} hb, gk {color:#065e69;} 
 sb > *, mb > * {vertical-align:normal; font-size:.7em; padding:0; line-height:.8em;}
 .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
 .acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
@@ -653,7 +650,7 @@ class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                     for sw, xlit in group:
                         morph = sw.stem.morph or sw.stem.token_class
                         morph_tags = ''.join([f'<tvm>{mph}</tvm>' for mph in morph.split('|')])
-                        lang_class = 'gr' if sw.lang == 'G' else 'hb'
+                        lang_class = 'gk' if sw.lang == 'G' else 'hb'
                         segments.append(
                             f'<lm><{lang_class}>{sw.text}</{lang_class}><ltn>{xlit}</ltn>'
                             f'<sb><num>{sw.stem.strongs}</num></sb><mb>{morph_tags}</mb></lm>'
@@ -725,9 +722,8 @@ class _MySwordXrefMixin:
                 parts.append(f"<RF q=R{vx['key']}>{rx_tags}<Rf>")
         return ''.join(parts)
 
-
 _MYSWORD_INTRALINEAR_CSS = _INTRALINEAR_CSS +\
-    '\nruby > ro {opacity:0} ruby a {text-decoration: none;}'
+    f'ruby > ro {{opacity:0}} .ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
 
 _MYSWORD_INTRALINEAR_RULES = ''
 
@@ -764,14 +760,16 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
+                    lang = 'gk' if sw.lang == 'G' else 'hb'
                     # With no strongs number, `<a href="s">` would be a real but broken
                     # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
                     # as "known unavailable" rather than a dead link (see _INTRALINEAR_CSS).
-                    rt_content = f'<a href="s{strongs}">{xlit}</a>' if strongs else xlit
-                    rt_class   = ' class="unlinked"' if not strongs else ''
+                    if strongs:
+                        rt = f'<rt><a href="s{strongs}">{xlit}</a></rt>'
+                    else:
+                        rt = f'<rt>{xlit}</rt>'
                     lemmas.append(
-                        f'<span class="ilb"><ruby><rt{rt_class}>{rt_content}</rt>'
-                        f'<ro>{sw.text}</ro></ruby></span>'
+                        f'<span class="ilb {lang}"><ruby>{rt}<ro>{sw.text}</ro></ruby></span>'
                     )
                 parts.append(' '.join(lemmas))
                 parts.append(trail)
@@ -790,7 +788,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
         return self._apply_rules(scripture, self.verse_rules)
 
 _MYSWORD_STACKED_CSS = _INTRALINEAR_CSS + \
-    '\nruby a {text-decoration: none;}'
+    f'.ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
 
 _MYSWORD_STACKED_RULES = ''
 
