@@ -110,8 +110,16 @@ class ESwordForwardInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
 # ============================================================ MySword
 
-# Reuses MySwordReverseInterlinearFormatter's tag vocabulary (ro/rt, native
-# <W.../WT...> Strong's/morphology links) for the same reason as e-Sword above.
+# Uses MySword's own native interlinear tags (<Q>/<q> block, <H>/<h> or
+# <G>/<g> source word, <X>/<x> transliteration, <T>/<t> English, plus the
+# existing <W.../WT...> Strong's/morphology links) instead of
+# reverse_interlinear.py's ro/rt vocabulary -- confirmed real, not a
+# guess: MySword renders each of these as its own line the reader can
+# toggle on/off independently in the app. Opinionated toward forward
+# interlinear specifically (source-primary, English as the annotation),
+# so this tag set doesn't carry over to reverse_interlinear.py's
+# English-primary layout -- that formatter's own ro/rt/W/WT tags stay as
+# they are, this isn't a "switch everything over" change.
 _MYSWORD_FORWARD_INTERLINEAR_CSS = """
 .rtl {direction:rtl; text-align:right;}
 """
