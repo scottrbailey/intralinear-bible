@@ -83,7 +83,7 @@ sb > *, mb > * {vertical-align:normal; font-size:.7em; padding:0; line-height:.8
 
 class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
     abbreviation   = "BSRB"
-    module_name    = "BSB Reverse Interlinear Bible"
+    module_name    = "Berean Reverse Interlinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTERLINEAR_CSS
     bracket_replacement = ('<i>', '</i>')
@@ -186,7 +186,7 @@ _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
     abbreviation   = "BSRB"
-    module_name    = "BSB Reverse Interlinear Bible"
+    module_name    = "Berean Reverse Interlinear Bible"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
     verse_rules    = _MYSWORD_INTERLINEAR_RULES
@@ -227,7 +227,8 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
             if token.is_plain_text or not token.source_words:
                 parts.append(self.transform_english(token.english, token.par_class, token.is_red))
                 for note in token.notes:
-                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f"<RF q=N{seq}>{note['text']}<Rf> ")
             else:
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 xlits = [self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
