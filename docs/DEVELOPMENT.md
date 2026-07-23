@@ -134,15 +134,16 @@ intralinear-bible/
 ├── composer.py          # Composer ABC + AlignmentComposer — live source/alignment/target join
 ├── table_composer.py    # TableComposer — reads data/bsb_tables.db instead of joining live
 ├── models.py            # data classes: SourceToken, SourceWord, AlignedToken, …
-├── verse_formatter.py   # VerseFormatter ABC + one concrete class per output target × style
-│                        #   ESwordIntralinearFormatter
-│                        #   ESwordStackedFormatter       (subclass of ESword Intralinear)
-│                        #   ESwordReverseInterlinearFormatter
-│                        #   MySwordIntralinearFormatter
-│                        #   MySwordStackedFormatter      (subclass of MySword Intralinear)
-│                        #   MySwordReverseInterlinearFormatter
-│                        # also: Reference dataclass, parse_reference(), parse_headers() —
-│                        # format-agnostic helpers both Composers' output flows through
+├── verse_formatter/     # VerseFormatter ABC + one concrete class per output target × style,
+│                        # organized by mode rather than platform — see Architecture below
+│   ├── base.py                 # VerseFormatter ABC; Reference dataclass, parse_reference(),
+│   │                            #   parse_headers() (format-agnostic helpers both Composers'
+│   │                            #   output flows through); e-Sword/MySword xref+red-letter mixins
+│   ├── intralinear.py          # BSTB/BSXB: ESwordIntralinearFormatter, ESwordStackedFormatter,
+│   │                            #   MySwordIntralinearFormatter, MySwordStackedFormatter
+│   ├── reverse_interlinear.py  # BSRB: ESwordReverseInterlinearFormatter,
+│   │                            #   MySwordReverseInterlinearFormatter
+│   └── __init__.py             # re-exports the package's public API
 ├── bible_writer.py      # BibleWriter ABC (open / add_verse / write)
 ├── sqlite_writer.py     # SQLiteBibleWriter — shared SQLite base for e-Sword + MySword
 ├── esword_writer.py     # ESwordWriter — Mods table, Bible view, Notes table
@@ -225,7 +226,7 @@ verse data exactly once regardless of how many output targets are active.
   no way to make ours render above the verse the way native pericopes do
   anyway. Only render the classes native pericopes don't cover —
   `acrostic`, `ihdg`, `subhdg` — each wrapped in a same-named `<span>`
-  (styled by `_INTRALINEAR_CSS`, so each class stays independently
+  (styled by `intralinear.py`'s `_INTRALINEAR_CSS`, so each class stays independently
   stylable instead of colliding with `bracket_replacement`'s own `<i>` use)
   followed by a literal `<br/>`. CSS-only "same line as the verse number,
   wrap only after" tricks (`display:block`; `float:left`/`width:100%`) were
@@ -274,8 +275,11 @@ per reference, same as the inline marker path.
 
 ### Add a new verse style
 
-1. Add a new `VerseFormatter` subclass in `verse_formatter.py` with its own
-   `render_verse()`, `css`, and (if MySword) `verse_rules`.
+1. Add a new `VerseFormatter` subclass with its own `render_verse()`, `css`,
+   and (if MySword) `verse_rules` — in `verse_formatter/intralinear.py` or
+   `verse_formatter/reverse_interlinear.py`, whichever mode it belongs to,
+   or a new sibling module for an entirely new mode (either way, re-export
+   it from `verse_formatter/__init__.py`).
 2. Add the writer + formatter pair to `build_writers()` in `main.py`.
 
 ### Add a new output format
