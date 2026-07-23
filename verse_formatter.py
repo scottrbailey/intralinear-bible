@@ -513,6 +513,7 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
         note_id_map = note_id_map or {}
         xrefs       = xrefs or []
         parts       = []
+        in_red      = False
 
         if header:
             parts.append(self.render_header(header))
@@ -522,14 +523,18 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
 
+            if token.is_red and not in_red:
+                parts.append(self.red_letter_tags[0])
+                in_red = True
+
             if token.is_plain_text or not token.source_words:
-                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                parts.append(self.transform_english(token.english, token.par_class))
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
                     parts.append(f' <not>N{seq}</not>')
             else:
                 core, trail = _split_trailing_punct(token.english)
-                parts.append(self.transform_english(core, token.par_class, token.is_red))
+                parts.append(self.transform_english(core, token.par_class))
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
@@ -549,6 +554,10 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
                     parts.append(f' <not>N{seq}</not>')
+
+            if in_red and (next_token is None or not next_token.is_red):
+                parts.append(self.red_letter_tags[1])
+                in_red = False
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
@@ -740,6 +749,7 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
         note_id_map = note_id_map or {}
         xrefs = xrefs or []
         parts = []
+        in_red = False
         if header:
             parts.append(self.render_header(header))
         if xref_placement == 1:
@@ -748,13 +758,17 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
         for i, token in enumerate(tokens):
             next_token = tokens[i + 1] if i + 1 < len(tokens) else None
 
+            if token.is_red and not in_red:
+                parts.append(self.red_letter_tags[0])
+                in_red = True
+
             if token.is_plain_text or not token.source_words:
-                parts.append(self.transform_english(token.english, token.par_class, token.is_red))
+                parts.append(self.transform_english(token.english, token.par_class))
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
             else:
                 core, trail = _split_trailing_punct(token.english)
-                parts.append(self.transform_english(core, token.par_class, token.is_red))
+                parts.append(self.transform_english(core, token.par_class))
                 parts.append(' ')
                 lemmas = []
                 for sw in token.source_words:
@@ -775,6 +789,10 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 parts.append(trail)
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+
+            if in_red and (next_token is None or not next_token.is_red):
+                parts.append(self.red_letter_tags[1])
+                in_red = False
 
             if not token.skip_space_after and next_token is not None:
                 parts.append(' ')
