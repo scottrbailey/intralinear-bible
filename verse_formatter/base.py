@@ -37,9 +37,6 @@ MODULE_DESCRIPTION = dedent("""\
     Berean Standard Bible with inline Hebrew and Greek transliteration.
     Source language data from BSB Translation Tables - https://berean.bible/downloads.htm""")
 
-COLOR_TRANSLIT = '#475eaf'
-COLOR_ANCIENT = '#479faf'
-COLOR_UNLINKED = '#666666'
 
 # ============================================================ cross-references
 
@@ -477,5 +474,5 @@ class _MySwordXrefMixin:
                 for piece in vx['text'].split(';') if piece.strip()
             )
             if rx_tags:
-                parts.append(f"<RF q=R{vx['key']}>{rx_tags}<Rf>")
+                parts.append(f"<RF q=R{vx['key']}>{rx_tags}<Rf> ")
         return ''.join(parts)

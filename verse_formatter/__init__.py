@@ -27,9 +27,6 @@ from .base import (
     parse_reference,
     parse_headers,
     MODULE_DESCRIPTION,
-    COLOR_TRANSLIT,
-    COLOR_ANCIENT,
-    COLOR_UNLINKED,
     ABBREV_TO_BOOK_NUM,
 )
 from .intralinear import (
@@ -53,9 +50,6 @@ __all__ = [
     'parse_reference',
     'parse_headers',
     'MODULE_DESCRIPTION',
-    'COLOR_TRANSLIT',
-    'COLOR_ANCIENT',
-    'COLOR_UNLINKED',
     'ABBREV_TO_BOOK_NUM',
     'ESwordIntralinearFormatter',
     'ESwordStackedFormatter',

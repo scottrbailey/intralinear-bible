@@ -13,9 +13,13 @@ tags, different CSS (ruby's original-language line shown instead of hidden).
 
 from .base import (
     VerseFormatter, _ESwordXrefMixin, _MySwordXrefMixin,
-    _split_trailing_punct, COLOR_TRANSLIT, COLOR_ANCIENT, COLOR_UNLINKED,
+    _split_trailing_punct
 )
 from textwrap import dedent
+
+COLOR_TRANSLIT = '#475eaf'
+COLOR_ANCIENT = '#479faf'
+COLOR_UNLINKED = '#666666'
 
 # Shared by both MySword and e-Sword.
 #
@@ -159,7 +163,8 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
             if token.is_plain_text or not token.source_words:
                 parts.append(self.transform_english(token.english, token.par_class))
                 for note in token.notes:
-                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f"<RF q=N{seq}>{note['text']}<Rf> ")
             else:
                 core, trail = _split_trailing_punct(token.english)
                 parts.append(self.transform_english(core, token.par_class))
@@ -182,7 +187,8 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 parts.append(' '.join(lemmas))
                 parts.append(trail)
                 for note in token.notes:
-                    parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f"<RF q=N{seq}>{note['text']}<Rf> ")
 
             if in_red and (next_token is None or not next_token.is_red):
                 parts.append(self.red_letter_tags[1])

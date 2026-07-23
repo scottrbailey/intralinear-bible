@@ -67,10 +67,8 @@ eng {text-align:center; padding-top:0.2em;}
 
 
 class ESwordForwardInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSFI"   # placeholder -- pick a real one before shipping;
-                              # same collision check that renamed reverse
-                              # interlinear BSBri+ -> BSRB applies here too
-    module_name    = "BSB Forward Interlinear Bible"
+    abbreviation   = "BSFI"
+    module_name    = "Berean Forward Interlinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_FORWARD_INTERLINEAR_CSS
     bracket_replacement = ('<i>', '</i>')
@@ -79,7 +77,8 @@ class ESwordForwardInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                      xrefs=None, xref_placement=0) -> str:
         note_id_map = note_id_map or {}
         xrefs       = xrefs or []
-        parts       = []
+        lang_class = 'greek' if tokens[0].lang == 'G' else 'hebrew'
+        parts       = [f'<p class="{lang_class}">',]
 
         if header:
             parts.append(self.render_header(header))
@@ -105,7 +104,7 @@ class ESwordForwardInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
         if xref_placement == 2:
             parts.append(self.render_crossref(xrefs))
-
+        parts.append('</p>')
         return ''.join(parts)
 
 
@@ -114,13 +113,7 @@ class ESwordForwardInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
 # Reuses MySwordReverseInterlinearFormatter's tag vocabulary (ro/rt, native
 # <W.../WT...> Strong's/morphology links) for the same reason as e-Sword above.
 _MYSWORD_FORWARD_INTERLINEAR_CSS = """
-fib {display:inline-flex; flex-direction:column; vertical-align:top; margin:0 0.15em 0.75em; font-size:0.85em;}
-src {display:flex; flex-direction:column; align-items:center; border-bottom:2px solid #ddd; padding-bottom:0.2em;}
-src ro {font-size:1.2em; color:#065e69;}
-src rt {color:#7a10ad; font-size:0.9em;}
-src mg {display:flex; flex-direction:row; flex-wrap:wrap; gap:3px; justify-content:center;}
-.strong, .morph {font-size:0.65em; color:#666;}
-eng {text-align:center; padding-top:0.2em;}
+.rtl {direction:rtl; text-align:right;}
 """
 
 _MYSWORD_FORWARD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
@@ -138,7 +131,10 @@ class MySwordForwardInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                      xrefs=None, xref_placement=0) -> str:
         note_id_map = note_id_map or {}
         xrefs       = xrefs or []
-        parts       = []
+        rtl = '<rtl class="rtl">' if tokens[0].source_words[0].lang != 'G' else None
+        parts = []
+        if rtl:
+            parts.append(rtl)
 
         if header:
             parts.append(self.render_header(header))
@@ -149,21 +145,25 @@ class MySwordForwardInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
             sw      = token.source_words[0]
             xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
             strongs = sw.stem.strongs
-            strong_tag = f'<W{strongs}>' if strongs else '<span class="strong">&nbsp;</span>'
+            strong_tag = f'<W{strongs}>' if strongs else ' '
+            lang = 'Gg' if sw.lang == 'G' else 'Hh'
             morph = sw.stem.morph or sw.stem.token_class
             morph_tags = ''.join(f'<WT{m}>' for m in morph.split('|'))
             english = self.transform_english(token.english, token.par_class)
             parts.append(
-                f'<fib><src><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}'
-                f'<mg>{morph_tags}</mg></src><eng>{english}</eng></fib>'
+                f'<Q><{lang[0]}>{sw.text}<{lang[1]}><X>{xlit}<x>{strong_tag}'
+                f'<mg>{morph_tags}</mg><T>{english}<t><q>'
             )
             for note in token.notes:
-                parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
+                seq = note_id_map.get(note['noteId'], note['noteId'])
+                parts.append(f"<RF q=N{seq}>{note['text']}<Rf> ")
             parts.append(' ')
 
         if xref_placement == 2:
             parts.append(self.render_crossref(xrefs))
 
+        if rtl:
+            parts.append('</rtl>')
         return ''.join(parts)
 
     def preview_transform(self, scripture: str) -> str:
