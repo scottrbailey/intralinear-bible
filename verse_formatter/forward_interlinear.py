@@ -77,7 +77,7 @@ class ESwordForwardInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
                      xrefs=None, xref_placement=0) -> str:
         note_id_map = note_id_map or {}
         xrefs       = xrefs or []
-        lang_class = 'greek' if tokens[0].lang == 'G' else 'hebrew'
+        lang_class = 'greek' if tokens[0].source_words[0].lang == 'G' else 'hebrew'
         parts       = [f'<p class="{lang_class}">',]
 
         if header:

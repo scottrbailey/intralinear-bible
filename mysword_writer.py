@@ -16,11 +16,11 @@ class MySwordWriter(SQLiteBibleWriter):
     _table_name  = 'Bible'
     _format_name = 'mysword'
 
-    def __init__(self, profile, **kwargs):
+    def __init__(self, profile, rtl_ot: bool = False, **kwargs):
         super().__init__(profile, **kwargs)
         self._note_counter    = 0
         self._current_chapter = None
-        self._rtl_ot = kwargs.get('rtl_ot', False)
+        self._rtl_ot = rtl_ot
 
     def add_verse(self, osis_ref: str, tokens: list,
                   header: str = None, xrefs: dict = None) -> None:
@@ -84,8 +84,9 @@ class MySwordWriter(SQLiteBibleWriter):
             4,           # needs 4 to indicate HTML... I know
             today,
             self.profile.publish_date,
-            0,
-            1 if self._rtl_ot else 0,
+            0,                          # RightToLeft (legacy single flag, unused)
+            1 if self._rtl_ot else 0,   # RightToLeftOT
+            0,                          # RightToLeftNT -- Greek NT is never RTL
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
             1,

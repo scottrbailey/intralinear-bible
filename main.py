@@ -158,8 +158,8 @@ def build_writers(output_format: str, render_mode: str,
     def esword(profile_cls):
         return ESwordWriter(profile_cls(transliterate), **common_kw)
 
-    def mysword(profile_cls):
-        return MySwordWriter(profile_cls(transliterate), **common_kw)
+    def mysword(profile_cls, **extra):
+        return MySwordWriter(profile_cls(transliterate), **common_kw, **extra)
 
     if output_format == 'all':
         return [
@@ -186,7 +186,11 @@ def build_writers(output_format: str, render_mode: str,
         if render_mode == 'intralinear':
             return [mysword(MySwordIntralinearFormatter), mysword(MySwordStackedFormatter)]
         elif render_mode == 'interlinear':
-            return [mysword(MySwordForwardInterlinearFormatter)]
+            # rtl_ot: forward interlinear reorders Hebrew into its own
+            # (right-to-left) word order, unlike intralinear/reverse
+            # interlinear where English stays the primary, left-to-right
+            # reading order regardless of source language.
+            return [mysword(MySwordForwardInterlinearFormatter, rtl_ot=True)]
         else:  # reverse (and 'stacked' -- MySword has no separate stacked
                # writer path today, same pre-existing gap as before this change)
             return [mysword(MySwordReverseInterlinearFormatter)]
