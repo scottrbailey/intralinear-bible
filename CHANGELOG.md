@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.4] - 2026-07-21
+
+### Fixed
+- **Red-letter (words of Christ) runs in the intralinear modules** (`ESwordIntralinearFormatter`, `MySwordIntralinearFormatter`, and their `Stacked` subclasses via inherited `render_verse()`): each token's English text was wrapped in `red_letter_tags` individually, so a word's trailing punctuation — split off by `_split_trailing_punct()` to land after its ruby/lemma annotation instead of before it — ended up outside the closed `<red>`/`<FR>` tag and rendered unstyled. `render_verse()` now tracks `is_red` run boundaries directly: `red_letter_tags[0]` opens once when a run starts and `red_letter_tags[1]` closes once when the next token isn't red or the verse ends, so punctuation, notes, and the ruby annotation for every token in the run sit inside one open span. Confirmed on-device on both e-Sword and MySword — the ruby elements' own color rules still win by CSS specificity against the enclosing red tag. Also cuts the number of open/close tag pairs emitted for longer red-letter passages.
+
 ## [1.1.3] - 2026-07-21
 
 ### Fixed
