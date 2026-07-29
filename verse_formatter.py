@@ -259,15 +259,12 @@ _INLINE_HEADER_CLASSES = {'acrostic', 'ihdg', 'subhdg'}
 # whatever precedes it on the line.
 _INTRALINEAR_CSS = dedent('''\
     .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
-    .acrostic {text-align:center;}
-    .ihdg {font-weight:normal;}
-    .subhdg {font-style:normal;}
+    .acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
     .pshdg, .inscrip, .selah {font-style:italic;}
     .ilb {display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}
     .ilb ruby {display:inline-flex; flex-direction:column;}
-    ruby > ro {display:block; color:#1ca0b1; text-align:center;}
-    ruby > rt {display:block; font-size:1.1em; color: blue;}
-    ruby > rt.unlinked {color: #7a8fa6;}
+    ruby ro {display:block; color:#1ca0b1; text-align:center;} .hb ruby ro {font-size: 1.3em;}
+    ruby rt {display:block; font-size:1.1em; color: blue;} ruby rt.unlinked {color: #7a8fa6;}
 ''')
 
 # ================================================================ base class
@@ -470,15 +467,11 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
-                    # yes I know the ruby / rt tags are semantically inverted - easier to hide rt
-                    # <num> is invisible (opacity:0) and only overlays <rt> so e-Sword's own
-                    # tap handling resolves a Strong's popup there. With no strongs number,
-                    # that tap would silently do nothing, so <rt> gets 'unlinked' instead —
-                    # a dimmer, grayish blue reads as "known unavailable" rather than "broken".
+                    lang = 'gr' if sw.lang == 'G' else 'hb'
                     rt_class = ' class="unlinked"' if not strongs else ''
                     num_tag  = f'<num>{strongs}</num>' if strongs else ''
                     lemmas.append(
-                        f'<span class="ilb">'
+                        f'<span class="ilb {lang}">'
                         f'<ruby><rt{rt_class}>{xlit}</rt><ro>{sw.text}</ro></ruby>'
                         f'{num_tag}'
                         f'</span>'
@@ -515,7 +508,8 @@ ilb > * {display:block; text-align:center; width:100%; max-width:100%;}
 trn {border-bottom:1px solid gray; text-align:center; width:100%; border-bottom:2px solid #DDD; margin-bottom:.1em;}
 lm {display:inline-block; text-align:center; padding: 0.2em; gap: 3px; font-size:.85em; line-height: 1.0em;} 
 ltn {color: green; padding-bottom: 0.2em;} .red i {color: #d6807f;}
-lm mb {max-width:100%;} lm > * {display:block} hb, gr {color:#065e69;} 
+lm mb {max-width:100%;} lm > * {display:block} hb, gr {color:#006d64;} 
+ilb lm hb {font-size:1.3em; line-height:1.3em; padding-bottom:4px;}
 sb > *, mb > * {vertical-align:normal; font-size:.7em; padding:0; line-height:.8em;}
 .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
 .acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
@@ -524,7 +518,7 @@ sb > *, mb > * {vertical-align:normal; font-size:.7em; padding:0; line-height:.8
 
 class ESwordReverseInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
     abbreviation   = "BSRB"
-    module_name    = "BSB Reverse Interlinear Bible"
+    module_name    = "Berean Standard Reverse Interlinear Bible"
     file_extension = ".bbli"
     css            = _ESWORD_INTERLINEAR_CSS
     bracket_replacement = ('<i>', '</i>')
@@ -695,13 +689,14 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 for sw in token.source_words:
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
+                    lang = 'gr' if sw.lang == 'G' else 'hb'
                     # With no strongs number, `<a href="s">` would be a real but broken
                     # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
                     # as "known unavailable" rather than a dead link (see _INTRALINEAR_CSS).
                     rt_content = f'<a href="s{strongs}">{xlit}</a>' if strongs else xlit
                     rt_class   = ' class="unlinked"' if not strongs else ''
                     lemmas.append(
-                        f'<span class="ilb"><ruby><rt{rt_class}>{rt_content}</rt>'
+                        f'<span class="ilb {lang}"><ruby><rt{rt_class}>{rt_content}</rt>'
                         f'<ro>{sw.text}</ro></ruby></span>'
                     )
                 parts.append(' '.join(lemmas))
@@ -738,9 +733,8 @@ ilb t {width: 100%; text-align:center; border-bottom: 2px solid #eee;}
 ilb > lg {display:inline-flex; flex-direction:row; justify-content:center; gap:4px;} 
 lm {display:inline-flex; flex-direction:column; align-items:stretch; width:100%;}
 lm > * {text-align: center}
-ilb ro {color:#065e69;} ilb rt {color:#7a10ad;} ilb i {color: #444;}
-.wjc i {color: #8f4b4b;}
-.strong, .morph {font-size:0.7em}
+ilb ro {color:#065e69;} ilb rt {color:#7a10ad;} ilb i {color: #444;} ibl.heb ro {font-size:1.3em;}
+.strong, .morph {font-size:0.7em} .wjc i {color: #8f4b4b;}
 .acrostic, .ihdg, .subhdg {color:#777; font-style:italic; font-weight:bold;}
 .acrostic {text-align:center;} .ihdg {font-weight:normal;} .subhdg {font-style:normal;}
 .pshdg, .inscrip, .selah {font-style:italic;}
@@ -751,7 +745,7 @@ _MYSWORD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
     abbreviation   = "BSRB"
-    module_name    = "BSB Reverse Interlinear Bible"
+    module_name    = "Berean Standard Reverse Interlinear Bible"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_INTERLINEAR_CSS
     verse_rules    = _MYSWORD_INTERLINEAR_RULES
@@ -798,31 +792,19 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                 for sw in token.source_words:
                     xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
-                    # Some source words genuinely have no Strong's number (the
-                    # direct object marker, prefixed prepositions/conjunctions
-                    # as their own token, etc.) -- a bare <W> tag with no
-                    # number doesn't reserve a row the way a real <WH.../WG...>
-                    # link does, so sibling <lm>s in the same row go out of
-                    # vertical alignment. A truly empty <span> doesn't fix
-                    # this either: every direct child of <lm> is a flex item
-                    # (lm's own display:inline-flex; flex-direction:column),
-                    # and flex items size to their content -- an empty span
-                    # has zero content, so it collapses to zero height
-                    # regardless of font-size. A non-breaking space gives it
-                    # real content to size against, so it reserves the row.
                     strong_tag = f'<W{strongs}>' if strongs else '<span class="strong">&nbsp;</span>'
                     # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
                     # falls back to the raw BSB Parsing string when unresolved -- still
                     # displayed for the reader, just not a dictionary-linkable code, so
                     # MySword's own lookup silently fails to match it rather than showing
                     # nothing at all.
+                    lang = 'grk' if sw.lang == 'G' else 'heb'
                     morph = sw.stem.morph or sw.stem.token_class
                     morph_tags = ''.join([f'<WT{mph}>' for mph in morph.split('|')])
-
                     segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}<mg>{morph_tags}</mg></lm>")
                 english = self.transform_english(token.english, token.par_class, token.is_red)
                 parts.append(
-                    f"<ilb><t>{english}</t><lg>{''.join(segments)}</lg></ilb>"
+                    f'<ilb class="{lang}"><t>{english}</t><lg>{"".join(segments)}</lg></ilb>'
                 )
                 for note in token.notes:
                     parts.append(f"<RF q={note_id_map.get(note['noteId'], note['noteId'])}>{note['text']}<Rf>")
