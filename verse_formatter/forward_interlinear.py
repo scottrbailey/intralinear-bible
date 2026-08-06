@@ -121,15 +121,16 @@ class ESwordForwardInterlinearFormatter(_ESwordXrefMixin, VerseFormatter):
 # English-primary layout -- that formatter's own ro/rt/W/WT tags stay as
 # they are, this isn't a "switch everything over" change.
 _MYSWORD_FORWARD_INTERLINEAR_CSS = """
-.rtl {direction:rtl; text-align:right;}
+.rtl {direction:rtl; text-align:right;} .strong{font-size:0.75em;} 
+.morph {font-size:0.75em; display: inline-block; max-width: 40vw;}
 """
 
 _MYSWORD_FORWARD_INTERLINEAR_RULES = ""  # GBF tags handled natively by MySword
 
 
 class MySwordForwardInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSFI"   # placeholder, see ESwordForwardInterlinearFormatter
-    module_name    = "BSB Forward Interlinear Bible"
+    abbreviation   = "BSFI"
+    module_name    = "Berean Forward Interlinear Bible"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_FORWARD_INTERLINEAR_CSS
     verse_rules    = _MYSWORD_FORWARD_INTERLINEAR_RULES
@@ -141,21 +142,20 @@ class MySwordForwardInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
         xrefs       = xrefs or []
         rtl = '<rtl class="rtl">' if tokens[0].source_words[0].lang != 'G' else None
         parts = []
-        if rtl:
-            parts.append(rtl)
 
         if header:
             parts.append(self.render_header(header))
         if xref_placement == 1:
             parts.append(self.render_crossref(xrefs))
-
+        if rtl:
+            parts.append(rtl)
         for token in tokens:
             sw      = token.source_words[0]
             xlit    = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
             strongs = sw.stem.strongs
             strong_tag = f'<W{strongs}>' if strongs else ' '
             lang = 'Gg' if sw.lang == 'G' else 'Hh'
-            morph = sw.stem.morph or sw.stem.token_class
+            morph = sw.stem.token_class or sw.stem.morph
             morph_tags = ''.join(f'<WT{m}>' for m in morph.split('|'))
             english = self.transform_english(token.english, token.par_class)
             parts.append(

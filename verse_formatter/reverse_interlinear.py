@@ -240,27 +240,9 @@ class MySwordReverseInterlinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     segments = []
                     for sw, xlit in group:
                         strongs = sw.stem.strongs
-                        # Some source words genuinely have no Strong's number (the
-                        # direct object marker, prefixed prepositions/conjunctions
-                        # as their own token, etc.) -- a bare <W> tag with no
-                        # number doesn't reserve a row the way a real <WH.../WG...>
-                        # link does, so sibling <lm>s in the same row go out of
-                        # vertical alignment. A truly empty <span> doesn't fix
-                        # this either: every direct child of <lm> is a flex item
-                        # (lm's own display:inline-flex; flex-direction:column),
-                        # and flex items size to their content -- an empty span
-                        # has zero content, so it collapses to zero height
-                        # regardless of font-size. A non-breaking space gives it
-                        # real content to size against, so it reserves the row.
                         strong_tag = f'<W{strongs}>' if strongs else '<span class="strong">&nbsp;</span>'
-                        # sw.stem.morph is the resolved RMAC code (bsb_tables.tokens.morph);
-                        # falls back to the raw BSB Parsing string when unresolved -- still
-                        # displayed for the reader, just not a dictionary-linkable code, so
-                        # MySword's own lookup silently fails to match it rather than showing
-                        # nothing at all.
                         morph = sw.stem.morph or sw.stem.token_class
                         morph_tags = ''.join([f'<WT{mph}>' for mph in morph.split('|')])
-
                         segments.append(f"<lm><ro>{sw.text}</ro><rt>{xlit}</rt>{strong_tag}<mg>{morph_tags}</mg></lm>")
                     label = english if gi == 0 else '&nbsp;'
                     tag   = 'ilb' if gi == 0 else 'ilbc'
