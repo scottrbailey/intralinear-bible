@@ -272,17 +272,22 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
 
     e-Sword's <ref> tag doesn't resolve a bare "book chapter" or
     "book chapter-chapter" reference -- confirmed against the real app,
-    not documented anywhere -- it needs an explicit verse range. Whenever
-    the source text has no verse of its own, this fills one in from
-    bsb_tables.db's verses table (verses_conn -- opened once by the
-    caller; None skips this and leaves the reference chapter-only, e.g.
-    when bsb_tables.db hasn't been built): verse=1 (a chapter always
-    starts there) through the last verse of whichever chapter ends the
-    range, from _last_verse(). A lookup that comes back empty (unknown
-    book id, or bsb_tables.db doesn't have that book/chapter) is not
-    treated the same as an unresolved reference -- the book/shape parsed
-    fine, there's just no verse count available -- so it's collected into
-    missing_bounds instead and left chapter-only rather than guessing.
+    not documented anywhere -- it needs an explicit verse range. A
+    reference spanning more than one chapter is also split into one
+    <ref> per chapter rather than one combined range -- e-Sword loads a
+    <ref>'s whole target into the reading window at once, so a single
+    multi-chapter tag means a massive combined view; per-chapter tags
+    keep each one small and let a partially-read day resume from
+    wherever it left off. Both cases pull real verse counts from
+    bsb_tables.db's chapters table via _last_verse() -- see
+    _chapter_split_refs() -- whenever the source text doesn't already
+    give one for a given chapter (verses_conn -- opened once by the
+    caller; None skips lookups and leaves those chapters bare, e.g. when
+    bsb_tables.db hasn't been built). A lookup that comes back empty
+    (unknown book id, or bsb_tables.db has no data for that book/chapter)
+    is not treated the same as an unresolved reference -- the book/shape
+    parsed fine, there's just no verse count available -- so it's
+    collected into missing_bounds instead of guessing.
     """
     text = text.strip()
 
@@ -318,19 +323,49 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
     end_chap   = int(end_chap) if end_chap else None
     end_verse  = int(m.group('end_verse')) if m.group('end_verse') else None
 
-    if verse is None and verses_conn is not None:
-        last = _last_verse(verses_conn, osis_id, end_chap or chapter)
-        if last is None:
-            missing_bounds.append(text)
-        else:
-            verse = 1
-            end_verse = last
-    elif verse is None:
-        missing_bounds.append(text)
+    return _chapter_split_refs(abbrev, osis_id, chapter, verse, end_chap, end_verse,
+                                verses_conn, missing_bounds, text)
 
-    ref = Reference(book=abbrev, chapter=chapter, verse=verse,
-                     end_chapter=end_chap, end_verse=end_verse)
-    return f'<ref>{_default_ref_label(ref)}</ref>'
+
+def _chapter_split_refs(abbrev: str, osis_id: str, chapter: int, verse, end_chap, end_verse,
+                         verses_conn, missing_bounds: list, orig_text: str) -> str:
+    """One chapter's own <ref> tag if the reference doesn't cross a
+    chapter boundary, or one <ref> per chapter from `chapter` through
+    `end_chap` if it does -- see _ref_to_tag()'s docstring for why both
+    the splitting and the verse-bounding are needed at all.
+
+    Single-chapter, verse already fully given (including a lone verse
+    with no explicit end, e.g. "Jeremiah 3:4" -- chapter=3, verse=4,
+    end_verse=None) is returned exactly as given, no lookup: only the
+    *absence* of a starting verse (the bare "book chapter[-chapter]"
+    case) or an actual multi-chapter split triggers a bsb_tables.db
+    lookup, never a single already-verse-bounded reference.
+
+    For a real multi-chapter split, only the first chapter's start and
+    the last chapter's end can come from the source text (whatever verse/
+    end_verse it gave) -- every chapter in between, and either end when
+    the source gave no verse at all, always runs its own full 1..last.
+    """
+    last_chap = end_chap if end_chap is not None else chapter
+
+    if verse is not None and last_chap == chapter:
+        ref = Reference(book=abbrev, chapter=chapter, verse=verse, end_verse=end_verse)
+        return f'<ref>{_default_ref_label(ref)}</ref>'
+
+    tags = []
+    for ch in range(chapter, last_chap + 1):
+        start = verse if ch == chapter and verse is not None else 1
+        if ch == last_chap and end_verse is not None:
+            end = end_verse
+        elif verses_conn is not None:
+            end = _last_verse(verses_conn, osis_id, ch)
+        else:
+            end = None
+        if end is None:
+            missing_bounds.append(orig_text if last_chap == chapter else f"{orig_text} (chapter {ch})")
+        ref = Reference(book=abbrev, chapter=ch, verse=(start if end is not None else None), end_verse=end)
+        tags.append(f'<ref>{_default_ref_label(ref)}</ref>')
+    return ''.join(tags)
 
 
 def ref_wrap(refs, book_lookup, verses_conn, unresolved, missing_bounds):
@@ -500,11 +535,20 @@ def derive_holiday_dates(hebcal_json, labels):
 
 
 def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn,
-                          unresolved, missing_bounds, hdate_str=None):
+                          unresolved, missing_bounds, hdate_str=None, weekday=None):
     """Build the full Devotion HTML for one calendar day."""
     parts = []
-    if hdate_str:
-        parts.append(f'<p class="hdate"><i>{hdate_str}</i></p>')
+    if hdate_str or weekday:
+        # e-Sword's .devi Details table has no CustomCSS column (unlike the
+        # Bible-module Details tables) -- there's no stylesheet to put a
+        # float rule in, and no reliable guarantee an inline style would be
+        # honored either (see this session's e-Sword iOS ruby-sizing
+        # quirks). A plain two-cell table gets the same weekday-left/
+        # hebdate-right layout with no CSS involved at all.
+        left = weekday or ''
+        right = f'<i>{hdate_str}</i>' if hdate_str else ''
+        parts.append(f'<table class="hdate" width="100%"><tr><td>{left}</td>'
+                      f'<td align="right">{right}</td></tr></table>')
 
     for heading, refs in sections:
         parts.append(f"<h3>{heading}</h3><ol>" + "".join(
@@ -584,7 +628,8 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
         if hd is None:
             missing_hdate.append(dt)
         html = render_devotion_html(day_entries[dt], annotations.get(dt, []), book_lookup,
-                                     verses_conn, unresolved_refs, missing_bounds, hd)
+                                     verses_conn, unresolved_refs, missing_bounds, hd,
+                                     weekday=dt.strftime('%A'))
         cur.execute(
             "INSERT INTO Devotional (Month, Day, Devotion) VALUES (?,?,?)",
             (dt.month, dt.day, html),
