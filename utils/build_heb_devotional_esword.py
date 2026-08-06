@@ -43,9 +43,21 @@ import json
 import re
 import sqlite3
 import os
+import sys
 import requests
 from datetime import date, timedelta
 from pathlib import Path
+
+# Run directly (`python utils/build_heb_devotional_esword.py`), Python puts
+# this script's own directory (utils/) on sys.path[0], not the project
+# root -- so verse_formatter (a project-root package) isn't importable
+# unless the root is added explicitly. Every other utils/*.py script only
+# imports stdlib + biblelib, so this hasn't come up before; this is the
+# first one reaching back into the main project package. Harmless when
+# already importable (e.g. run via `python -m` from the root, or from an
+# interactive console started there) -- sys.path just gets a redundant
+# entry.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from biblelib.book import Books
 from verse_formatter.base import Reference, _default_ref_label
@@ -169,20 +181,43 @@ def _book_name_to_abbrev() -> dict:
     itself (see utils/build_books_table.py's "biblelib is the canonical
     source" rationale), so this reconstructs the join rather than adding
     a column only this script would use.
+
+    Returns {full_name: (display_abbrev, osis_id)} -- both codes, since
+    callers need display_abbrev for the <ref> tag itself (matches
+    bsb_xrefs.json's own "Joh", "Exo", "Rom" convention -- e-Sword's
+    <ref> tag doesn't recognize OSIS-style ids like "Exod") but osis_id
+    to query bsb_tables.db's verses table, which is keyed on OSIS ids,
+    not our display abbreviation (see utils/import_bsb_table.py's
+    FULL_NAME_TO_OSIS / verses.book population).
     """
     db_path = Path(__file__).parent.parent / "data" / "books.db"
     conn = sqlite3.connect(db_path)
-    rows = conn.execute("SELECT usx_code, display_abbrev FROM books").fetchall()
+    rows = conn.execute("SELECT usx_code, osis_id, display_abbrev FROM books").fetchall()
     conn.close()
 
     biblelib_books = Books()
     mapping = {}
-    for usx_code, abbrev in rows:
+    for usx_code, osis_id, abbrev in rows:
         try:
-            mapping[biblelib_books[usx_code].name] = abbrev
+            mapping[biblelib_books[usx_code].name] = (abbrev, osis_id)
         except KeyError:
             continue
     return mapping
+
+
+def _last_verse(conn: sqlite3.Connection, osis_book: str, chapter: int):
+    """Last verse number of one chapter, from bsb_tables.db's chapters
+    table (one row per book/chapter, precomputed once at import time --
+    see utils/import_bsb_table.py's post-processing step -- rather than
+    re-aggregating verses on every lookup here). Returns None if the DB
+    has no row for that book/chapter (unknown book id, chapter out of
+    range, or an older bsb_tables.db built before the chapters table
+    existed)."""
+    row = conn.execute(
+        "SELECT verse_count FROM chapters WHERE book = ? AND chapter = ?",
+        (osis_book, chapter),
+    ).fetchone()
+    return row[0] if row else None
 
 
 # parshat.json spells numbered books with a Roman-numeral prefix ("I Samuel",
@@ -215,7 +250,8 @@ _DEVOTIONAL_REF_RE = re.compile(
 )
 
 
-def _ref_to_tag(text: str, name_to_abbrev: dict, unresolved: list, depth: int = 0) -> str:
+def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
+                 missing_bounds: list, depth: int = 0) -> str:
     """One raw parshat.json reference string -> one or more '<ref>...</ref>'
     tags, formatted exactly like our Bible modules' own e-Sword references
     (verse_formatter.base.Reference + _default_ref_label() -- same
@@ -233,12 +269,27 @@ def _ref_to_tag(text: str, name_to_abbrev: dict, unresolved: list, depth: int = 
       - Contains a comma ("Jeremiah 2:4-28, 3:4") -- a compound reference;
         every segment after the first drops the book name (implied from
         the first segment), so it's re-attached before parsing each part.
+
+    e-Sword's <ref> tag doesn't resolve a bare "book chapter" or
+    "book chapter-chapter" reference -- confirmed against the real app,
+    not documented anywhere -- it needs an explicit verse range. Whenever
+    the source text has no verse of its own, this fills one in from
+    bsb_tables.db's verses table (verses_conn -- opened once by the
+    caller; None skips this and leaves the reference chapter-only, e.g.
+    when bsb_tables.db hasn't been built): verse=1 (a chapter always
+    starts there) through the last verse of whichever chapter ends the
+    range, from _last_verse(). A lookup that comes back empty (unknown
+    book id, or bsb_tables.db doesn't have that book/chapter) is not
+    treated the same as an unresolved reference -- the book/shape parsed
+    fine, there's just no verse count available -- so it's collected into
+    missing_bounds instead and left chapter-only rather than guessing.
     """
     text = text.strip()
 
     if not any(c.isdigit() for c in text):
         parts = [p.strip() for p in text.split(';') if p.strip()]
-        return ''.join(_ref_to_tag(f"{p} 1", name_to_abbrev, unresolved, depth + 1) for p in parts)
+        return ''.join(_ref_to_tag(f"{p} 1", book_lookup, verses_conn, unresolved,
+                                    missing_bounds, depth + 1) for p in parts)
 
     if ',' in text and depth == 0:
         segments = [s.strip() for s in text.split(',')]
@@ -246,7 +297,7 @@ def _ref_to_tag(text: str, name_to_abbrev: dict, unresolved: list, depth: int = 
         book_name = first_match.group('book') if first_match else None
         return ''.join(
             _ref_to_tag(seg if i == 0 or book_name is None else f"{book_name} {seg}",
-                        name_to_abbrev, unresolved, depth + 1)
+                        book_lookup, verses_conn, unresolved, missing_bounds, depth + 1)
             for i, seg in enumerate(segments)
         )
 
@@ -255,26 +306,39 @@ def _ref_to_tag(text: str, name_to_abbrev: dict, unresolved: list, depth: int = 
         unresolved.append(text)
         return f'<ref>{text}</ref>'
 
-    abbrev = name_to_abbrev.get(_normalize_book_name(m.group('book')))
-    if abbrev is None:
+    resolved = book_lookup.get(_normalize_book_name(m.group('book')))
+    if resolved is None:
         unresolved.append(text)
         return f'<ref>{text}</ref>'
+    abbrev, osis_id = resolved
 
-    end_chap = m.group('end_chap') or m.group('chap_end')
-    ref = Reference(
-        book=abbrev,
-        chapter=int(m.group('chap')),
-        verse=int(m.group('verse')) if m.group('verse') else None,
-        end_chapter=int(end_chap) if end_chap else None,
-        end_verse=int(m.group('end_verse')) if m.group('end_verse') else None,
-    )
+    chapter    = int(m.group('chap'))
+    verse      = int(m.group('verse')) if m.group('verse') else None
+    end_chap   = m.group('end_chap') or m.group('chap_end')
+    end_chap   = int(end_chap) if end_chap else None
+    end_verse  = int(m.group('end_verse')) if m.group('end_verse') else None
+
+    if verse is None and verses_conn is not None:
+        last = _last_verse(verses_conn, osis_id, end_chap or chapter)
+        if last is None:
+            missing_bounds.append(text)
+        else:
+            verse = 1
+            end_verse = last
+    elif verse is None:
+        missing_bounds.append(text)
+
+    ref = Reference(book=abbrev, chapter=chapter, verse=verse,
+                     end_chapter=end_chap, end_verse=end_verse)
     return f'<ref>{_default_ref_label(ref)}</ref>'
 
 
-def ref_wrap(refs, name_to_abbrev, unresolved):
+def ref_wrap(refs, book_lookup, verses_conn, unresolved, missing_bounds):
     """Format each reference string into e-Sword <ref> tag(s) -- see
-    _ref_to_tag() for the actual book-name resolution and formatting."""
-    return "".join(_ref_to_tag(r, name_to_abbrev, unresolved) for r in refs)
+    _ref_to_tag() for the actual book-name resolution, verse-bounding,
+    and formatting."""
+    return "".join(_ref_to_tag(r, book_lookup, verses_conn, unresolved, missing_bounds)
+                   for r in refs)
 
 
 def build_day_entries(weeks, week_saturday, holiday_date):
@@ -435,7 +499,8 @@ def derive_holiday_dates(hebcal_json, labels):
     return result
 
 
-def render_devotion_html(sections, annotations_for_day, name_to_abbrev, unresolved, hdate_str=None):
+def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn,
+                          unresolved, missing_bounds, hdate_str=None):
     """Build the full Devotion HTML for one calendar day."""
     parts = []
     if hdate_str:
@@ -443,7 +508,8 @@ def render_devotion_html(sections, annotations_for_day, name_to_abbrev, unresolv
 
     for heading, refs in sections:
         parts.append(f"<h3>{heading}</h3><ol>" + "".join(
-            f"<li>{ref_wrap([r], name_to_abbrev, unresolved)}</li>" for r in refs
+            f"<li>{ref_wrap([r], book_lookup, verses_conn, unresolved, missing_bounds)}</li>"
+            for r in refs
         ) + "</ol>")
 
     if annotations_for_day:
@@ -462,12 +528,19 @@ def render_devotion_html(sections, annotations_for_day, name_to_abbrev, unresolv
 
 
 def generate_devi(reading_plan_path, hebrew_year, output_path,
-                   title, abbreviation, information, first_week_name="Bereshit"):
+                   title, abbreviation, information, first_week_name="Bereshit",
+                   table_db=None):
     """
     hebrew_year: the Hebrew year this cycle's Bereshit falls in -- that's
       the only manual input needed. The fetch window, each week's
       Shabbat date, and each H-row holiday's specific date are all
       derived from Hebcal.
+    table_db: path to bsb_tables.db (default data/bsb_tables.db), used to
+      fill in real verse ranges for bare "book chapter" references -- see
+      _ref_to_tag()'s docstring for why that's required at all. Missing
+      (not yet built) is handled gracefully: those references are just
+      left chapter-only and collected into the missing_bounds warning,
+      not a hard failure -- same spirit as a missing hdate.
     """
     weeks = load_reading_plan(reading_plan_path)
     num_weeks = len(weeks)
@@ -481,8 +554,16 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
 
     annotations, hdates = process_hebcal_data(hebcal_json)
     day_entries = build_day_entries(weeks, week_saturday, holiday_date)
-    name_to_abbrev = _book_name_to_abbrev()
+    book_lookup = _book_name_to_abbrev()
     unresolved_refs = []
+    missing_bounds = []
+
+    table_db = Path(table_db) if table_db else Path(__file__).parent.parent / "data" / "bsb_tables.db"
+    verses_conn = sqlite3.connect(table_db) if table_db.exists() else None
+    if verses_conn is None:
+        print(f"WARNING: {table_db} not found -- bare 'book chapter' references will be "
+              f"left without a verse range, which e-Sword's <ref> tag doesn't resolve. "
+              f"Build it with utils/import_bsb_table.py first.")
 
     if os.path.exists(output_path):
         os.remove(output_path)
@@ -502,7 +583,8 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
         hd = hdates.get(dt)
         if hd is None:
             missing_hdate.append(dt)
-        html = render_devotion_html(day_entries[dt], annotations.get(dt, []), name_to_abbrev, unresolved_refs, hd)
+        html = render_devotion_html(day_entries[dt], annotations.get(dt, []), book_lookup,
+                                     verses_conn, unresolved_refs, missing_bounds, hd)
         cur.execute(
             "INSERT INTO Devotional (Month, Day, Devotion) VALUES (?,?,?)",
             (dt.month, dt.day, html),
@@ -510,6 +592,8 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
 
     conn.commit()
     conn.close()
+    if verses_conn is not None:
+        verses_conn.close()
 
     if missing_hdate:
         print(f"WARNING: {len(missing_hdate)} day(s) had no hdate from Hebcal "
@@ -518,6 +602,10 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
     if unresolved_refs:
         print(f"WARNING: {len(unresolved_refs)} reference(s) could not be resolved to a "
               f"book abbreviation and were left as raw text (broken <ref> links): {unresolved_refs}")
+
+    if missing_bounds:
+        print(f"WARNING: {len(missing_bounds)} reference(s) had no verse count available "
+              f"and were left chapter-only, which e-Sword's <ref> tag won't resolve: {missing_bounds}")
 
     return len(day_entries)
 
