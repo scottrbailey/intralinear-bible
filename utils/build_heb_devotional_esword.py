@@ -45,6 +45,7 @@ import sqlite3
 import os
 import sys
 import requests
+from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -550,17 +551,35 @@ def derive_holiday_dates(hebcal_json, labels):
 
 
 def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn,
-                          unresolved, missing_bounds, parashah_translations,
-                          hdate_str=None, weekday=None):
-    """Build the full Devotion HTML for one calendar day."""
+                          unresolved, missing_bounds, parashah_translations, hdates):
+    """Build the full Devotion HTML for one Month/Day slot.
+
+    `sections` is a list of (dt, heading, parashah_name, refs) -- each
+    entry carries its own originating calendar date rather than one date
+    shared by the whole slot, because Devotional is keyed on Month/Day
+    only (no year, see generate_devi()'s docstring): a leap Hebrew year's
+    Fall months can land the same Month/Day in two different Gregorian
+    years (e.g. Oct 15 2026 and Oct 15 2027), and those colliding dates
+    are merged into one slot's sections here, each needing its own
+    weekday/hdate line rather than a single line for the whole slot.
+    hdates: {date: hdate_string}, looked up per section instead of being
+    passed in as a single scalar.
+    """
     css = '<style>.head_info {min-width:100%; background-color:#F2F7F8;} .head_info * {display:block; width:100%; text-align:center;}</style>'
     parts = [css]
-    hdate_line = " - ".join(p for p in (weekday, hdate_str) if p) if (hdate_str or weekday) else None
+    # Only worth calling out the Gregorian year when this slot actually
+    # merges more than one real date (the Oct-15-2026-and-2027 case) --
+    # the ordinary one-date-per-slot day shouldn't grow an extra heading.
+    multi_year = len({s[0] for s in sections}) > 1
 
-    for heading, parashah_name, refs in sections:
+    for dt, heading, parashah_name, refs in sections:
+        weekday = dt.strftime('%A')
+        hdate_str = hdates.get(dt)
+        hdate_line = " - ".join(p for p in (weekday, hdate_str) if p)
         parts.append('<div class="head_info">')
-        if hdate_line:
-            parts.append(f'<p>{hdate_line}</p>')
+        parts.append(f'<p>{hdate_line}</p>')
+        if multi_year:
+            parts.append(f'<h2>{dt.year}</h2>')
         parts.append(f'<h2>{heading}</h2>')
         translation = parashah_translations.get(parashah_name) if parashah_name else None
         if translation:
@@ -650,17 +669,35 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
         (title, abbreviation, information, 4),
     )
 
-    missing_hdate = []
+    # Devotional is keyed on Month/Day only (no year -- see this
+    # function's docstring), so two real dates that land on the same
+    # Month/Day in different Gregorian years (a leap Hebrew year's Fall
+    # months straddle two Decembers) must merge into one row here rather
+    # than each silently inserting its own same-keyed row. Group first,
+    # then render once per Month/Day with every colliding date's sections
+    # combined -- render_devotion_html() carries each section's own dt
+    # through so it can show that date's own weekday/hdate (and the
+    # Gregorian year, when a slot actually has more than one).
+    month_day_groups = defaultdict(list)
     for dt in sorted(day_entries):
-        hd = hdates.get(dt)
-        if hd is None:
-            missing_hdate.append(dt)
-        html = render_devotion_html(day_entries[dt], annotations.get(dt, []), book_lookup,
+        month_day_groups[(dt.month, dt.day)].append(dt)
+
+    missing_hdate = []
+    for (month, day), dts in sorted(month_day_groups.items()):
+        sections = []
+        combined_annotations = []
+        for dt in dts:
+            if dt not in hdates:
+                missing_hdate.append(dt)
+            sections.extend((dt, heading, parashah_name, refs)
+                             for heading, parashah_name, refs in day_entries[dt])
+            combined_annotations.extend(annotations.get(dt, []))
+        html = render_devotion_html(sections, combined_annotations, book_lookup,
                                      verses_conn, unresolved_refs, missing_bounds,
-                                     parashah_translations, hd, weekday=dt.strftime('%A'))
+                                     parashah_translations, hdates)
         cur.execute(
             "INSERT INTO Devotional (Month, Day, Devotion) VALUES (?,?,?)",
-            (dt.month, dt.day, html),
+            (month, day, html),
         )
 
     conn.commit()
