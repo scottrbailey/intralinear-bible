@@ -554,12 +554,13 @@ def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn
                           hdate_str=None, weekday=None):
     """Build the full Devotion HTML for one calendar day."""
     css = '<style>.head_info {min-width:100%; background-color:#F2F7F8;} .head_info * {display:block; width:100%; text-align:center;}</style>'
-    parts = [css, '<div class="head_info">',]
-    if hdate_str or weekday:
-        line = " - ".join(p for p in (weekday, hdate_str) if p)
-        parts.append(f'<p>{line}</p>')
+    parts = [css]
+    hdate_line = " - ".join(p for p in (weekday, hdate_str) if p) if (hdate_str or weekday) else None
 
     for heading, parashah_name, refs in sections:
+        parts.append('<div class="head_info">')
+        if hdate_line:
+            parts.append(f'<p>{hdate_line}</p>')
         parts.append(f'<h2>{heading}</h2>')
         translation = parashah_translations.get(parashah_name) if parashah_name else None
         if translation:
