@@ -15,11 +15,16 @@ Generates an e-Sword Daily Devotional (.devi) module from:
 
 Requires: pip install requests
 
-Scripture references are wrapped in bare <ref>...</ref> tags using the
-full book name exactly as it appears in the source JSON -- no abbreviation
-mapping is done here. Correct against e-Sword's recognized abbreviations
-(see this project's own abbreviation table) before relying on the links
-to resolve.
+Scripture references (parshat.json's own convention: full English book
+names, Roman-numeral prefixes -- "I Samuel", "II Kings" -- not our usual
+abbreviated "1Sa 1:1-2:10" shape) are resolved to e-Sword-recognized
+<ref>...</ref> tags the same way our Bible modules do: parsed into a
+verse_formatter.base.Reference and rendered through the same
+_default_ref_label() every ESwordReverseInterlinearFormatter/etc. <ref>
+tag goes through (see _ref_to_tag() below). The only new piece here is
+mapping parshat.json's full book names onto our abbreviations first
+(_book_name_to_abbrev()) -- everything downstream of that reuses the
+existing, already-verified formatting logic rather than reinventing it.
 
 .devi schema (confirmed against a real e-Sword sample):
     CREATE TABLE Details (Title NVARCHAR(255), Abbreviation NVARCHAR(50),
@@ -35,11 +40,15 @@ model rather than per-Gregorian-year.
 """
 
 import json
+import re
 import sqlite3
 import os
 import requests
 from datetime import date, timedelta
 from pathlib import Path
+
+from biblelib.book import Books
+from verse_formatter.base import Reference, _default_ref_label
 
 
 HEBCAL_BASE = "https://www.hebcal.com/hebcal"
@@ -153,11 +162,119 @@ def process_hebcal_data(hebcal_json):
     return annotations, hdates
 
 
-def ref_wrap(refs):
-    """Wrap each reference string in bare <ref> tags (full book names,
-    no abbreviation mapping -- correct against e-Sword's abbreviation
-    table before relying on these to link)."""
-    return "".join(f"<ref>{r}</ref>" for r in refs)
+def _book_name_to_abbrev() -> dict:
+    """Full English book name -> our display abbreviation ('Joh', '1Sa',
+    'Sol', ...), sourced by joining biblelib's own English names against
+    data/books.db's display_abbrev -- books.db doesn't store full names
+    itself (see utils/build_books_table.py's "biblelib is the canonical
+    source" rationale), so this reconstructs the join rather than adding
+    a column only this script would use.
+    """
+    db_path = Path(__file__).parent.parent / "data" / "books.db"
+    conn = sqlite3.connect(db_path)
+    rows = conn.execute("SELECT usx_code, display_abbrev FROM books").fetchall()
+    conn.close()
+
+    biblelib_books = Books()
+    mapping = {}
+    for usx_code, abbrev in rows:
+        try:
+            mapping[biblelib_books[usx_code].name] = abbrev
+        except KeyError:
+            continue
+    return mapping
+
+
+# parshat.json spells numbered books with a Roman-numeral prefix ("I Samuel",
+# "II Kings"); biblelib's own names (and our abbreviation lookup, keyed on
+# them) use Arabic numerals ("1 Samuel", "2 Kings") -- normalize before
+# lookup rather than special-casing every numbered book in the map.
+_ROMAN_TO_ARABIC = {'I': '1', 'II': '2', 'III': '3'}
+_ROMAN_PREFIX_RE = re.compile(r'^(I{1,3})\s+')
+
+
+def _normalize_book_name(name: str) -> str:
+    m = _ROMAN_PREFIX_RE.match(name)
+    return _ROMAN_TO_ARABIC[m.group(1)] + name[m.end(1):] if m else name
+
+
+# Same shape as verse_formatter.base._XREF_REF_RE, with one difference:
+# book is '.+?' (lazy, any characters) instead of '\S+', since parshat.json
+# uses full, sometimes multi-word book names ("I Samuel", "Song of Songs")
+# rather than our usual single-token abbreviations. The laziness matters --
+# it lets the engine backtrack past embedded spaces in the book name to
+# find the actual chapter-number boundary, rather than stopping at the
+# first space.
+_DEVOTIONAL_REF_RE = re.compile(
+    r'^(?P<book>.+?)\s+(?P<chap>\d+)'
+    r'(?:'
+        r':(?P<verse>\d+)(?:-(?:(?P<end_chap>\d+):)?(?P<end_verse>\d+))?'
+        r'|'
+        r'-(?P<chap_end>\d+)'
+    r')?$'
+)
+
+
+def _ref_to_tag(text: str, name_to_abbrev: dict, unresolved: list, depth: int = 0) -> str:
+    """One raw parshat.json reference string -> one or more '<ref>...</ref>'
+    tags, formatted exactly like our Bible modules' own e-Sword references
+    (verse_formatter.base.Reference + _default_ref_label() -- same
+    function ESwordReverseInterlinearFormatter etc. use). Unresolvable
+    pieces (unmapped book name, unrecognized shape) fall back to the raw
+    text wrapped as-is and get appended to `unresolved` for the caller to
+    warn about, rather than silently producing a broken link or crashing
+    the whole build over one bad reference.
+
+    Two shapes recurse instead of matching _DEVOTIONAL_REF_RE directly:
+      - No digits at all ("II John; III John") -- one or more bare book
+        names, semicolon-joined. Every real occurrence of this is a
+        one-chapter book (2/3 John, Jude, Philemon, Obadiah), so a bare
+        book name unambiguously means "the whole book" -> chapter 1.
+      - Contains a comma ("Jeremiah 2:4-28, 3:4") -- a compound reference;
+        every segment after the first drops the book name (implied from
+        the first segment), so it's re-attached before parsing each part.
+    """
+    text = text.strip()
+
+    if not any(c.isdigit() for c in text):
+        parts = [p.strip() for p in text.split(';') if p.strip()]
+        return ''.join(_ref_to_tag(f"{p} 1", name_to_abbrev, unresolved, depth + 1) for p in parts)
+
+    if ',' in text and depth == 0:
+        segments = [s.strip() for s in text.split(',')]
+        first_match = _DEVOTIONAL_REF_RE.match(segments[0])
+        book_name = first_match.group('book') if first_match else None
+        return ''.join(
+            _ref_to_tag(seg if i == 0 or book_name is None else f"{book_name} {seg}",
+                        name_to_abbrev, unresolved, depth + 1)
+            for i, seg in enumerate(segments)
+        )
+
+    m = _DEVOTIONAL_REF_RE.match(text)
+    if not m:
+        unresolved.append(text)
+        return f'<ref>{text}</ref>'
+
+    abbrev = name_to_abbrev.get(_normalize_book_name(m.group('book')))
+    if abbrev is None:
+        unresolved.append(text)
+        return f'<ref>{text}</ref>'
+
+    end_chap = m.group('end_chap') or m.group('chap_end')
+    ref = Reference(
+        book=abbrev,
+        chapter=int(m.group('chap')),
+        verse=int(m.group('verse')) if m.group('verse') else None,
+        end_chapter=int(end_chap) if end_chap else None,
+        end_verse=int(m.group('end_verse')) if m.group('end_verse') else None,
+    )
+    return f'<ref>{_default_ref_label(ref)}</ref>'
+
+
+def ref_wrap(refs, name_to_abbrev, unresolved):
+    """Format each reference string into e-Sword <ref> tag(s) -- see
+    _ref_to_tag() for the actual book-name resolution and formatting."""
+    return "".join(_ref_to_tag(r, name_to_abbrev, unresolved) for r in refs)
 
 
 def build_day_entries(weeks, week_saturday, holiday_date):
@@ -318,14 +435,16 @@ def derive_holiday_dates(hebcal_json, labels):
     return result
 
 
-def render_devotion_html(sections, annotations_for_day, hdate_str=None):
+def render_devotion_html(sections, annotations_for_day, name_to_abbrev, unresolved, hdate_str=None):
     """Build the full Devotion HTML for one calendar day."""
     parts = []
     if hdate_str:
         parts.append(f'<p class="hdate"><i>{hdate_str}</i></p>')
 
     for heading, refs in sections:
-        parts.append(f"<h3>{heading}</h3><ol>" + "".join(f"<li>{ref_wrap([r])}</li>" for r in refs) + "</ol>")
+        parts.append(f"<h3>{heading}</h3><ol>" + "".join(
+            f"<li>{ref_wrap([r], name_to_abbrev, unresolved)}</li>" for r in refs
+        ) + "</ol>")
 
     if annotations_for_day:
         parts.append('<div class="observances">')
@@ -362,6 +481,8 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
 
     annotations, hdates = process_hebcal_data(hebcal_json)
     day_entries = build_day_entries(weeks, week_saturday, holiday_date)
+    name_to_abbrev = _book_name_to_abbrev()
+    unresolved_refs = []
 
     if os.path.exists(output_path):
         os.remove(output_path)
@@ -381,7 +502,7 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
         hd = hdates.get(dt)
         if hd is None:
             missing_hdate.append(dt)
-        html = render_devotion_html(day_entries[dt], annotations.get(dt, []), hd)
+        html = render_devotion_html(day_entries[dt], annotations.get(dt, []), name_to_abbrev, unresolved_refs, hd)
         cur.execute(
             "INSERT INTO Devotional (Month, Day, Devotion) VALUES (?,?,?)",
             (dt.month, dt.day, html),
@@ -393,6 +514,10 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
     if missing_hdate:
         print(f"WARNING: {len(missing_hdate)} day(s) had no hdate from Hebcal "
               f"(check the derived cycle window covers the full range): {missing_hdate[:5]}...")
+
+    if unresolved_refs:
+        print(f"WARNING: {len(unresolved_refs)} reference(s) could not be resolved to a "
+              f"book abbreviation and were left as raw text (broken <ref> links): {unresolved_refs}")
 
     return len(day_entries)
 
