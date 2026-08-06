@@ -1,0 +1,418 @@
+"""
+utils/build_heb_devitional_esword.py
+
+Generates an e-Sword Daily Devotional (.devi) module from:
+  1. An intermediate reading-plan JSON (parshat.json shape: list of
+     {week_no, week, type: D|W|H, refs: [...], label?})
+  2. A live Hebcal fetch covering the same Hebrew-calendar cycle, used to:
+       a. anchor each week to its real Shabbat date and derive Sun-Thu dates
+       b. anchor each H-row (footnoted holiday) to its specific date
+       c. annotate every date with any other Hebcal observance that falls
+          on it (fasts, Rosh Chodesh, special Shabbatot, Mevarchim, etc.)
+          including memo text and yomtov (non-work day) status
+       d. supply the real Hebrew date (hdate) for every single day, via
+          Hebcal's d=on parameter -- no calculation needed
+
+Requires: pip install requests
+
+Scripture references are wrapped in bare <ref>...</ref> tags using the
+full book name exactly as it appears in the source JSON -- no abbreviation
+mapping is done here. Correct against e-Sword's recognized abbreviations
+(see this project's own abbreviation table) before relying on the links
+to resolve.
+
+.devi schema (confirmed against a real e-Sword sample):
+    CREATE TABLE Details (Title NVARCHAR(255), Abbreviation NVARCHAR(50),
+                           Information TEXT, Version INT)
+    CREATE TABLE Devotional (Month INT, Day INT, Devotion TEXT)
+    CREATE INDEX MonthDayIndex ON Devotional (Month, Day)
+Devotional is keyed on Month/Day only -- no Year column -- so one .devi
+file is generated per Gregorian-spanning Hebrew cycle (Simchat Torah to
+Simchat Torah), not per Gregorian year. A leap Hebrew year runs long
+enough (383-385 days) that it cannot be squeezed into 365 Month/Day
+slots without collisions -- that's the reason for the per-cycle file
+model rather than per-Gregorian-year.
+"""
+
+import json
+import sqlite3
+import os
+import requests
+from datetime import date, timedelta
+from pathlib import Path
+
+
+HEBCAL_BASE = "https://www.hebcal.com/hebcal"
+
+
+def find_cycle_window(hebrew_year):
+    """
+    Compute the exact date range for one Simchat-Torah-to-Simchat-Torah
+    reading cycle, given the Hebrew year its Bereshit falls in.
+
+    Uses a single lightweight Hebcal call (major holidays only, no items
+    list needed) to get that year's range.start/range.end -- both are
+    Erev Rosh Hashana, and Simchat Torah is always exactly 23 days after
+    Erev Rosh Hashana (Tishrei 23), regardless of leap/regular year.
+
+    A cycle starts the Sunday on-or-before Simchat Torah (inclusive --
+    if Simchat Torah itself falls on a Sunday, that's day 1) and the
+    previous cycle ends the Saturday immediately before that Sunday.
+
+    Returns (cycle_start, cycle_end) as date objects.
+    """
+    resp = requests.get(HEBCAL_BASE, params={
+        "v": "1", "cfg": "json", "maj": "on", "yt": "H", "year": str(hebrew_year),
+    }, timeout=30)
+    resp.raise_for_status()
+    r = resp.json()["range"]
+    st_this = date.fromisoformat(r["start"]) + timedelta(days=23)
+    st_next = date.fromisoformat(r["end"]) + timedelta(days=23)
+    floor_sunday = lambda dt: dt - timedelta(days=(dt.weekday() + 1) % 7)
+    cycle_start = floor_sunday(st_this)
+    cycle_end = floor_sunday(st_next) - timedelta(days=1)
+    return cycle_start, cycle_end
+
+def fetch_hebcal(start:date, end:date, hebrew_year:int):
+    """
+    Live Hebcal fetch covering one Simchat-Torah-to-Simchat-Torah cycle.
+    start/end are ISO date strings; hebrew_year is the Hebcal 'year='
+    value (only used as a hint -- start/end define the actual window).
+
+    Params of note:
+      maj=on, min=off, mod=off  -- major holidays on, minor/modern off
+      mf=on                     -- minor fasts (Tzom Gedaliah, etc.) on
+      nx=on                     -- Rosh Chodesh on
+      ss=on                     -- special Shabbatot on
+      s=on                      -- weekly parashat on (needed for week anchoring)
+      d=on                      -- a dated entry for every single day,
+                                    each carrying its own real hdate
+    """
+    params = {
+        "v": "1", "cfg": "json",
+        "maj": "on", "min": "off", "mod": "off",
+        "nx": "on", "ss": "on", "mf": "on",
+        "s": "on", "d": "on",
+        "c": "on", "M": "off",
+        "yt": "H", "year": str(hebrew_year), "month": "x",
+        "start": start.isoformat(), "end": end.isoformat(),
+    }
+    resp = requests.get(HEBCAL_BASE, params=params, timeout=30)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def d(s):
+    """Parse an ISO date string."""
+    return date.fromisoformat(s)
+
+
+def load_reading_plan(path):
+    """Load the intermediate reading-plan JSON and group it by week_no."""
+    with open(path) as f:
+        records = json.load(f)
+    weeks = {}
+    for r in records:
+        wn = r["week_no"]
+        weeks.setdefault(wn, {"name": r["week"], "D": [], "W": None, "H": None})
+        if r["type"] == "D":
+            weeks[wn]["D"].append(r["refs"])
+        elif r["type"] == "W":
+            weeks[wn]["W"] = r["refs"]
+        elif r["type"] == "H":
+            weeks[wn]["H"] = {"label": r["label"], "refs": r["refs"]}
+    return weeks
+
+
+def process_hebcal_data(hebcal_json):
+    """
+    Split a Hebcal fetch (live or loaded from a saved file) into:
+      - annotations: {date: [annotation, ...]} for every non-parashat,
+        non-hebdate item (fasts, Rosh Chodesh, special Shabbatot,
+        Mevarchim, major holidays), each with title/category/subcat/
+        yomtov/memo
+      - hdates: {date: hdate_string}, sourced from every item that has
+        one (with d=on, every single day has a "hebdate"-category entry,
+        so this covers the full range with no gaps)
+    """
+    annotations = {}
+    hdates = {}
+    for item in hebcal_json["items"]:
+        dt = d(item["date"])
+        if item.get("hdate"):
+            hdates[dt] = item["hdate"]
+        if item.get("category") in ("parashat", "hebdate"):
+            continue
+        annotations.setdefault(dt, []).append({
+            "title": item["title"],
+            "category": item.get("category"),
+            "subcat": item.get("subcat"),
+            "yomtov": item.get("yomtov", False),
+            "memo": item.get("memo", ""),
+        })
+    return annotations, hdates
+
+
+def ref_wrap(refs):
+    """Wrap each reference string in bare <ref> tags (full book names,
+    no abbreviation mapping -- correct against e-Sword's abbreviation
+    table before relying on these to link)."""
+    return "".join(f"<ref>{r}</ref>" for r in refs)
+
+
+def build_day_entries(weeks, week_saturday, holiday_date):
+    """
+    Assign real calendar dates to every reading:
+      - D rows -> Sun..Thu immediately preceding that week's Saturday
+      - W row  -> duplicated onto both Friday and Saturday
+      - H row  -> merged onto its own specific date (which may collide
+                  with a D or W date -- multiple sections stack in the
+                  same day's HTML, this is expected and intentional)
+    week_saturday: {week_no: 'YYYY-MM-DD'} -- the Shabbat date for each
+      week. For the five holiday-named weeks (Passover, Shavuot, Rosh
+      Hashanah, Sukkot, Shmini Atzeret) this must be whichever Hebcal
+      entry's torah/haftarah actually matches that week's W-row content
+      for the year in question -- it is NOT a fixed title, since which
+      Chol HaMoed day (etc.) falls on a Saturday shifts year to year.
+    holiday_date: {label: 'YYYY-MM-DD'} -- the specific date each H-row
+      holiday (Simchat Torah, Purim, Yom Kippur) falls on that cycle.
+    Returns {date: [(heading, refs), ...]} in display order.
+    """
+    day_entries = {}
+    for wn in sorted(weeks):
+        wk = weeks[wn]
+        sat = d(week_saturday[wn])
+        sun = sat - timedelta(days=6)
+        for i, refs in enumerate(wk["D"]):
+            dt = sun + timedelta(days=i)
+            day_entries.setdefault(dt, []).append((wk["name"], refs))
+        fri = sat - timedelta(days=1)
+        for dt in (fri, sat):
+            day_entries.setdefault(dt, []).append((f"{wk['name']} (Torah/Haftarah)", wk["W"]))
+        if wk["H"]:
+            hdate_key = d(holiday_date[wk["H"]["label"]])
+            day_entries.setdefault(hdate_key, []).append((wk["H"]["label"], wk["H"]["refs"]))
+    return day_entries
+
+
+PRIMARY_READING_CATEGORIES = ("parashat", "holiday")
+
+
+def _bare_title(item):
+    """Strip Hebcal's 'Parashat '/'Parshat ' prefix and prefer title_orig
+    (ASCII apostrophes) over title (which may use typographic ones)."""
+    t = item.get("title_orig", item["title"])
+    for prefix in ("Parashat ", "Parshat "):
+        if t.startswith(prefix):
+            return t[len(prefix):]
+    return t
+
+
+# Weeks whose Hebcal title carries a year number or roman-numeral day
+# suffix that varies year to year (e.g. "Rosh Hashana 5787", "Pesach III
+# (CH''M)") -- these need prefix matching in the verification pass below,
+# not exact matching. reading_plan.json's week names for these five were
+# renamed to match Hebcal's own terms: "Passover" -> "Pesach",
+# "Rosh Hashanah" -> "Rosh Hashana". "Shmini Atzeret" needs no special
+# handling -- uniquely among the five, Hebcal's own title for it carries
+# no suffix at all, so it matches exactly like a normal parsha week.
+HOLIDAY_NAMED_WEEKS = {"Rosh Hashana", "Sukkot", "Shavuot", "Pesach", "Shmini Atzeret"}
+
+
+def derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=None):
+    """
+    Walk every Saturday in the fetched window, in order, picking each
+    Saturday's PRIMARY reading (the parashat entry if one exists that
+    week, otherwise whichever holiday entry actually carries a torah
+    reading -- Rosh Hashana/Sukkot/Shavuot/Pesach/Shmini Atzeret; entries
+    like Shabbat Chazon or Rosh Chodesh that merely annotate a parasha
+    week are skipped here since they don't replace that week's own
+    reading).
+
+    Starts at the first Saturday whose bare title (with any 'Parashat '
+    prefix stripped) matches first_week_name (normally "Bereshit") and
+    returns exactly num_weeks consecutive Saturdays from there as
+    {week_no: 'YYYY-MM-DD'} (1-indexed).
+
+    Raises ValueError if fewer than num_weeks Saturdays with a primary
+    reading exist before the window runs out or a second occurrence of
+    first_week_name is hit first -- that mismatch means this year's
+    combined/split parsha pattern doesn't match reading_plan.json's
+    week count (e.g. a leap year), and week_saturday needs a JSON built
+    for that year type rather than being silently mis-zipped.
+
+    If weeks (the {week_no: {"name": ..., ...}} dict from
+    load_reading_plan) is passed, each derived Saturday's actual Hebcal
+    title is cross-checked against that week's expected name as a sanity
+    check -- mismatches are printed as notices, not raised, since the
+    core algorithm is positional and doesn't depend on this matching to
+    produce dates; it's just an early-warning signal something's off.
+    """
+    by_date = {}
+    for item in hebcal_json["items"]:
+        if item.get("category") not in PRIMARY_READING_CATEGORIES:
+            continue
+        if not item.get("leyning"):
+            continue  # e.g. Erev Sukkot, Erev Pesach have no reading of their own
+        dt = d(item["date"])
+        if dt.weekday() != 5:  # Saturday
+            continue
+        # Prefer parashat if a Saturday has both a parashat and a
+        # holiday entry (e.g. Parashat Miketz during Chanukah)
+        if dt not in by_date or item["category"] == "parashat":
+            by_date[dt] = item
+
+    saturdays = sorted(by_date)
+    start_idx = None
+    for i, dt in enumerate(saturdays):
+        if _bare_title(by_date[dt]) == first_week_name:
+            start_idx = i
+            break
+    if start_idx is None:
+        raise ValueError(f"Could not find a Saturday titled {first_week_name!r} in the fetched window")
+
+    result = {}
+    for offset in range(num_weeks):
+        idx = start_idx + offset
+        if idx >= len(saturdays):
+            raise ValueError(
+                f"Ran out of Saturdays after {offset} of {num_weeks} weeks -- "
+                f"widen the fetch window or check this year's week count matches reading_plan.json"
+            )
+        dt = saturdays[idx]
+        if offset > 0 and _bare_title(by_date[dt]) == first_week_name:
+            raise ValueError(
+                f"Hit a second {first_week_name!r} after only {offset} of {num_weeks} weeks -- "
+                f"this year's parsha combination pattern doesn't match reading_plan.json's week count"
+            )
+        week_no = offset + 1
+        result[week_no] = dt.isoformat()
+
+        if weeks is not None and week_no in weeks:
+            expected = weeks[week_no]["name"]
+            actual = _bare_title(by_date[dt])
+            ok = actual.startswith(expected) if expected in HOLIDAY_NAMED_WEEKS else actual == expected
+            if not ok:
+                print(f"NOTE: week {week_no} expected {expected!r} but Hebcal shows "
+                      f"{actual!r} on {dt.isoformat()} -- dates were still derived positionally, "
+                      f"but this week's name doesn't match; double check reading_plan.json")
+
+    return result
+
+
+def derive_holiday_dates(hebcal_json, labels):
+    """
+    Look up the specific date each H-row label (e.g. 'Simchat Torah',
+    'Purim', 'Yom Kippur') falls on within the fetched window, straight
+    from Hebcal's own titles -- no hardcoding, and no separate fetch:
+    this searches the same full-cycle hebcal_json already pulled for
+    the daily/weekly readings and annotations.
+    """
+    result = {}
+    for item in hebcal_json["items"]:
+        if item["title"] in labels and item["title"] not in result:
+            result[item["title"]] = item["date"]
+    missing = set(labels) - set(result)
+    if missing:
+        raise ValueError(f"Could not find dates for: {missing}")
+    return result
+
+
+def render_devotion_html(sections, annotations_for_day, hdate_str=None):
+    """Build the full Devotion HTML for one calendar day."""
+    parts = []
+    if hdate_str:
+        parts.append(f'<p class="hdate"><i>{hdate_str}</i></p>')
+
+    for heading, refs in sections:
+        parts.append(f"<h3>{heading}</h3><ol>" + "".join(f"<li>{ref_wrap([r])}</li>" for r in refs) + "</ol>")
+
+    if annotations_for_day:
+        parts.append('<div class="observances">')
+        for ann in annotations_for_day:
+            label = ann["title"]
+            if ann["yomtov"]:
+                label = f"<b>{label} (Yom Tov \u2014 no work)</b>"
+            parts.append(f"<p>{label}")
+            if ann["memo"]:
+                parts.append(f"<br><i>{ann['memo']}</i>")
+            parts.append("</p>")
+        parts.append("</div>")
+
+    return "".join(parts)
+
+
+def generate_devi(reading_plan_path, hebrew_year, output_path,
+                   title, abbreviation, information, first_week_name="Bereshit"):
+    """
+    hebrew_year: the Hebrew year this cycle's Bereshit falls in -- that's
+      the only manual input needed. The fetch window, each week's
+      Shabbat date, and each H-row holiday's specific date are all
+      derived from Hebcal.
+    """
+    weeks = load_reading_plan(reading_plan_path)
+    num_weeks = len(weeks)
+    h_labels = {wk["H"]["label"] for wk in weeks.values() if wk["H"]}
+
+    cycle_start, cycle_end = find_cycle_window(hebrew_year)
+    hebcal_json = fetch_hebcal(cycle_start, cycle_end, hebrew_year)
+
+    week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
+    holiday_date = derive_holiday_dates(hebcal_json, h_labels)
+
+    annotations, hdates = process_hebcal_data(hebcal_json)
+    day_entries = build_day_entries(weeks, week_saturday, holiday_date)
+
+    if os.path.exists(output_path):
+        os.remove(output_path)
+    conn = sqlite3.connect(output_path)
+    cur = conn.cursor()
+    cur.execute('CREATE TABLE Details (Title NVARCHAR(255), Abbreviation NVARCHAR(50), Information TEXT, Version INT)')
+    cur.execute('CREATE TABLE Devotional (Month INT, Day INT, Devotion TEXT)')
+    cur.execute('CREATE INDEX MonthDayIndex ON Devotional (Month, Day)')
+
+    cur.execute(
+        "INSERT INTO Details (Title, Abbreviation, Information, Version) VALUES (?,?,?,?)",
+        (title, abbreviation, information, 4),
+    )
+
+    missing_hdate = []
+    for dt in sorted(day_entries):
+        hd = hdates.get(dt)
+        if hd is None:
+            missing_hdate.append(dt)
+        html = render_devotion_html(day_entries[dt], annotations.get(dt, []), hd)
+        cur.execute(
+            "INSERT INTO Devotional (Month, Day, Devotion) VALUES (?,?,?)",
+            (dt.month, dt.day, html),
+        )
+
+    conn.commit()
+    conn.close()
+
+    if missing_hdate:
+        print(f"WARNING: {len(missing_hdate)} day(s) had no hdate from Hebcal "
+              f"(check the derived cycle window covers the full range): {missing_hdate[:5]}...")
+
+    return len(day_entries)
+
+
+if __name__ == "__main__":
+    # @TODO: swap to input parameter
+    hebrew_year = 5786
+    base_dir = Path(__file__).parent.parent
+    output_path = base_dir / "output" / f"mjaa-{hebrew_year}.devi"
+    count = generate_devi(
+        reading_plan_path=base_dir / "data" / "parshat.json",
+        hebrew_year=hebrew_year,
+        output_path=output_path,
+        title=f"MJAA Messianic Reading Plan {hebrew_year}",
+        abbreviation=f"MJAA {hebrew_year}",
+        information=(
+            "<p>Messianic Jewish Alliance of America \"Read the Bible in a Year\" plan, "
+            f"{hebrew_year} cycle. Weekly Torah/Haftarah portions plus daily OT/NT readings, "
+            "keyed to Simchat Torah through Simchat Torah. Also annotates fasts, Rosh Chodesh, "
+            "special Shabbatot, and Yom Tov status from Hebcal, and shows the Hebrew date.</p>"
+        ),
+    )
+    print(f"Wrote {count} Devotional rows to output/{output_path.name}")
