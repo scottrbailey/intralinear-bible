@@ -251,9 +251,12 @@ _DEVOTIONAL_REF_RE = re.compile(
 
 
 def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
-                 missing_bounds: list, depth: int = 0) -> str:
-    """One raw parshat.json reference string -> one or more '<ref>...</ref>'
-    tags, formatted exactly like our Bible modules' own e-Sword references
+                 missing_bounds: list, depth: int = 0) -> list:
+    """One raw parshat.json reference string -> a list of one or more
+    '<ref>...</ref>' tags (kept as separate list entries rather than one
+    joined string so the caller can put each on its own <li> -- see
+    render_devotion_html()), formatted exactly like our Bible modules' own
+    e-Sword references
     (verse_formatter.base.Reference + _default_ref_label() -- same
     function ESwordReverseInterlinearFormatter etc. use). Unresolvable
     pieces (unmapped book name, unrecognized shape) fall back to the raw
@@ -293,28 +296,30 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
 
     if not any(c.isdigit() for c in text):
         parts = [p.strip() for p in text.split(';') if p.strip()]
-        return ''.join(_ref_to_tag(f"{p} 1", book_lookup, verses_conn, unresolved,
-                                    missing_bounds, depth + 1) for p in parts)
+        return [tag for p in parts
+                for tag in _ref_to_tag(f"{p} 1", book_lookup, verses_conn, unresolved,
+                                        missing_bounds, depth + 1)]
 
     if ',' in text and depth == 0:
         segments = [s.strip() for s in text.split(',')]
         first_match = _DEVOTIONAL_REF_RE.match(segments[0])
         book_name = first_match.group('book') if first_match else None
-        return ''.join(
-            _ref_to_tag(seg if i == 0 or book_name is None else f"{book_name} {seg}",
-                        book_lookup, verses_conn, unresolved, missing_bounds, depth + 1)
+        return [
+            tag
             for i, seg in enumerate(segments)
-        )
+            for tag in _ref_to_tag(seg if i == 0 or book_name is None else f"{book_name} {seg}",
+                                    book_lookup, verses_conn, unresolved, missing_bounds, depth + 1)
+        ]
 
     m = _DEVOTIONAL_REF_RE.match(text)
     if not m:
         unresolved.append(text)
-        return f'<ref>{text}</ref>'
+        return [f'<ref>{text}</ref>']
 
     resolved = book_lookup.get(_normalize_book_name(m.group('book')))
     if resolved is None:
         unresolved.append(text)
-        return f'<ref>{text}</ref>'
+        return [f'<ref>{text}</ref>']
     abbrev, osis_id = resolved
 
     chapter    = int(m.group('chap'))
@@ -328,11 +333,12 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
 
 
 def _chapter_split_refs(abbrev: str, osis_id: str, chapter: int, verse, end_chap, end_verse,
-                         verses_conn, missing_bounds: list, orig_text: str) -> str:
-    """One chapter's own <ref> tag if the reference doesn't cross a
-    chapter boundary, or one <ref> per chapter from `chapter` through
-    `end_chap` if it does -- see _ref_to_tag()'s docstring for why both
-    the splitting and the verse-bounding are needed at all.
+                         verses_conn, missing_bounds: list, orig_text: str) -> list:
+    """A list holding one chapter's own <ref> tag if the reference doesn't
+    cross a chapter boundary, or one <ref> per chapter from `chapter`
+    through `end_chap` if it does -- see _ref_to_tag()'s docstring for why
+    both the splitting (each chapter its own list entry, its own <li> once
+    rendered) and the verse-bounding are needed at all.
 
     Single-chapter, verse already fully given (including a lone verse
     with no explicit end, e.g. "Jeremiah 3:4" -- chapter=3, verse=4,
@@ -350,7 +356,7 @@ def _chapter_split_refs(abbrev: str, osis_id: str, chapter: int, verse, end_chap
 
     if verse is not None and last_chap == chapter:
         ref = Reference(book=abbrev, chapter=chapter, verse=verse, end_verse=end_verse)
-        return f'<ref>{_default_ref_label(ref)}</ref>'
+        return [f'<ref>{_default_ref_label(ref)}</ref>']
 
     tags = []
     for ch in range(chapter, last_chap + 1):
@@ -365,15 +371,17 @@ def _chapter_split_refs(abbrev: str, osis_id: str, chapter: int, verse, end_chap
             missing_bounds.append(orig_text if last_chap == chapter else f"{orig_text} (chapter {ch})")
         ref = Reference(book=abbrev, chapter=ch, verse=(start if end is not None else None), end_verse=end)
         tags.append(f'<ref>{_default_ref_label(ref)}</ref>')
-    return ''.join(tags)
+    return tags
 
 
 def ref_wrap(refs, book_lookup, verses_conn, unresolved, missing_bounds):
-    """Format each reference string into e-Sword <ref> tag(s) -- see
-    _ref_to_tag() for the actual book-name resolution, verse-bounding,
-    and formatting."""
-    return "".join(_ref_to_tag(r, book_lookup, verses_conn, unresolved, missing_bounds)
-                   for r in refs)
+    """Format a list of reference strings into a flat list of individual
+    e-Sword <ref> tags -- one list entry per chapter, not per source
+    reference string, so the caller can put each on its own <li> (see
+    render_devotion_html()). See _ref_to_tag() for the actual book-name
+    resolution, verse-bounding, and formatting."""
+    return [tag for r in refs
+            for tag in _ref_to_tag(r, book_lookup, verses_conn, unresolved, missing_bounds)]
 
 
 def build_day_entries(weeks, week_saturday, holiday_date):
@@ -547,26 +555,16 @@ def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn
     """Build the full Devotion HTML for one calendar day."""
     parts = []
     if hdate_str or weekday:
-        # e-Sword's .devi Details table has no CustomCSS column (unlike the
-        # Bible-module Details tables) -- there's no stylesheet to put a
-        # float rule in, and no reliable guarantee an inline style would be
-        # honored either (see this session's e-Sword iOS ruby-sizing
-        # quirks). A plain two-cell table gets the same weekday-left/
-        # hebdate-right layout with no CSS involved at all.
-        left = weekday or ''
-        right = f'<i>{hdate_str}</i>' if hdate_str else ''
-        parts.append(f'<table class="hdate" width="100%"><tr><td>{left}</td>'
-                      f'<td align="right">{right}</td></tr></table>')
+        line = " - ".join(p for p in (weekday, hdate_str) if p)
+        parts.append(f'<p align="center">{line}</p>')
 
     for heading, parashah_name, refs in sections:
         translation = parashah_translations.get(parashah_name) if parashah_name else None
-        parts.append(f"<h3>{heading}</h3>")
+        parts.append(f'<h3 align="center"><b>{heading}</b></h3>')
         if translation:
-            parts.append(f'<p class="translation"><i>{translation}</i></p>')
-        parts.append("<ol>" + "".join(
-            f"<li>{ref_wrap([r], book_lookup, verses_conn, unresolved, missing_bounds)}</li>"
-            for r in refs
-        ) + "</ol>")
+            parts.append(f'<p class="translation" align="center"><i>{translation}</i></p>')
+        tags = ref_wrap(refs, book_lookup, verses_conn, unresolved, missing_bounds)
+        parts.append("<ol>" + "".join(f"<li>{tag}</li>" for tag in tags) + "</ol>")
 
     if annotations_for_day:
         parts.append('<div class="observances">')
