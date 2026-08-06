@@ -392,7 +392,13 @@ def build_day_entries(weeks, week_saturday, holiday_date):
       Chol HaMoed day (etc.) falls on a Saturday shifts year to year.
     holiday_date: {label: 'YYYY-MM-DD'} -- the specific date each H-row
       holiday (Simchat Torah, Purim, Yom Kippur) falls on that cycle.
-    Returns {date: [(heading, refs), ...]} in display order.
+    Returns {date: [(heading, parashah_name, refs), ...]} in display
+    order. parashah_name is the bare week name (wk["name"]) for D/W rows
+    -- a lookup key into data/parashah_translations.json, separate from
+    `heading` since the W row's heading has "(Torah/Haftarah)" appended
+    -- or None for an H row, whose label (e.g. "Simchat Torah", "Yom
+    Kippur") is a holiday name, not one of the 51 parashah names that
+    file covers.
     """
     day_entries = {}
     for wn in sorted(weeks):
@@ -401,13 +407,14 @@ def build_day_entries(weeks, week_saturday, holiday_date):
         sun = sat - timedelta(days=6)
         for i, refs in enumerate(wk["D"]):
             dt = sun + timedelta(days=i)
-            day_entries.setdefault(dt, []).append((wk["name"], refs))
+            day_entries.setdefault(dt, []).append((wk["name"], wk["name"], refs))
         fri = sat - timedelta(days=1)
         for dt in (fri, sat):
-            day_entries.setdefault(dt, []).append((f"{wk['name']} (Torah/Haftarah)", wk["W"]))
+            day_entries.setdefault(dt, []).append(
+                (f"{wk['name']} (Torah/Haftarah)", wk["name"], wk["W"]))
         if wk["H"]:
             hdate_key = d(holiday_date[wk["H"]["label"]])
-            day_entries.setdefault(hdate_key, []).append((wk["H"]["label"], wk["H"]["refs"]))
+            day_entries.setdefault(hdate_key, []).append((wk["H"]["label"], None, wk["H"]["refs"]))
     return day_entries
 
 
@@ -535,7 +542,8 @@ def derive_holiday_dates(hebcal_json, labels):
 
 
 def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn,
-                          unresolved, missing_bounds, hdate_str=None, weekday=None):
+                          unresolved, missing_bounds, parashah_translations,
+                          hdate_str=None, weekday=None):
     """Build the full Devotion HTML for one calendar day."""
     parts = []
     if hdate_str or weekday:
@@ -550,8 +558,12 @@ def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn
         parts.append(f'<table class="hdate" width="100%"><tr><td>{left}</td>'
                       f'<td align="right">{right}</td></tr></table>')
 
-    for heading, refs in sections:
-        parts.append(f"<h3>{heading}</h3><ol>" + "".join(
+    for heading, parashah_name, refs in sections:
+        translation = parashah_translations.get(parashah_name) if parashah_name else None
+        parts.append(f"<h3>{heading}</h3>")
+        if translation:
+            parts.append(f'<p class="translation"><i>{translation}</i></p>')
+        parts.append("<ol>" + "".join(
             f"<li>{ref_wrap([r], book_lookup, verses_conn, unresolved, missing_bounds)}</li>"
             for r in refs
         ) + "</ol>")
@@ -573,7 +585,7 @@ def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn
 
 def generate_devi(reading_plan_path, hebrew_year, output_path,
                    title, abbreviation, information, first_week_name="Bereshit",
-                   table_db=None):
+                   table_db=None, parashah_translations_path=None):
     """
     hebrew_year: the Hebrew year this cycle's Bereshit falls in -- that's
       the only manual input needed. The fetch window, each week's
@@ -585,6 +597,12 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
       (not yet built) is handled gracefully: those references are just
       left chapter-only and collected into the missing_bounds warning,
       not a hard failure -- same spirit as a missing hdate.
+    parashah_translations_path: path to parashah_translations.json
+      (default data/parashah_translations.json) -- {week name: English
+      translation}, one entry per name in reading_plan_path's own "week"
+      field. Rendered as its own line under a D/W row's <h3> heading (see
+      render_devotion_html()); H rows (holiday labels like "Yom Kippur")
+      aren't looked up here -- see build_day_entries()'s docstring for why.
     """
     weeks = load_reading_plan(reading_plan_path)
     num_weeks = len(weeks)
@@ -601,6 +619,15 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
     book_lookup = _book_name_to_abbrev()
     unresolved_refs = []
     missing_bounds = []
+
+    parashah_translations_path = Path(parashah_translations_path) if parashah_translations_path \
+        else Path(__file__).parent.parent / "data" / "parashah_translations.json"
+    with open(parashah_translations_path, encoding="utf-8") as f:
+        parashah_translations = json.load(f)
+    missing_translations = sorted({wk["name"] for wk in weeks.values()} - set(parashah_translations))
+    if missing_translations:
+        print(f"WARNING: {len(missing_translations)} week name(s) have no entry in "
+              f"{parashah_translations_path.name}: {missing_translations}")
 
     table_db = Path(table_db) if table_db else Path(__file__).parent.parent / "data" / "bsb_tables.db"
     verses_conn = sqlite3.connect(table_db) if table_db.exists() else None
@@ -628,8 +655,8 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
         if hd is None:
             missing_hdate.append(dt)
         html = render_devotion_html(day_entries[dt], annotations.get(dt, []), book_lookup,
-                                     verses_conn, unresolved_refs, missing_bounds, hd,
-                                     weekday=dt.strftime('%A'))
+                                     verses_conn, unresolved_refs, missing_bounds,
+                                     parashah_translations, hd, weekday=dt.strftime('%A'))
         cur.execute(
             "INSERT INTO Devotional (Month, Day, Devotion) VALUES (?,?,?)",
             (dt.month, dt.day, html),
