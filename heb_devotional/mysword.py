@@ -76,17 +76,17 @@ from verse_formatter.base import ABBREV_TO_BOOK_NUM, _default_ref_label
 
 
 _CUSTOM_CSS = (
-    ".head_info {min-width:100%; background-color:#F2F7F8;} "
-    ".head_info * {display:block; width:100%; text-align:center;} "
+    ".head-info {min-width:100%; background-color:#F2F7F8; padding:4px; margin:4px 0;} "
+    ".head-info * {display:block; width:100%; text-align:center;} "
     ".cal {width:100%; border-collapse:collapse; text-align:center;} "
     ".cal th, .cal td {border:1px solid #ccc; padding:4px;} "
     ".cal td.pad {border:none;} "
     ".cal-nav {width:100%; display:flex; justify-content:space-between;} "
     ".day-nav {width:100%; display:flex; align-items:center;} "
     ".day-nav-date {flex:1; text-align:center;} "
-    ".major-holiday {font-weight:bold; background-color:#FFF9B0;} "
-    ".minor-holiday {background-color:#FFE5B4;} "
-    ".fast-day {background-color:#C8A27A;}"
+    ".major-holiday {font-weight:bold; background-color:#FFF9B0; padding:4px;} "
+    ".minor-holiday {background-color:#FFE5B4; padding:4px;} "
+    ".fast-day {background-color:#C8A27A; padding:4px;}"
 )
 
 
@@ -208,7 +208,7 @@ def render_day_page(dt, sections, annotations_for_day, book_lookup,
     )
 
     for heading, parashah_name, refs in sections:
-        parts.append('<div class="head_info">')
+        parts.append('<div class="head-info">')
         parts.append(f'<h2>{heading}</h2>')
         translation = parashah_translations.get(parashah_name) if parashah_name else None
         if translation:
