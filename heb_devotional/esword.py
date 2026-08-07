@@ -30,8 +30,20 @@ from pathlib import Path
 from .reading_plan import (
     load_reading_plan, find_cycle_window, fetch_hebcal, process_hebcal_data,
     derive_week_saturdays, derive_holiday_dates, build_day_entries,
-    _book_name_to_abbrev, ref_wrap,
+    _book_name_to_abbrev, resolve_refs,
 )
+from verse_formatter.base import _default_ref_label
+
+
+def _ref_tags(refs, book_lookup, verses_conn, unresolved, missing_bounds):
+    """Resolved Reference objects -> e-Sword '<ref>...</ref>' tags -- a
+    label-only Reference (unresolvable book/shape, see
+    reading_plan._ref_to_tag()) wraps its raw text as-is, same fallback
+    behavior the old inline '<ref>{text}</ref>' had before this became a
+    shared, format-agnostic Reference list."""
+    resolved = resolve_refs(refs, book_lookup, verses_conn, unresolved, missing_bounds)
+    return [f'<ref>{ref.label}</ref>' if ref.book is None else f'<ref>{_default_ref_label(ref)}</ref>'
+            for ref in resolved]
 
 
 def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn,
@@ -69,7 +81,7 @@ def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn
         if translation:
             parts.append(f'<p><i>{translation}</i></p>')
         parts.append('</div>')
-        tags = ref_wrap(refs, book_lookup, verses_conn, unresolved, missing_bounds)
+        tags = _ref_tags(refs, book_lookup, verses_conn, unresolved, missing_bounds)
         parts.append("<ol>" + "".join(f"<li>{tag}</li>" for tag in tags) + "</ol>")
 
     if annotations_for_day:
