@@ -232,26 +232,11 @@ _DEVOTIONAL_REF_RE = re.compile(
 )
 
 
-def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
-                 missing_bounds: list, depth: int = 0) -> list:
+def _ref_to_tag(text: str, book_lookup: dict, unresolved: list, resolve_piece, depth: int = 0) -> list:
     """One raw parshat.json reference string -> a list of one or more
-    verse_formatter.base.Reference objects (kept as separate list entries
-    rather than one combined range so the caller can put each chapter on
-    its own <li> -- see heb_devotional.esword.render_devotion_html() and
-    heb_devotional.mysword's day-page renderer). Deliberately
-    format-agnostic: e-Sword wraps each Reference's _default_ref_label()
-    in its own '<ref>...</ref>' tag, MySword instead builds a
-    '#b<book_num>.<chapter>.<verse>' anchor href from the same Reference
-    -- both formatters do their own final string formatting from these
-    objects rather than this module picking one tag syntax. Unresolvable
-    pieces (unmapped book name, unrecognized shape) fall back to a
-    label-only Reference (book/chapter/verse all None, per the Reference
-    dataclass's own documented convention for "couldn't be parsed at
-    all") and get appended to `unresolved` for the caller to warn about,
-    rather than silently producing a broken link or crashing the whole
-    build over one bad reference.
-
-    Two shapes recurse instead of matching _DEVOTIONAL_REF_RE directly:
+    verse_formatter.base.Reference objects. Handles book-name resolution
+    and the two shapes that recurse instead of matching
+    _DEVOTIONAL_REF_RE directly:
       - No digits at all ("II John; III John") -- one or more bare book
         names, semicolon-joined. Every real occurrence of this is a
         one-chapter book (2/3 John, Jude, Philemon, Obadiah), so a bare
@@ -260,32 +245,30 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
         every segment after the first drops the book name (implied from
         the first segment), so it's re-attached before parsing each part.
 
-    e-Sword's <ref> tag doesn't resolve a bare "book chapter" or
-    "book chapter-chapter" reference -- confirmed against the real app,
-    not documented anywhere -- it needs an explicit verse range. A
-    reference spanning more than one chapter is also split into one
-    <ref> per chapter rather than one combined range -- e-Sword loads a
-    <ref>'s whole target into the reading window at once, so a single
-    multi-chapter tag means a massive combined view; per-chapter tags
-    keep each one small and let a partially-read day resume from
-    wherever it left off. Both cases pull real verse counts from
-    bsb_tables.db's chapters table via _last_verse() -- see
-    _chapter_split_refs() -- whenever the source text doesn't already
-    give one for a given chapter (verses_conn -- opened once by the
-    caller; None skips lookups and leaves those chapters bare, e.g. when
-    bsb_tables.db hasn't been built). A lookup that comes back empty
-    (unknown book id, or bsb_tables.db has no data for that book/chapter)
-    is not treated the same as an unresolved reference -- the book/shape
-    parsed fine, there's just no verse count available -- so it's
-    collected into missing_bounds instead of guessing.
+    Once a piece is down to a single resolved (book, chapter[, verse[,
+    end_chap[, end_verse]]]), what to actually DO with it -- e-Sword's
+    chapter-by-chapter split with a bsb_tables.db verse-count lookup, or
+    MySword's single untouched Reference (see this module's docstring for
+    why the two formats need different handling here) -- is deliberately
+    not this function's decision: `resolve_piece(abbrev, osis_id, chapter,
+    verse, end_chap, end_verse, orig_text) -> list[Reference]` is supplied
+    by the caller (see resolve_refs() / resolve_refs_simple()) so this
+    parsing logic -- regex, book lookup, semicolon/comma recursion -- is
+    shared instead of duplicated per format.
+
+    Unresolvable pieces (unmapped book name, unrecognized shape) fall
+    back to a label-only Reference (book/chapter/verse all None, per the
+    Reference dataclass's own documented convention for "couldn't be
+    parsed at all") and get appended to `unresolved` for the caller to
+    warn about, rather than silently producing a broken link or crashing
+    the whole build over one bad reference.
     """
     text = text.strip()
 
     if not any(c.isdigit() for c in text):
         parts = [p.strip() for p in text.split(';') if p.strip()]
         return [ref for p in parts
-                for ref in _ref_to_tag(f"{p} 1", book_lookup, verses_conn, unresolved,
-                                        missing_bounds, depth + 1)]
+                for ref in _ref_to_tag(f"{p} 1", book_lookup, unresolved, resolve_piece, depth + 1)]
 
     if ',' in text and depth == 0:
         segments = [s.strip() for s in text.split(',')]
@@ -295,7 +278,7 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
             ref
             for i, seg in enumerate(segments)
             for ref in _ref_to_tag(seg if i == 0 or book_name is None else f"{book_name} {seg}",
-                                    book_lookup, verses_conn, unresolved, missing_bounds, depth + 1)
+                                    book_lookup, unresolved, resolve_piece, depth + 1)
         ]
 
     m = _DEVOTIONAL_REF_RE.match(text)
@@ -315,8 +298,7 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
     end_chap   = int(end_chap) if end_chap else None
     end_verse  = int(m.group('end_verse')) if m.group('end_verse') else None
 
-    return _chapter_split_refs(abbrev, osis_id, chapter, verse, end_chap, end_verse,
-                                verses_conn, missing_bounds, text)
+    return resolve_piece(abbrev, osis_id, chapter, verse, end_chap, end_verse, text)
 
 
 def _chapter_split_refs(abbrev: str, osis_id: str, chapter: int, verse, end_chap, end_verse,
@@ -366,16 +348,36 @@ def _chapter_split_refs(abbrev: str, osis_id: str, chapter: int, verse, end_chap
 
 def resolve_refs(refs, book_lookup, verses_conn, unresolved, missing_bounds):
     """Resolve a list of parshat.json reference strings into a flat list
-    of Reference objects -- one list entry per chapter, not per source
-    reference string, so the caller can put each on its own <li> (see
-    heb_devotional.esword.render_devotion_html() and
-    heb_devotional.mysword's day-page renderer). See _ref_to_tag() for
-    the actual book-name resolution and verse-bounding; each caller does
-    its own final tag/link formatting from the Reference objects this
-    returns, since e-Sword's <ref> tag and MySword's '#b...' anchor use
-    different syntax for the same resolved data."""
+    of Reference objects, e-Sword-flavored: one list entry per chapter
+    (not per source reference string, so the caller can put each on its
+    own <li> -- see heb_devotional.esword.render_devotion_html()), with
+    every chapter's verse range filled in from bsb_tables.db via
+    _chapter_split_refs() -- required because e-Sword's <ref> tag doesn't
+    resolve a bare "book chapter" reference (confirmed against the real
+    app, not documented anywhere). See heb_devotional.mysword's own
+    resolve_refs_simple() for the same source text without any of that:
+    MySword's own link syntax has no such requirement."""
+    def resolve_piece(abbrev, osis_id, chapter, verse, end_chap, end_verse, orig_text):
+        return _chapter_split_refs(abbrev, osis_id, chapter, verse, end_chap, end_verse,
+                                    verses_conn, missing_bounds, orig_text)
     return [ref for r in refs
-            for ref in _ref_to_tag(r, book_lookup, verses_conn, unresolved, missing_bounds)]
+            for ref in _ref_to_tag(r, book_lookup, unresolved, resolve_piece)]
+
+
+def resolve_refs_simple(refs, book_lookup, unresolved):
+    """Resolve a list of parshat.json reference strings into a flat list
+    of Reference objects, one per source reference string (no
+    chapter-by-chapter splitting, no bsb_tables.db verse-count lookup --
+    see resolve_refs()'s docstring for why e-Sword needs both and MySword
+    needs neither). chapter/verse/end_chapter/end_verse are passed
+    through exactly as parsed -- verse and end_chapter may be None (a
+    bare "book chapter" or "book chapter-chapter" reference), which is
+    fine for MySword's own link syntax."""
+    def resolve_piece(abbrev, osis_id, chapter, verse, end_chap, end_verse, orig_text):
+        return [Reference(book=abbrev, chapter=chapter, verse=verse,
+                           end_chapter=end_chap, end_verse=end_verse)]
+    return [ref for r in refs
+            for ref in _ref_to_tag(r, book_lookup, unresolved, resolve_piece)]
 
 
 def build_day_entries(weeks, week_saturday, holiday_date):

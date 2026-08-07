@@ -9,7 +9,8 @@ fetch. This module only owns MySword-journal-specific rendering and
 SQLite writing.
 
 journal schema (confirmed against a real MySword reference-book module,
-Morning and Evening: Daily Readings):
+Morning and Evening: Daily Readings), file extension .bok.mybible
+(confirmed):
     CREATE TABLE details(name TEXT, title TEXT, abbreviation TEXT,
         author TEXT, description TEXT, comments TEXT, version TEXT,
         versiondate DATETIME, publishdate TEXT, publisher TEXT,
@@ -23,7 +24,11 @@ Morning and Evening: Daily Readings):
     CREATE UNIQUE INDEX idx_journal_title on journal(title)
     CREATE INDEX idx_journal_date on journal(date)
 No FTS shadow tables (journalFTS etc.) -- not needed for a
-bundled/imported module.
+bundled/imported module. MySword shows a journal row's own `title`
+automatically above its content (confirmed against a real build), so
+page content below never repeats it as its own heading -- only render an
+<h2> for something the title doesn't already say (a day page's parashah
+name, which differs from that row's date-based title).
 
 Unlike e-Sword's Devotional table (Month/Day only, no year -- see
 esword.py's docstring for the leap-year collision that forces), journal
@@ -33,18 +38,26 @@ for a day row, "October 2026" for a month row), so the same leap-year
 Fall-straddles-two-Decembers collision that required merging rows for
 e-Sword simply never happens here -- every real date gets its own row.
 
-Navigation is Index -> month page (a real calendar table) -> day page,
-each a real '#j <id>' journal link (MySword's own link-type prefix, "j"
-for journal same as "b" for bible -- see
-https://www.mysword.info/modules-format). Bible references link via a
-'#b<book_num>.<chapter>.<verse>' anchor instead of e-Sword's <ref> tag --
-same Reference data from reading_plan.resolve_refs(), different syntax,
-since MySword needs an explicit address separate from the visible label
-rather than e-Sword's label-is-the-address <ref> tag.
+Navigation is Index -> month page (a real calendar table, with prev/next
+links to adjacent months when they exist) -> day page, each a real
+'#j <id>' journal link (MySword's own link-type prefix, "j" for journal
+same as "b" for bible -- see https://www.mysword.info/modules-format).
+Bible references link via a '#b<book_num>.<chapter>[.<verse>]' anchor
+instead of e-Sword's <ref> tag -- built from
+reading_plan.resolve_refs_simple() rather than resolve_refs():
+confirmed against a real build that MySword, unlike e-Sword, has no
+requirement for an explicit verse range -- a bare "book chapter"
+reference links just fine as '#b<book_num>.<chapter>', so this module
+never needs bsb_tables.db at all (contrast e-Sword's <ref> tag, which
+does).
 
 details.customcss is loaded by MySword automatically, so unlike
 e-Sword's .devi (no CustomCSS column at all -- every row there repeats
-its own inline <style> block) the CSS below is declared exactly once.
+its own inline <style> block) the CSS below is declared exactly once,
+including three classes for Hebcal annotation categories (major
+holiday/Yom Tov, minor holiday or new moon, fast day) -- see
+_annotation_class()'s docstring for how those are inferred and why
+they're not yet fully confirmed.
 """
 
 import calendar
@@ -57,7 +70,7 @@ from pathlib import Path
 from .reading_plan import (
     load_reading_plan, find_cycle_window, fetch_hebcal, process_hebcal_data,
     derive_week_saturdays, derive_holiday_dates, build_day_entries,
-    _book_name_to_abbrev, resolve_refs,
+    _book_name_to_abbrev, resolve_refs_simple,
 )
 from verse_formatter.base import ABBREV_TO_BOOK_NUM, _default_ref_label
 
@@ -67,7 +80,11 @@ _CUSTOM_CSS = (
     ".head_info * {display:block; width:100%; text-align:center;} "
     ".cal {width:100%; border-collapse:collapse; text-align:center;} "
     ".cal th, .cal td {border:1px solid #ccc; padding:4px;} "
-    ".cal td.pad {border:none;}"
+    ".cal td.pad {border:none;} "
+    ".cal-nav {width:100%; display:flex; justify-content:space-between;} "
+    ".major-holiday {font-weight:bold; color:#8B0000;} "
+    ".minor-holiday {font-style:italic; color:#555555;} "
+    ".fast-day {font-style:italic; color:#4B0082;}"
 )
 
 
@@ -79,18 +96,42 @@ def _day_id(dt: date) -> str:
     return dt.strftime('%d %b %Y')
 
 
-def _ref_links(refs, book_lookup, verses_conn, unresolved, missing_bounds):
+def _annotation_class(ann: dict) -> str:
+    """Hebcal annotation -> one of three CSS classes: major holiday (Yom
+    Tov -- Rosh Hashana, Yom Kippur, Sukkot, Shmini Atzeret, Pesach,
+    Shavuot), fast day (Tzom Gedaliah, Asara B'Tevet, etc.), or minor
+    holiday/new moon (Rosh Chodesh, special Shabbatot, and anything else
+    that doesn't fit the other two -- catch-all default).
+
+    yomtov is a real Hebcal field we already capture (process_hebcal_data)
+    and trust; the fast/roshchodesh category check is Hebcal's documented
+    category vocabulary but hasn't been exercised against a real fetch in
+    this session (no live Hebcal access here) -- double check fast days
+    and Rosh Chodesh land in the right bucket the next time this runs
+    against real data.
+    """
+    if ann["yomtov"]:
+        return "major-holiday"
+    if ann["category"] == "fast" or ann.get("subcat") == "fast":
+        return "fast-day"
+    return "minor-holiday"
+
+
+def _ref_links(refs, book_lookup, unresolved):
     """Resolved Reference objects -> MySword bible-link anchors
-    ('<a class="bible" href="#b<book_num>.<chapter>.<verse>">label</a>').
+    ('<a class="bible" href="#b<book_num>.<chapter>[.<verse>]">label</a>').
     A label-only Reference (unresolvable book/shape -- see
     reading_plan._ref_to_tag()) renders as plain text, same fallback
     verse_formatter.base._MySwordXrefMixin.transform_reference() uses for
-    a Reference with no book/chapter. A resolved reference with no verse
-    bounds (missing_bounds -- see reading_plan._chapter_split_refs())
-    still links, just to chapter/verse 1 instead of a precise range --
-    same "give a real click target either way" reasoning
-    _MySwordXrefMixin already uses."""
-    resolved = resolve_refs(refs, book_lookup, verses_conn, unresolved, missing_bounds)
+    a Reference with no book/chapter.
+
+    Unlike e-Sword's <ref> tag, MySword doesn't require an explicit verse
+    range (confirmed against a real build) -- a reference with no verse
+    at all links straight to the chapter ('#b<book_num>.<chapter>', or
+    '#b<book_num>.<chapter>-<end_chapter>' for a bare chapter range), no
+    bsb_tables.db lookup needed. See reading_plan.resolve_refs_simple().
+    """
+    resolved = resolve_refs_simple(refs, book_lookup, unresolved)
     links = []
     for ref in resolved:
         if ref.book is None:
@@ -101,16 +142,20 @@ def _ref_links(refs, book_lookup, verses_conn, unresolved, missing_bounds):
         if not book_num:
             links.append(label)
             continue
-        verse = ref.verse if ref.verse is not None else 1
-        loc = f"{book_num}.{ref.chapter}.{verse}"
-        if ref.verse is not None and ref.end_verse:
-            loc += f"-{ref.end_verse}"
+        if ref.verse is not None:
+            loc = f"{book_num}.{ref.chapter}.{ref.verse}"
+            if ref.end_verse:
+                loc += f"-{ref.end_chapter}.{ref.end_verse}" if ref.end_chapter else f"-{ref.end_verse}"
+        else:
+            loc = f"{book_num}.{ref.chapter}"
+            if ref.end_chapter:
+                loc += f"-{ref.end_chapter}"
         links.append(f'<a class="bible" href="#b{loc}">{label}</a>')
     return links
 
 
-def render_day_page(dt, sections, annotations_for_day, book_lookup, verses_conn,
-                     unresolved, missing_bounds, parashah_translations, hdate_str):
+def render_day_page(dt, sections, annotations_for_day, book_lookup,
+                     unresolved, parashah_translations, hdate_str):
     """Build one day page's content. `sections` is day_entries[dt]:
     [(heading, parashah_name, refs), ...], already scoped to this single
     real date -- unlike e-Sword's render_devotion_html(), no cross-date
@@ -130,16 +175,17 @@ def render_day_page(dt, sections, annotations_for_day, book_lookup, verses_conn,
         if translation:
             parts.append(f'<p><i>{translation}</i></p>')
         parts.append('</div>')
-        links = _ref_links(refs, book_lookup, verses_conn, unresolved, missing_bounds)
+        links = _ref_links(refs, book_lookup, unresolved)
         parts.append("<ol>" + "".join(f"<li>{link}</li>" for link in links) + "</ol>")
 
     if annotations_for_day:
         parts.append('<div class="observances">')
         for ann in annotations_for_day:
+            cls = _annotation_class(ann)
             label = ann["title"]
             if ann["yomtov"]:
-                label = f"<b>{label} (Yom Tov — no work)</b>"
-            parts.append(f"<p>{label}")
+                label += " (Yom Tov — no work)"
+            parts.append(f'<p class="{cls}">{label}')
             if ann["memo"]:
                 parts.append(f"<br><i>{ann['memo']}</i>")
             parts.append("</p>")
@@ -148,18 +194,26 @@ def render_day_page(dt, sections, annotations_for_day, book_lookup, verses_conn,
     return "".join(parts)
 
 
-def render_month_page(year, month, day_entries):
+def render_month_page(year, month, day_entries, prev_id=None, next_id=None):
     """Build one month's calendar-table content: a Sunday-first grid
     linking each covered day to its own page, blank (unlinked) cells for
     days this cycle has no reading for -- the cycle's first/last partial
     week, since a Simchat-Torah-to-Simchat-Torah cycle rarely starts or
-    ends on a calendar month boundary -- plus a link back to Index."""
-    month_name = calendar.month_name[month]
-    parts = [
-        '<p><a class="dict" href="#j Index">Index</a></p>',
-        f'<h2>{month_name} {year}</h2>',
-        '<table class="cal"><tr>',
-    ]
+    ends on a calendar month boundary -- plus links back to Index and to
+    the adjacent month, when one actually exists in this cycle (the
+    cycle's first and last months have no prev/next, so those are
+    omitted rather than linking to a nonexistent row)."""
+    parts = ['<p><a class="dict" href="#j Index">Index</a></p>']
+
+    nav = []
+    if prev_id:
+        nav.append(f'<a class="dict" href="#j {prev_id}">&laquo; {prev_id}</a>')
+    if next_id:
+        nav.append(f'<a class="dict" href="#j {next_id}">{next_id} &raquo;</a>')
+    if nav:
+        parts.append('<p class="cal-nav">' + "".join(nav) + '</p>')
+
+    parts.append('<table class="cal"><tr>')
     parts += [f'<th>{d}</th>' for d in ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat')]
     parts.append('</tr>')
 
@@ -185,7 +239,7 @@ def render_index_page(month_ids):
     chronological cycle order -- not necessarily Jan-Dec, since the
     cycle starts near Simchat Torah, whichever Gregorian month that
     falls in for the given hebrew_year."""
-    parts = ['<h2>Index</h2>', '<ol>']
+    parts = ['<ol>']
     for mid in month_ids:
         parts.append(f'<li><a class="dict" href="#j {mid}">{mid}</a></li>')
     parts.append('</ol>')
@@ -194,15 +248,16 @@ def render_index_page(month_ids):
 
 def generate_journal(reading_plan_path, hebrew_year, output_path,
                       title, abbreviation, description, author="",
-                      first_week_name="Bereshit", table_db=None,
-                      parashah_translations_path=None):
+                      first_week_name="Bereshit", parashah_translations_path=None):
     """
     Mirrors esword.generate_devi()'s inputs -- see that docstring for
-    hebrew_year/table_db/parashah_translations_path. Builds a MySword
-    Journal-format reference book instead of an e-Sword .devi: one
-    'Index' row, one row per real-date-qualified month ("October 2026"),
-    and one row per real reading date -- see this module's docstring for
-    why no Month/Day merging is needed here the way it is for e-Sword.
+    hebrew_year/parashah_translations_path (no table_db here: this
+    format needs no bsb_tables.db lookup at all, see this module's
+    docstring). Builds a MySword Journal-format reference book instead
+    of an e-Sword .devi: one 'Index' row, one row per real-date-qualified
+    month ("October 2026"), and one row per real reading date -- see
+    this module's docstring for why no Month/Day merging is needed here
+    the way it is for e-Sword.
     """
     weeks = load_reading_plan(reading_plan_path)
     num_weeks = len(weeks)
@@ -218,7 +273,6 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
     day_entries = build_day_entries(weeks, week_saturday, holiday_date)
     book_lookup = _book_name_to_abbrev()
     unresolved_refs = []
-    missing_bounds = []
 
     parashah_translations_path = Path(parashah_translations_path) if parashah_translations_path \
         else Path(__file__).parent.parent / "data" / "parashah_translations.json"
@@ -228,13 +282,6 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
     if missing_translations:
         print(f"WARNING: {len(missing_translations)} week name(s) have no entry in "
               f"{parashah_translations_path.name}: {missing_translations}")
-
-    table_db = Path(table_db) if table_db else Path(__file__).parent.parent / "data" / "bsb_tables.db"
-    verses_conn = sqlite3.connect(table_db) if table_db.exists() else None
-    if verses_conn is None:
-        print(f"WARNING: {table_db} not found -- bare 'book chapter' references will "
-              f"link to chapter/verse 1 instead of a precise range. Build it with "
-              f"utils/import_bsb_table.py first.")
 
     if os.path.exists(output_path):
         os.remove(output_path)
@@ -277,9 +324,11 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
 
     insert_row("Index", "Index", render_index_page(month_ids))
 
-    for y, m in month_keys:
-        mid = _month_id(date(y, m, 1))
-        insert_row(mid, mid, render_month_page(y, m, day_entries))
+    for i, (y, m) in enumerate(month_keys):
+        mid = month_ids[i]
+        prev_id = month_ids[i - 1] if i > 0 else None
+        next_id = month_ids[i + 1] if i < len(month_ids) - 1 else None
+        insert_row(mid, mid, render_month_page(y, m, day_entries, prev_id, next_id))
 
     missing_hdate = []
     for dt in sorted(day_entries):
@@ -287,15 +336,12 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
         if hd is None:
             missing_hdate.append(dt)
         html = render_day_page(dt, day_entries[dt], annotations.get(dt, []), book_lookup,
-                                verses_conn, unresolved_refs, missing_bounds,
-                                parashah_translations, hd)
+                                unresolved_refs, parashah_translations, hd)
         did = _day_id(dt)
         insert_row(did, did, html, row_date=dt.isoformat())
 
     conn.commit()
     conn.close()
-    if verses_conn is not None:
-        verses_conn.close()
 
     if missing_hdate:
         print(f"WARNING: {len(missing_hdate)} day(s) had no hdate from Hebcal "
@@ -304,10 +350,6 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
     if unresolved_refs:
         print(f"WARNING: {len(unresolved_refs)} reference(s) could not be resolved to a "
               f"book abbreviation and were left as plain text (no link): {unresolved_refs}")
-
-    if missing_bounds:
-        print(f"WARNING: {len(missing_bounds)} reference(s) had no verse count available "
-              f"and link to chapter/verse 1 instead of a precise range: {missing_bounds}")
 
     return len(day_entries)
 
