@@ -313,12 +313,10 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
 
 
 if __name__ == "__main__":
-    # @TODO: swap to input parameter; confirm the real file extension
-    # MySword expects for a Journal-format reference book before
-    # distributing this (placeholder below, unverified).
+    # @TODO: swap to input parameter
     hebrew_year = 5786
     base_dir = Path(__file__).parent.parent
-    output_path = base_dir / "output" / f"mjaa-{hebrew_year}.journal.mybible"
+    output_path = base_dir / "output" / f"mjaa-{hebrew_year}.bok.mybible"
     count = generate_journal(
         reading_plan_path=base_dir / "data" / "parshat.json",
         hebrew_year=hebrew_year,
