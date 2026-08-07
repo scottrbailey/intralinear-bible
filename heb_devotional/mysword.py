@@ -121,22 +121,26 @@ def _annotation_class(ann: dict) -> str:
 
 def _ref_links(refs, book_lookup, unresolved):
     """Resolved Reference objects -> MySword bible-link anchors
-    ('<a class="bible" href="#b<book_num>.<chapter>[.<verse>]">label</a>').
+    ('<a class="bible" href="#b<book_num>.<chapter>.<verse>[&w=1]">label</a>').
     A label-only Reference (unresolvable book/shape -- see
     reading_plan._ref_to_tag()) renders as plain text, same fallback
     verse_formatter.base._MySwordXrefMixin.transform_reference() uses for
     a Reference with no book/chapter.
 
-    Unlike e-Sword's <ref> tag, MySword doesn't require an explicit verse
-    range (confirmed against a real build) -- a reference with no verse
-    at all links straight to the chapter ('#b<book_num>.<chapter>', no
-    bsb_tables.db lookup needed. resolve_refs_simple() already splits a
-    chapter-spanning bare reference into one Reference per chapter before
-    this ever sees it -- confirmed a bare '#b<book>.<chapter>-<chapter>'
-    range isn't safe (MySword read the trailing number as a verse range
-    on the first chapter instead), so a Reference reaching here with
-    verse=None never has end_chapter set either. See
-    reading_plan.resolve_refs_simple().
+    A reference with no verse at all (a bare "book chapter") links to
+    that chapter's verse 1 with the '&w=1' suffix MySword's own docs
+    describe: "can be optionally suffixed by &w=1 indicating whole
+    chapter to display in case of popup" -- the base b.c.v address still
+    needs a real verse (verse 1, the chapter's start), &w=1 is what
+    actually asks MySword to show the whole chapter rather than homing
+    in on just that one verse. No bsb_tables.db lookup needed either
+    way. resolve_refs_simple() already splits a chapter-spanning bare
+    reference into one Reference per chapter before this ever sees it
+    (confirmed a bare '#b<book>.<chapter>-<chapter>' range isn't safe --
+    MySword read the trailing number as a verse range on the first
+    chapter instead -- so &w=1 is applied per chapter, not to a combined
+    range), so a Reference reaching here with verse=None never has
+    end_chapter set either. See reading_plan.resolve_refs_simple().
     """
     resolved = resolve_refs_simple(refs, book_lookup, unresolved)
     links = []
@@ -154,7 +158,7 @@ def _ref_links(refs, book_lookup, unresolved):
             if ref.end_verse:
                 loc += f"-{ref.end_chapter}.{ref.end_verse}" if ref.end_chapter else f"-{ref.end_verse}"
         else:
-            loc = f"{book_num}.{ref.chapter}"
+            loc = f"{book_num}.{ref.chapter}.1&w=1"
         links.append(f'<a class="bible" href="#b{loc}">{label}</a>')
     return links
 
