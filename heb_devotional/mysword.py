@@ -82,6 +82,8 @@ _CUSTOM_CSS = (
     ".cal th, .cal td {border:1px solid #ccc; padding:4px;} "
     ".cal td.pad {border:none;} "
     ".cal-nav {width:100%; display:flex; justify-content:space-between;} "
+    ".day-nav {width:100%; display:flex; align-items:center;} "
+    ".day-nav-date {flex:1; text-align:center;} "
     ".major-holiday {font-weight:bold; color:#8B0000;} "
     ".minor-holiday {font-style:italic; color:#555555;} "
     ".fast-day {font-style:italic; color:#4B0082;}"
@@ -155,21 +157,36 @@ def _ref_links(refs, book_lookup, unresolved):
 
 
 def render_day_page(dt, sections, annotations_for_day, book_lookup,
-                     unresolved, parashah_translations, hdate_str):
+                     unresolved, parashah_translations, hdate_str,
+                     prev_dt=None, next_dt=None):
     """Build one day page's content. `sections` is day_entries[dt]:
     [(heading, parashah_name, refs), ...], already scoped to this single
     real date -- unlike e-Sword's render_devotion_html(), no cross-date
-    merging is ever needed here (see this module's docstring)."""
+    merging is ever needed here (see this module's docstring).
+
+    Two nav lines: Index / month (structural, Index first since it's the
+    top level) and << weekday - hdate >> (temporal, prev/next day).
+    prev_dt/next_dt are the adjacent dates that actually have an entry in
+    day_entries, not necessarily calendar yesterday/tomorrow -- the
+    reading plan doesn't cover every single day of the cycle (see
+    esword.py's docstring on the 51-week template vs. a leap year's ~55
+    weeks), so skipping to the next *covered* date avoids ever linking to
+    a row that doesn't exist."""
     parts = [
-        f'<p>Go To <a class="dict" href="#j {_month_id(dt)}">{dt.strftime("%B %Y")}</a>'
-        f' / <a class="dict" href="#j Index">Index</a></p>'
+        f'<p><a class="dict" href="#j Index">Index</a>'
+        f' / <a class="dict" href="#j {_month_id(dt)}">{dt.strftime("%B %Y")}</a></p>'
     ]
     weekday = dt.strftime('%A')
     hdate_line = " - ".join(p for p in (weekday, hdate_str) if p)
+    prev_link = f'<a class="dict" href="#j {_day_id(prev_dt)}">&laquo;</a>' if prev_dt else ''
+    next_link = f'<a class="dict" href="#j {_day_id(next_dt)}">&raquo;</a>' if next_dt else ''
+    parts.append(
+        f'<p class="day-nav"><span>{prev_link}</span>'
+        f'<span class="day-nav-date">{hdate_line}</span><span>{next_link}</span></p>'
+    )
 
     for heading, parashah_name, refs in sections:
         parts.append('<div class="head_info">')
-        parts.append(f'<p>{hdate_line}</p>')
         parts.append(f'<h2>{heading}</h2>')
         translation = parashah_translations.get(parashah_name) if parashah_name else None
         if translation:
@@ -331,12 +348,15 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
         insert_row(mid, mid, render_month_page(y, m, day_entries, prev_id, next_id))
 
     missing_hdate = []
-    for dt in sorted(day_entries):
+    sorted_dates = sorted(day_entries)
+    for i, dt in enumerate(sorted_dates):
         hd = hdates.get(dt)
         if hd is None:
             missing_hdate.append(dt)
+        prev_dt = sorted_dates[i - 1] if i > 0 else None
+        next_dt = sorted_dates[i + 1] if i < len(sorted_dates) - 1 else None
         html = render_day_page(dt, day_entries[dt], annotations.get(dt, []), book_lookup,
-                                unresolved_refs, parashah_translations, hd)
+                                unresolved_refs, parashah_translations, hd, prev_dt, next_dt)
         did = _day_id(dt)
         insert_row(did, did, html, row_date=dt.isoformat())
 
