@@ -366,16 +366,30 @@ def resolve_refs(refs, book_lookup, verses_conn, unresolved, missing_bounds):
 
 def resolve_refs_simple(refs, book_lookup, unresolved):
     """Resolve a list of parshat.json reference strings into a flat list
-    of Reference objects, one per source reference string (no
-    chapter-by-chapter splitting, no bsb_tables.db verse-count lookup --
-    see resolve_refs()'s docstring for why e-Sword needs both and MySword
-    needs neither). chapter/verse/end_chapter/end_verse are passed
-    through exactly as parsed -- verse and end_chapter may be None (a
-    bare "book chapter" or "book chapter-chapter" reference), which is
-    fine for MySword's own link syntax."""
+    of Reference objects, MySword-flavored: no bsb_tables.db verse-count
+    lookup at all -- see resolve_refs()'s docstring for why e-Sword needs
+    one and MySword doesn't (a verse-bounded reference, single-chapter or
+    cross-chapter, is returned exactly as parsed: chapter/verse/
+    end_chapter/end_verse straight through, one Reference).
+
+    A reference with NO verse at all still splits into one Reference per
+    chapter when it spans more than one ("book chapter-chapter") --
+    confirmed against a real build that MySword's own '#b<book>.<chapter>'
+    addressing doesn't support a bare chapter RANGE: '#b1.15-16' opened
+    as Genesis 15:1-16, i.e. the app read the trailing '-16' as a verse
+    range on chapter 15, not "chapter 15 through 16". So a hyphen right
+    after a bare chapter position isn't safe to ever emit -- each chapter
+    gets its own Reference (and its own <li>, same "resume where you left
+    off" reasoning e-Sword's own chapter-splitting has -- see
+    _chapter_split_refs()), just without a verse-count lookup, since a
+    bare '#b<book>.<chapter>' (no dash at all) is a perfectly fine link
+    on its own.
+    """
     def resolve_piece(abbrev, osis_id, chapter, verse, end_chap, end_verse, orig_text):
-        return [Reference(book=abbrev, chapter=chapter, verse=verse,
-                           end_chapter=end_chap, end_verse=end_verse)]
+        if verse is not None or end_chap is None:
+            return [Reference(book=abbrev, chapter=chapter, verse=verse,
+                               end_chapter=end_chap, end_verse=end_verse)]
+        return [Reference(book=abbrev, chapter=ch) for ch in range(chapter, end_chap + 1)]
     return [ref for r in refs
             for ref in _ref_to_tag(r, book_lookup, unresolved, resolve_piece)]
 

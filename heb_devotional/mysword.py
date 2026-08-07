@@ -129,9 +129,14 @@ def _ref_links(refs, book_lookup, unresolved):
 
     Unlike e-Sword's <ref> tag, MySword doesn't require an explicit verse
     range (confirmed against a real build) -- a reference with no verse
-    at all links straight to the chapter ('#b<book_num>.<chapter>', or
-    '#b<book_num>.<chapter>-<end_chapter>' for a bare chapter range), no
-    bsb_tables.db lookup needed. See reading_plan.resolve_refs_simple().
+    at all links straight to the chapter ('#b<book_num>.<chapter>', no
+    bsb_tables.db lookup needed. resolve_refs_simple() already splits a
+    chapter-spanning bare reference into one Reference per chapter before
+    this ever sees it -- confirmed a bare '#b<book>.<chapter>-<chapter>'
+    range isn't safe (MySword read the trailing number as a verse range
+    on the first chapter instead), so a Reference reaching here with
+    verse=None never has end_chapter set either. See
+    reading_plan.resolve_refs_simple().
     """
     resolved = resolve_refs_simple(refs, book_lookup, unresolved)
     links = []
@@ -150,8 +155,6 @@ def _ref_links(refs, book_lookup, unresolved):
                 loc += f"-{ref.end_chapter}.{ref.end_verse}" if ref.end_chapter else f"-{ref.end_verse}"
         else:
             loc = f"{book_num}.{ref.chapter}"
-            if ref.end_chapter:
-                loc += f"-{ref.end_chapter}"
         links.append(f'<a class="bible" href="#b{loc}">{label}</a>')
     return links
 
