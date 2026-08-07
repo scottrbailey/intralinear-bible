@@ -1,63 +1,44 @@
 """
-utils/build_heb_devitional_esword.py
+heb_devotional/reading_plan.py
 
-Generates an e-Sword Daily Devotional (.devi) module from:
-  1. An intermediate reading-plan JSON (parshat.json shape: list of
-     {week_no, week, type: D|W|H, refs: [...], label?})
-  2. A live Hebcal fetch covering the same Hebrew-calendar cycle, used to:
-       a. anchor each week to its real Shabbat date and derive Sun-Thu dates
-       b. anchor each H-row (footnoted holiday) to its specific date
-       c. annotate every date with any other Hebcal observance that falls
-          on it (fasts, Rosh Chodesh, special Shabbatot, Mevarchim, etc.)
-          including memo text and yomtov (non-work day) status
-       d. supply the real Hebrew date (hdate) for every single day, via
-          Hebcal's d=on parameter -- no calculation needed
+Shared input-side logic for the Hebrew-calendar devotional generators
+(heb_devotional/esword.py, heb_devotional/mysword.py). Everything here is
+output-format-agnostic: it turns an intermediate reading-plan JSON
+(parshat.json shape: list of {week_no, week, type: D|W|H, refs: [...],
+label?}) plus a live Hebcal fetch into
+  - {date: [(heading, parashah_name, refs), ...]} (build_day_entries) --
+    every reading assigned to its real calendar date
+  - {date: hdate_string} / {date: [annotation, ...]} (process_hebcal_data)
+  - a book-name -> abbreviation lookup and reference-string -> resolved
+    (book, chapter, verse range) parsing, shared so both output formats
+    produce identical, already-verified reference resolution rather than
+    each reimplementing "book chapter" verse-range filling independently.
 
 Requires: pip install requests
 
 Scripture references (parshat.json's own convention: full English book
 names, Roman-numeral prefixes -- "I Samuel", "II Kings" -- not our usual
-abbreviated "1Sa 1:1-2:10" shape) are resolved to e-Sword-recognized
-<ref>...</ref> tags the same way our Bible modules do: parsed into a
-verse_formatter.base.Reference and rendered through the same
-_default_ref_label() every ESwordReverseInterlinearFormatter/etc. <ref>
-tag goes through (see _ref_to_tag() below). The only new piece here is
-mapping parshat.json's full book names onto our abbreviations first
-(_book_name_to_abbrev()) -- everything downstream of that reuses the
-existing, already-verified formatting logic rather than reinventing it.
-
-.devi schema (confirmed against a real e-Sword sample):
-    CREATE TABLE Details (Title NVARCHAR(255), Abbreviation NVARCHAR(50),
-                           Information TEXT, Version INT)
-    CREATE TABLE Devotional (Month INT, Day INT, Devotion TEXT)
-    CREATE INDEX MonthDayIndex ON Devotional (Month, Day)
-Devotional is keyed on Month/Day only -- no Year column -- so one .devi
-file is generated per Gregorian-spanning Hebrew cycle (Simchat Torah to
-Simchat Torah), not per Gregorian year. A leap Hebrew year runs long
-enough (383-385 days) that it cannot be squeezed into 365 Month/Day
-slots without collisions -- that's the reason for the per-cycle file
-model rather than per-Gregorian-year.
+abbreviated "1Sa 1:1-2:10" shape) are resolved via
+verse_formatter.base.Reference. The only new piece here is mapping
+parshat.json's full book names onto our abbreviations first
+(_book_name_to_abbrev()) -- everything downstream reuses the existing,
+already-verified Reference/label formatting rather than reinventing it.
 """
 
 import json
 import re
 import sqlite3
-import os
 import sys
 import requests
-from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
-# Run directly (`python utils/build_heb_devotional_esword.py`), Python puts
-# this script's own directory (utils/) on sys.path[0], not the project
-# root -- so verse_formatter (a project-root package) isn't importable
-# unless the root is added explicitly. Every other utils/*.py script only
-# imports stdlib + biblelib, so this hasn't come up before; this is the
-# first one reaching back into the main project package. Harmless when
-# already importable (e.g. run via `python -m` from the root, or from an
-# interactive console started there) -- sys.path just gets a redundant
-# entry.
+# Run directly, or import from a script one directory down (esword.py,
+# mysword.py) run directly, and Python puts that script's own directory
+# on sys.path[0], not the project root -- so verse_formatter (a
+# project-root package) isn't importable unless the root is added
+# explicitly. Harmless when already importable (e.g. run via `python -m`
+# from the root) -- sys.path just gets a redundant entry.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from biblelib.book import Books
@@ -256,8 +237,8 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
     """One raw parshat.json reference string -> a list of one or more
     '<ref>...</ref>' tags (kept as separate list entries rather than one
     joined string so the caller can put each on its own <li> -- see
-    render_devotion_html()), formatted exactly like our Bible modules' own
-    e-Sword references
+    heb_devotional.esword.render_devotion_html()), formatted exactly like
+    our Bible modules' own e-Sword references
     (verse_formatter.base.Reference + _default_ref_label() -- same
     function ESwordReverseInterlinearFormatter etc. use). Unresolvable
     pieces (unmapped book name, unrecognized shape) fall back to the raw
@@ -292,6 +273,15 @@ def _ref_to_tag(text: str, book_lookup: dict, verses_conn, unresolved: list,
     is not treated the same as an unresolved reference -- the book/shape
     parsed fine, there's just no verse count available -- so it's
     collected into missing_bounds instead of guessing.
+
+    This is used verbatim by both e-Sword (real <ref> tags) and MySword
+    (which builds its own '#b<book_num>.<chapter>.<verse>' anchor from
+    the same Reference objects) -- the <ref>-tag string this returns is
+    e-Sword-flavored, but the chapter-splitting/verse-bounding it does
+    along the way is format-agnostic and is the expensive part to get
+    right, so MySword's writer re-parses these tags' underlying
+    Reference data via the same _chapter_split_refs() path rather than
+    re-deriving it independently. See heb_devotional/mysword.py.
     """
     text = text.strip()
 
@@ -379,8 +369,8 @@ def ref_wrap(refs, book_lookup, verses_conn, unresolved, missing_bounds):
     """Format a list of reference strings into a flat list of individual
     e-Sword <ref> tags -- one list entry per chapter, not per source
     reference string, so the caller can put each on its own <li> (see
-    render_devotion_html()). See _ref_to_tag() for the actual book-name
-    resolution, verse-bounding, and formatting."""
+    heb_devotional.esword.render_devotion_html()). See _ref_to_tag() for
+    the actual book-name resolution, verse-bounding, and formatting."""
     return [tag for r in refs
             for tag in _ref_to_tag(r, book_lookup, verses_conn, unresolved, missing_bounds)]
 
@@ -548,194 +538,3 @@ def derive_holiday_dates(hebcal_json, labels):
     if missing:
         raise ValueError(f"Could not find dates for: {missing}")
     return result
-
-
-def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn,
-                          unresolved, missing_bounds, parashah_translations, hdates):
-    """Build the full Devotion HTML for one Month/Day slot.
-
-    `sections` is a list of (dt, heading, parashah_name, refs) -- each
-    entry carries its own originating calendar date rather than one date
-    shared by the whole slot, because Devotional is keyed on Month/Day
-    only (no year, see generate_devi()'s docstring): a leap Hebrew year's
-    Fall months can land the same Month/Day in two different Gregorian
-    years (e.g. Oct 15 2026 and Oct 15 2027), and those colliding dates
-    are merged into one slot's sections here, each needing its own
-    weekday/hdate line rather than a single line for the whole slot.
-    hdates: {date: hdate_string}, looked up per section instead of being
-    passed in as a single scalar.
-    """
-    css = '<style>.head_info {min-width:100%; background-color:#F2F7F8;} .head_info * {display:block; width:100%; text-align:center;}</style>'
-    parts = [css]
-    # Only worth calling out the Gregorian year when this slot actually
-    # merges more than one real date (the Oct-15-2026-and-2027 case) --
-    # the ordinary one-date-per-slot day shouldn't grow an extra heading.
-    multi_year = len({s[0] for s in sections}) > 1
-
-    for dt, heading, parashah_name, refs in sections:
-        weekday = dt.strftime('%A')
-        hdate_str = hdates.get(dt)
-        hdate_line = " - ".join(p for p in (weekday, hdate_str) if p)
-        parts.append('<div class="head_info">')
-        parts.append(f'<p>{hdate_line}</p>')
-        if multi_year:
-            parts.append(f'<h2>{dt.year}</h2>')
-        parts.append(f'<h2>{heading}</h2>')
-        translation = parashah_translations.get(parashah_name) if parashah_name else None
-        if translation:
-            parts.append(f'<p><i>{translation}</i></p>')
-        parts.append('</div>')
-        tags = ref_wrap(refs, book_lookup, verses_conn, unresolved, missing_bounds)
-        parts.append("<ol>" + "".join(f"<li>{tag}</li>" for tag in tags) + "</ol>")
-
-    if annotations_for_day:
-        parts.append('<div class="observances">')
-        for ann in annotations_for_day:
-            label = ann["title"]
-            if ann["yomtov"]:
-                label = f"<b>{label} (Yom Tov \u2014 no work)</b>"
-            parts.append(f"<p>{label}")
-            if ann["memo"]:
-                parts.append(f"<br><i>{ann['memo']}</i>")
-            parts.append("</p>")
-        parts.append("</div>")
-
-    return "".join(parts)
-
-
-def generate_devi(reading_plan_path, hebrew_year, output_path,
-                   title, abbreviation, information, first_week_name="Bereshit",
-                   table_db=None, parashah_translations_path=None):
-    """
-    hebrew_year: the Hebrew year this cycle's Bereshit falls in -- that's
-      the only manual input needed. The fetch window, each week's
-      Shabbat date, and each H-row holiday's specific date are all
-      derived from Hebcal.
-    table_db: path to bsb_tables.db (default data/bsb_tables.db), used to
-      fill in real verse ranges for bare "book chapter" references -- see
-      _ref_to_tag()'s docstring for why that's required at all. Missing
-      (not yet built) is handled gracefully: those references are just
-      left chapter-only and collected into the missing_bounds warning,
-      not a hard failure -- same spirit as a missing hdate.
-    parashah_translations_path: path to parashah_translations.json
-      (default data/parashah_translations.json) -- {week name: English
-      translation}, one entry per name in reading_plan_path's own "week"
-      field. Rendered as its own line under a D/W row's <h3> heading (see
-      render_devotion_html()); H rows (holiday labels like "Yom Kippur")
-      aren't looked up here -- see build_day_entries()'s docstring for why.
-    """
-    weeks = load_reading_plan(reading_plan_path)
-    num_weeks = len(weeks)
-    h_labels = {wk["H"]["label"] for wk in weeks.values() if wk["H"]}
-
-    cycle_start, cycle_end = find_cycle_window(hebrew_year)
-    hebcal_json = fetch_hebcal(cycle_start, cycle_end, hebrew_year)
-
-    week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
-    holiday_date = derive_holiday_dates(hebcal_json, h_labels)
-
-    annotations, hdates = process_hebcal_data(hebcal_json)
-    day_entries = build_day_entries(weeks, week_saturday, holiday_date)
-    book_lookup = _book_name_to_abbrev()
-    unresolved_refs = []
-    missing_bounds = []
-
-    parashah_translations_path = Path(parashah_translations_path) if parashah_translations_path \
-        else Path(__file__).parent.parent / "data" / "parashah_translations.json"
-    with open(parashah_translations_path, encoding="utf-8") as f:
-        parashah_translations = json.load(f)
-    missing_translations = sorted({wk["name"] for wk in weeks.values()} - set(parashah_translations))
-    if missing_translations:
-        print(f"WARNING: {len(missing_translations)} week name(s) have no entry in "
-              f"{parashah_translations_path.name}: {missing_translations}")
-
-    table_db = Path(table_db) if table_db else Path(__file__).parent.parent / "data" / "bsb_tables.db"
-    verses_conn = sqlite3.connect(table_db) if table_db.exists() else None
-    if verses_conn is None:
-        print(f"WARNING: {table_db} not found -- bare 'book chapter' references will be "
-              f"left without a verse range, which e-Sword's <ref> tag doesn't resolve. "
-              f"Build it with utils/import_bsb_table.py first.")
-
-    if os.path.exists(output_path):
-        os.remove(output_path)
-    conn = sqlite3.connect(output_path)
-    cur = conn.cursor()
-    cur.execute('CREATE TABLE Details (Title NVARCHAR(255), Abbreviation NVARCHAR(50), Information TEXT, Version INT)')
-    cur.execute('CREATE TABLE Devotional (Month INT, Day INT, Devotion TEXT)')
-    cur.execute('CREATE INDEX MonthDayIndex ON Devotional (Month, Day)')
-
-    cur.execute(
-        "INSERT INTO Details (Title, Abbreviation, Information, Version) VALUES (?,?,?,?)",
-        (title, abbreviation, information, 4),
-    )
-
-    # Devotional is keyed on Month/Day only (no year -- see this
-    # function's docstring), so two real dates that land on the same
-    # Month/Day in different Gregorian years (a leap Hebrew year's Fall
-    # months straddle two Decembers) must merge into one row here rather
-    # than each silently inserting its own same-keyed row. Group first,
-    # then render once per Month/Day with every colliding date's sections
-    # combined -- render_devotion_html() carries each section's own dt
-    # through so it can show that date's own weekday/hdate (and the
-    # Gregorian year, when a slot actually has more than one).
-    month_day_groups = defaultdict(list)
-    for dt in sorted(day_entries):
-        month_day_groups[(dt.month, dt.day)].append(dt)
-
-    missing_hdate = []
-    for (month, day), dts in sorted(month_day_groups.items()):
-        sections = []
-        combined_annotations = []
-        for dt in dts:
-            if dt not in hdates:
-                missing_hdate.append(dt)
-            sections.extend((dt, heading, parashah_name, refs)
-                             for heading, parashah_name, refs in day_entries[dt])
-            combined_annotations.extend(annotations.get(dt, []))
-        html = render_devotion_html(sections, combined_annotations, book_lookup,
-                                     verses_conn, unresolved_refs, missing_bounds,
-                                     parashah_translations, hdates)
-        cur.execute(
-            "INSERT INTO Devotional (Month, Day, Devotion) VALUES (?,?,?)",
-            (month, day, html),
-        )
-
-    conn.commit()
-    conn.close()
-    if verses_conn is not None:
-        verses_conn.close()
-
-    if missing_hdate:
-        print(f"WARNING: {len(missing_hdate)} day(s) had no hdate from Hebcal "
-              f"(check the derived cycle window covers the full range): {missing_hdate[:5]}...")
-
-    if unresolved_refs:
-        print(f"WARNING: {len(unresolved_refs)} reference(s) could not be resolved to a "
-              f"book abbreviation and were left as raw text (broken <ref> links): {unresolved_refs}")
-
-    if missing_bounds:
-        print(f"WARNING: {len(missing_bounds)} reference(s) had no verse count available "
-              f"and were left chapter-only, which e-Sword's <ref> tag won't resolve: {missing_bounds}")
-
-    return len(day_entries)
-
-
-if __name__ == "__main__":
-    # @TODO: swap to input parameter
-    hebrew_year = 5786
-    base_dir = Path(__file__).parent.parent
-    output_path = base_dir / "output" / f"mjaa-{hebrew_year}.devi"
-    count = generate_devi(
-        reading_plan_path=base_dir / "data" / "parshat.json",
-        hebrew_year=hebrew_year,
-        output_path=output_path,
-        title=f"MJAA Messianic Reading Plan {hebrew_year}",
-        abbreviation=f"MJAA {hebrew_year}",
-        information=(
-            "<p>Messianic Jewish Alliance of America \"Read the Bible in a Year\" plan, "
-            f"{hebrew_year} cycle. Weekly Torah/Haftarah portions plus daily OT/NT readings, "
-            "keyed to Simchat Torah through Simchat Torah. Also annotates fasts, Rosh Chodesh, "
-            "special Shabbatot, and Yom Tov status from Hebcal, and shows the Hebrew date.</p>"
-        ),
-    )
-    print(f"Wrote {count} Devotional rows to output/{output_path.name}")
