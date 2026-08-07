@@ -219,8 +219,12 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
 
 
 if __name__ == "__main__":
-    # @TODO: swap to input parameter
-    hebrew_year = 5786
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate the MJAA e-Sword Daily Devotional (.devi) module.")
+    parser.add_argument("hebrew_year", type=int, nargs="?", default=5786,
+                         help="Hebrew year the cycle's Bereshit falls in (default: 5786)")
+    hebrew_year = parser.parse_args().hebrew_year
+
     base_dir = Path(__file__).parent.parent
     output_path = base_dir / "output" / f"mjaa-{hebrew_year}.devi"
     count = generate_devi(

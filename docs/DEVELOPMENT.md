@@ -155,12 +155,18 @@ intralinear-bible/
 │   ├── import_bsb_table.py   # one-time: bsb_tables.tsv -> data/bsb_tables.db
 │   ├── build_books_table.py  # one-time: biblelib -> data/books.db
 │   └── extract_bsb_xrefs.py  # one-time: BSB USX -> data/bsb_xrefs.json (AlignmentComposer path)
+├── heb_devotional/       # separate pipeline — see Devotional Modules below
+│   ├── reading_plan.py   # Hebcal fetch, day/date assignment, reference resolution (shared)
+│   ├── esword.py         # .devi rendering + SQLite writing
+│   └── mysword.py        # MySword Journal-format rendering + SQLite writing
 └── data/
     ├── books.db                # book metadata (osis_id, display_abbrev, usfm_number, testament)
     ├── bsb_annotations.json    # section headers and translator footnotes (AlignmentComposer path)
     ├── bsb_xrefs.json          # BSB parallel-passage cross-references (AlignmentComposer path)
     ├── bsb_tables.tsv          # gitignored — full BSB interlinear export, see Building From Source
-    └── bsb_tables.db           # gitignored — built from bsb_tables.tsv by import_bsb_table.py
+    ├── bsb_tables.db           # gitignored — built from bsb_tables.tsv by import_bsb_table.py
+    ├── parshat.json            # MJAA Hebrew-calendar reading plan (heb_devotional/ input)
+    └── parashah_translations.json  # English translation of each parashah name
 ```
 
 ---
@@ -309,6 +315,74 @@ so a new format only needs to override the render/transform side:
 
 See `docs/TABLE_COMPOSER_STATUS.md` for the `TableComposer` pipeline's
 current limitations and open questions.
+
+---
+
+## Devotional Modules
+
+A separate pipeline, `heb_devotional/`, generates a Hebrew-calendar
+reading-plan devotional module — e-Sword Daily Devotional (`.devi`), MySword
+Journal-format reference book (`.bok.mybible`) — from `data/parshat.json`
+(the MJAA "Bible in a Year" reading plan: weekly Torah/Haftarah portions plus
+daily OT/NT readings, keyed to Simchat Torah through Simchat Torah) and a
+live [Hebcal](https://www.hebcal.com/) fetch, which supplies each week's real
+Shabbat date, each holiday's specific date, the real Hebrew date for every
+single day, and annotations for fasts, Rosh Chodesh, special Shabbatot, and
+Yom Tov status.
+
+This is unrelated to the main Bible-translation pipeline above — different
+input data, different output cadence (once per Hebrew year, not per code
+change) — so it isn't wired into `main.py`.
+
+### Run
+
+```bash
+python -m heb_devotional.esword [hebrew_year]    # e-Sword .devi
+python -m heb_devotional.mysword [hebrew_year]   # MySword Journal .bok.mybible
+```
+
+`hebrew_year` is the Hebrew year the cycle's Bereshit falls in — optional,
+defaults to 5786. e-Sword needs `data/bsb_tables.db` (fills in real verse
+ranges: its `<ref>` tag, unlike MySword's own bible link, doesn't resolve a
+bare "book chapter" reference — see `utils/import_bsb_table.py`); MySword
+needs no such lookup.
+
+### Package layout
+
+- `heb_devotional/reading_plan.py` — everything format-agnostic: the Hebcal
+  fetch, week/holiday date derivation, `build_day_entries()` (assigns every
+  reading to its real calendar date), and reference resolution —
+  `resolve_refs()` for e-Sword's chapter-by-chapter, verse-bounded `<ref>`
+  tags (needs `bsb_tables.db`), `resolve_refs_simple()` for MySword's
+  simpler links (no lookup needed, but a verse-less multi-chapter reference
+  still splits one Reference per chapter — MySword misreads a bare
+  `book.chapter-chapter` href as a verse range on the first chapter, not a
+  second chapter).
+- `heb_devotional/esword.py` — `.devi` rendering + SQLite writing.
+  `Devotional` is keyed on Month/Day only (no year), so a leap Hebrew year's
+  ~383-385 day cycle lands two different Gregorian dates on the same slot
+  (e.g. Oct 15 2026 and Oct 15 2027) — those merge into one row, each
+  section carrying its own date/weekday/hdate and a Gregorian-year `<h2>`
+  when a slot actually merges more than one.
+- `heb_devotional/mysword.py` — MySword Journal-format (`journal` table)
+  rendering + SQLite writing. Every row id/title bakes in the Gregorian
+  year, so the Month/Day collision above never happens here — Index →
+  month page (a real calendar table, with prev/next links to adjacent
+  months, and holiday/fast CSS classes on the relevant day cells) → day
+  page (with prev/next-day links, skipping over any day the reading plan
+  doesn't cover), navigated via MySword's own `#j <id>` journal links;
+  bible references use `#b<book_num>.<chapter>.<verse>[&w=1]` anchors
+  (`&w=1` is MySword's own documented "show the whole chapter in the
+  popup" suffix, used for a bare chapter reference with no verse given).
+  CSS lives once in `details.customcss` (e-Sword's `.devi` Details table
+  has no such column, hence the per-row inline `<style>` there instead).
+
+### Data
+
+- `data/parshat.json` — the reading plan itself: `{week_no, week, type:
+  D|W|H, refs: [...], label?}`.
+- `data/parashah_translations.json` — English translation of each parashah
+  name, shown under the Hebrew heading.
 
 ---
 
