@@ -84,9 +84,9 @@ _CUSTOM_CSS = (
     ".cal-nav {width:100%; display:flex; justify-content:space-between;} "
     ".day-nav {width:100%; display:flex; align-items:center;} "
     ".day-nav-date {flex:1; text-align:center;} "
-    ".major-holiday {font-weight:bold; color:#8B0000;} "
-    ".minor-holiday {font-style:italic; color:#555555;} "
-    ".fast-day {font-style:italic; color:#4B0082;}"
+    ".major-holiday {font-weight:bold; background-color:#FFF9B0;} "
+    ".minor-holiday {background-color:#FFE5B4;} "
+    ".fast-day {background-color:#C8A27A;}"
 )
 
 
