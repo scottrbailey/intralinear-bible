@@ -220,18 +220,18 @@ def render_month_page(year, month, day_entries, prev_id=None, next_id=None):
     days this cycle has no reading for -- the cycle's first/last partial
     week, since a Simchat-Torah-to-Simchat-Torah cycle rarely starts or
     ends on a calendar month boundary -- plus links back to Index and to
-    the adjacent month, when one actually exists in this cycle (the
-    cycle's first and last months have no prev/next, so those are
-    omitted rather than linking to a nonexistent row)."""
+    the adjacent month, when one actually exists in this cycle -- the
+    cycle's first and last months have no prev/next, so that link is
+    left out, but its <span> stays (empty) so the other link doesn't
+    collapse into its slot: with justify-content:space-between, a lone
+    flex child sits at the LEFT edge regardless of which one it is, so
+    an next-only first month would otherwise render its "next" link on
+    the left where "prev" belongs, still pointing right -- confusing."""
     parts = ['<p><a class="dict" href="#j Index">Index</a></p>']
 
-    nav = []
-    if prev_id:
-        nav.append(f'<a class="dict" href="#j {prev_id}">&laquo; {prev_id}</a>')
-    if next_id:
-        nav.append(f'<a class="dict" href="#j {next_id}">{next_id} &raquo;</a>')
-    if nav:
-        parts.append('<p class="cal-nav">' + "".join(nav) + '</p>')
+    prev_link = f'<a class="dict" href="#j {prev_id}">&laquo; {prev_id}</a>' if prev_id else ''
+    next_link = f'<a class="dict" href="#j {next_id}">{next_id} &raquo;</a>' if next_id else ''
+    parts.append(f'<p class="cal-nav"><span>{prev_link}</span><span>{next_link}</span></p>')
 
     parts.append('<table class="cal"><tr>')
     parts += [f'<th>{d}</th>' for d in ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat')]
