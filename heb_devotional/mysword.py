@@ -119,6 +119,21 @@ def _annotation_class(ann: dict) -> str:
     return "minor-holiday"
 
 
+_CLASS_PRIORITY = {"major-holiday": 0, "fast-day": 1, "minor-holiday": 2}
+
+
+def _day_class(dt, annotations):
+    """The single best class for one calendar cell, for a date with any
+    Hebcal annotation(s) -- major-holiday beats fast-day beats
+    minor-holiday when a date carries more than one (e.g. a special
+    Shabbat that's also Rosh Chodesh). None if the date has no
+    annotation at all."""
+    anns = annotations.get(dt)
+    if not anns:
+        return None
+    return min({_annotation_class(a) for a in anns}, key=_CLASS_PRIORITY.__getitem__)
+
+
 def _ref_links(refs, book_lookup, unresolved):
     """Resolved Reference objects -> MySword bible-link anchors
     ('<a class="bible" href="#b<book_num>.<chapter>.<verse>[&w=1]">label</a>').
@@ -218,7 +233,7 @@ def render_day_page(dt, sections, annotations_for_day, book_lookup,
     return "".join(parts)
 
 
-def render_month_page(year, month, day_entries, prev_id=None, next_id=None):
+def render_month_page(year, month, day_entries, annotations, prev_id=None, next_id=None):
     """Build one month's calendar-table content: a Sunday-first grid
     linking each covered day to its own page, blank (unlinked) cells for
     days this cycle has no reading for -- the cycle's first/last partial
@@ -230,7 +245,16 @@ def render_month_page(year, month, day_entries, prev_id=None, next_id=None):
     collapse into its slot: with justify-content:space-between, a lone
     flex child sits at the LEFT edge regardless of which one it is, so
     an next-only first month would otherwise render its "next" link on
-    the left where "prev" belongs, still pointing right -- confusing."""
+    the left where "prev" belongs, still pointing right -- confusing.
+
+    A day cell gets the same major-holiday/minor-holiday/fast-day class
+    render_day_page()'s own annotations use (see _day_class()) whenever
+    that date carries a Hebcal annotation, whether or not it also has a
+    reading -- a date can have an annotation with no day_entries row at
+    all (e.g. an annotation landing in the reading plan's uncovered
+    tail, see esword.py's docstring on the 51-week template vs. a leap
+    year's ~55 weeks), so the class check is independent of the
+    linked/unlinked check right below it."""
     parts = ['<p><a class="dict" href="#j Index">Index</a></p>']
 
     prev_link = f'<a class="dict" href="#j {prev_id}">&laquo; {prev_id}</a>' if prev_id else ''
@@ -249,10 +273,12 @@ def render_month_page(year, month, day_entries, prev_id=None, next_id=None):
                 parts.append('<td class="pad"></td>')
                 continue
             dt = date(year, month, day)
+            cls = _day_class(dt, annotations)
+            cls_attr = f' class="{cls}"' if cls else ''
             if dt in day_entries:
-                parts.append(f'<td><a class="dict" href="#j {_day_id(dt)}">{day}</a></td>')
+                parts.append(f'<td{cls_attr}><a class="dict" href="#j {_day_id(dt)}">{day}</a></td>')
             else:
-                parts.append(f'<td>{day}</td>')
+                parts.append(f'<td{cls_attr}>{day}</td>')
         parts.append('</tr>')
     parts.append('</table>')
     return "".join(parts)
@@ -352,7 +378,7 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
         mid = month_ids[i]
         prev_id = month_ids[i - 1] if i > 0 else None
         next_id = month_ids[i + 1] if i < len(month_ids) - 1 else None
-        insert_row(mid, mid, render_month_page(y, m, day_entries, prev_id, next_id))
+        insert_row(mid, mid, render_month_page(y, m, day_entries, annotations, prev_id, next_id))
 
     missing_hdate = []
     sorted_dates = sorted(day_entries)
