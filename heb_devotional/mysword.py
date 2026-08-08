@@ -298,9 +298,13 @@ def render_index_page(month_ids):
     return "".join(parts)
 
 
-def _add_lead_in_days(day_entries, rosh_hashanah, simchat_torah):
+def _add_lead_in_days(day_entries, rosh_hashanah):
     """Fill the gap between Rosh Hashanah and wherever the weekly reading
-    plan actually starts (normally the week of Simchat Torah) with a
+    plan actually starts (normally the week of Simchat Torah, but the
+    real first reading date -- first_real_day below, i.e. cycle_start --
+    isn't necessarily Simchat Torah's own date: cycle_start is the
+    Sunday on-or-before Simchat Torah, so if Simchat Torah itself falls
+    mid-week the plan's D-rows actually begin a few days earlier) with a
     simple placeholder entry on each day, mutating day_entries in place.
 
     Without this, the Fall feasts (Rosh Hashanah, Yom Kippur, Sukkot) --
@@ -310,14 +314,15 @@ def _add_lead_in_days(day_entries, rosh_hashanah, simchat_torah):
     whatever Gregorian month(s) they fall in (render_month_page()'s own
     month list is derived entirely from day_entries' dates). Every day
     from Rosh Hashanah up to (not including) the first real reading date
-    gets the same one-line placeholder, so those months become normal,
-    fully populated, browsable calendar pages -- see this module's
-    generate_journal() caller for the actual message text."""
+    gets the same one-line placeholder, naming that actual start date --
+    not Simchat Torah's own date, which would be misleading whenever they
+    differ -- so those months become normal, fully populated, browsable
+    calendar pages."""
     if not day_entries:
         return
     first_real_day = min(day_entries)
     message = (f"The Torah/Bible reading schedule will begin the week of "
-               f"Simchat Torah ({simchat_torah.strftime('%d %b %Y')})")
+               f"Simchat Torah ({first_real_day.strftime('%d %b %Y')})")
     d = rosh_hashanah
     while d < first_real_day:
         day_entries.setdefault(d, []).append((message, None, []))
@@ -358,8 +363,7 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
 
     annotations, hdates = process_hebcal_data(hebcal_json)
     day_entries = build_day_entries(weeks, week_saturday, holiday_date)
-    simchat_torah = date.fromisoformat(holiday_date["Simchat Torah"])
-    _add_lead_in_days(day_entries, rosh_hashanah, simchat_torah)
+    _add_lead_in_days(day_entries, rosh_hashanah)
     book_lookup = _book_name_to_abbrev()
     unresolved_refs = []
 
