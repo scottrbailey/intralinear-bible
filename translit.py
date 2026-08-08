@@ -47,6 +47,7 @@ MAQAF      = '\u05BE'
 SOF_PASUQ  = '\u05C3'
 METEG      = '\u05BD'
 PASEQ      = '\u05C0'  # vertical bar used as separator between words
+NUN_HAFUKHA = '\u05C6'  # "inverted nun" bracket mark (e.g. around Num 10:34-36)
 
 GUTTURALS  = {'\u05D0', '\u05D4', '\u05D7', '\u05E2', '\u05E8'}  # א ה ח ע ר
 BEGADKEFAT = {'\u05D1', '\u05D2', '\u05D3', '\u05DB', '\u05E4', '\u05EA'}  # ב ג ד כ פ ת
@@ -555,13 +556,20 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
     )
 
     chars  = list(text)
-    # Each unit: (text, has_vowel, has_stress, is_word_break)
+    # Each unit: (text, has_vowel, has_stress, is_word_break, closes_syllable)
+    # closes_syllable only matters for vowel-less units: True means this bare
+    # consonant (silent sheva, or the first half of a dagesh-forte pair)
+    # closes the syllable already in progress. False means it's a bare
+    # consonant whose vowel hasn't been written yet (about to arrive via a
+    # mater lectionis letter, or the second half of a dagesh-forte pair) —
+    # it opens the next syllable instead.
     units  = []
     i      = 0
     tlen   = len(chars)
 
-    def push_unit(text, has_vowel=False, has_stress=False, is_word_break=False):
-        units.append((text, has_vowel, has_stress, is_word_break))
+    def push_unit(text, has_vowel=False, has_stress=False, is_word_break=False,
+                  closes_syllable=False):
+        units.append((text, has_vowel, has_stress, is_word_break, closes_syllable))
 
     while i < tlen:
         char = chars[i]
@@ -584,11 +592,6 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
                         push_unit('-', is_word_break=False)
                 elif char == ' ':
                     push_unit(' ', is_word_break=True)
-                elif ord(char) == 0x05E4 and i > 0 and chars[i-1] == SOF_PASUQ:
-                    pass  # paragraph pe after sof pasuq — drop
-                elif is_hebrew(char) and char == '\u05E4':
-                    # Pe used as paragraph marker — drop
-                    pass
                 else:
                     push_unit(char)
             i += 1
@@ -602,18 +605,31 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
             continue
 
         # ---- Skip paragraph markers (pe/samekh after sof pasuq) ----
-        # Pe (פ) or Samekh (ס) with no vowel points and no geresh = paragraph marker
-        # Geresh (׳ U+05F3) or gershayim (״ U+05F4) indicate numeric usage
+        # Pe (פ) or Samekh (ס) with no vowel points and no geresh = paragraph marker.
+        # Geresh (׳ U+05F3) or gershayim (״ U+05F4) indicate numeric usage.
+        # Qualifies either standalone (the whole text passed in is just this
+        # one marker) or positionally (it directly follows a sof pasuq, even
+        # when that sof pasuq is glued onto the end of a real word's string,
+        # e.g. source_text אֲבָרֲכֵֽם׃פ — that trailing פ is a
+        # section marker, not part of the word, regardless of what else the
+        # string contains).
         if char in {'\u05E4', '\u05E1'}:
             marks_ahead = get_marks(chars, i)
             has_vowel  = any(m in VOWEL_POINTS - {DAGESH, METEG, SHIN_DOT, SIN_DOT}
                              for m in marks_ahead)
             j = i + 1 + len(marks_ahead)
             has_geresh = j < tlen and chars[j] in {'\u05F3', '\u05F4'}
+            # Skip back over any inverted-nun bracket mark(s) too — they can
+            # sit between the sof pasuq and the paragraph marker (e.g. around
+            # Num 10:34-36's bracketed verses) without breaking the adjacency.
+            back = i - 1
+            while back >= 0 and chars[back] == NUN_HAFUKHA:
+                back -= 1
+            is_after_sof_pasuq = back >= 0 and chars[back] == SOF_PASUQ
             is_standalone = not any(
                 is_hebrew(chars[k]) for k in range(tlen) if k != i
             )
-            if not has_vowel and not has_geresh and is_standalone:
+            if not has_vowel and not has_geresh and (is_standalone or is_after_sof_pasuq):
                 i += 1
                 continue
 
@@ -661,13 +677,14 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
                      has_preceding_vowel_point(chars, i)))
         if is_forte and syl_sep:
             # Emit closing consonant now, then fall through to emit opening consonant+vowel
-            push_unit(consonant, has_vowel=False, has_stress=False)
+            push_unit(consonant, has_vowel=False, has_stress=False, closes_syllable=True)
             # don't double — the same consonant will be emitted again below with its vowels
         elif is_forte and len(consonant) == 1:
             consonant = consonant + consonant
 
         # ---- Process vowels ----
         vowels = []
+        silent_sheva = False
         for mark in marks:
             if mark in {DAGESH, METEG, SHIN_DOT, SIN_DOT}:
                 continue
@@ -677,6 +694,8 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
                 if mark == '\u05B0':  # sheva
                     if is_vocal_sheva(chars, i):
                         vowels.append(scheme.get('\u05B0', ''))
+                    else:
+                        silent_sheva = True
                 elif mark == '\u05B8':  # qamats
                     if is_qamats_qatan(chars, i):
                         vowels.append(scheme.get('\u05C7', 'o'))
@@ -713,7 +732,8 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
 
         has_v = bool(vowels)
         unit_text = consonant + ''.join(vowels)
-        push_unit(unit_text, has_vowel=has_v, has_stress=stressed)
+        push_unit(unit_text, has_vowel=has_v, has_stress=stressed,
+                  closes_syllable=silent_sheva)
         i += 1 + len(marks)
 
     # ---- Post-process units into final string ----
@@ -762,48 +782,45 @@ def _group_syllables(word_units: list) -> list:
     Each syllable is: zero or more consonant-only units + one vowel-bearing unit.
     Trailing consonant-only units are appended to the last syllable.
 
-    Special case: forte split — a vowel-less unit immediately followed by an
-    identical vowel-bearing unit (e.g. sh + sha) means the first closes the
-    previous syllable rather than opening the next. Gives hash·sha not ha·shsha.
+    Each consonant-only unit carries closes_syllable: True for a silent sheva
+    or the first half of a dagesh-forte pair — it closes the syllable already
+    in progress. False for a bare consonant whose vowel hasn't appeared yet
+    (about to arrive via a mater lectionis letter, e.g. cholam-vav) or the
+    second half of a dagesh-forte pair — it opens the next syllable together
+    with the upcoming vowel instead. Gives am·tᵉ not a·mtᵉ, e·dom not ed·om,
+    and men·nu not me·nnu.
 
     Returns list of (syllable_text, has_stress) tuples.
     """
     syllables = []
-    pending   = []   # consonant-only units accumulating before next vowel
+    pending   = []   # (text, closes_syllable) accumulating before next vowel
     stressed  = False
 
-    for idx, (text, has_vowel, has_s, _) in enumerate(word_units):
+    for text, has_vowel, has_s, _, closes in word_units:
         if not text:
             continue
         if has_s:
             stressed = True
         if has_vowel:
-            # Check for forte split: pending has one unit whose text matches
-            # the consonant prefix of this unit (e.g. pending=['sh'], this='sha')
-            if (pending and len(pending) == 1
-                    and text.startswith(pending[0][0])
-                    and len(pending[0][0]) > 0):
-                # This is a forte split — attach the closing consonant to prev syllable
-                closing = pending[0][0]
-                if syllables:
-                    last_text, last_stress = syllables[-1]
-                    syllables[-1] = (last_text + closing, last_stress)
-                    pending = []
-                    syllables.append((text, stressed))
-                else:
-                    # Word-initial forte: no previous syllable to close.
-                    # Merge the bare consonant into the opening unit (mm·á vs m·má).
-                    pending = []
-                    syllables.append((closing + text, stressed))
-                stressed = False
-            else:
-                # Normal case: pending consonants + this vowel-bearing unit
-                syl_text = ''.join(p[0] for p in pending) + text
-                syllables.append((syl_text, stressed))
-                pending  = []
-                stressed = False
+            # A trailing opener (closes_syllable=False) pairs with this vowel
+            # to open the new syllable; everything before it closes the
+            # syllable already in progress.
+            opener = ''
+            if pending and not pending[-1][1]:
+                opener  = pending[-1][0]
+                pending = pending[:-1]
+            closing = ''.join(p[0] for p in pending)
+            pending = []
+            if closing and syllables:
+                last_text, last_stress = syllables[-1]
+                syllables[-1] = (last_text + closing, last_stress)
+            elif closing:
+                # Word-initial: no previous syllable to close.
+                opener = closing + opener
+            syllables.append((opener + text, stressed))
+            stressed = False
         else:
-            pending.append((text, has_vowel, has_s, False))
+            pending.append((text, closes))
 
     # Trailing consonant-only units — attach to last syllable
     if pending:
@@ -832,7 +849,7 @@ def _build_output(units: list, syl_sep: str, stress_mark,
     words   = []
     current = []
     for unit in units:
-        text, has_vowel, has_stress, is_word_break = unit
+        text, has_vowel, has_stress, is_word_break, _closes = unit
         if is_word_break:
             if current:
                 words.append(('word', current))

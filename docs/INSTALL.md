@@ -1,4 +1,4 @@
-# Berean Standard Transliterated Bible — Installation Guide
+# BSB Intralinear Bible — Installation Guide
 
 The Berean Standard Transliterated Bible combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's concordance. 
 The module also includes translator notes, cross-references, and words of Christ in red (can be toggled off in the application).
@@ -13,22 +13,22 @@ It is available for two Bible apps:
 
 **Berean Standard Transliterated Bible (`BSTB`)** — transliteration appears as a superscript after the English word. Tapping the transliterations will open the dictionary entry in whichever lexicon module you have configured.
 
-<img src="assets/bstb_nt_mysword.jpg" width="480" alt="BSTB on MySword"/>
+<img src="assets/bstb_nt_mysword.jpg" width="360" alt="BSTB on MySword"/>
 
 **Berean Standard Translinear Bible  (`BSXB`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word. The transliterations are links to the lexicon.
 
-<img src="assets/bsxb_ot_mysword.jpg" width="480" alt="BSXB on MySword"/>
+<img src="assets/bsxb_ot_mysword.jpg" width="360" alt="BSXB on MySword"/>
 
 **Berean Standard Reverse Interlinear Bible  (`BSRB`)** - full reverse (English -> Hebrew and Greek) interlinear with original Hebrew, Aramaic and Greek, academic transliteration, Strong's numbers and morphology codes. Tapping the Strong's number will open the word
 in the lexicon. Tapping the morphology code will open the definition in the _Robinson's Morphology Analysis Codes_ dictionary if the RMAC module is installed. 
 
-<img src="assets/bsrb_ot_esword.jpg" width="480"  alt="BSRB on e-Sword"/>
+<img src="assets/bsrb_ot_esword.jpg" width="360"  alt="BSRB on e-Sword"/>
 
 
 ## MySword (Android)
 
 The MySword application has more features and is more polished and configurable than e-Sword. However, it is only available for Android and cannot be installed from the Play Store, which makes it a bit more complicated to install.
-The application is free, but requires a $25 "donation" to unlock all features.
+The application is free, but requires a $25 "donation" to unlock some configuration features.
  
 
 ### Step 1 — Install MySword
@@ -105,7 +105,7 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 
 Tapping on any of the transliterated words will take you to the lexicon entry for that word.  Which lexicon it takes you to is configurable by you. But first you need to download one or more lexicons. 
 MySword refers to lexicons as "dictionaries", while e-Sword separates "lexicons" (keyed by Strong's numbers) and "dictionaries" (keyed by words like Oxford or Merriam-Webster).
-Most lexicons are for a single language. Try [Brown-Driver-Briggs Hebrew and English Lexicon](https://en.wikipedia.org/wiki/Brown-Driver-Briggs) for Hebrew and [Thayer's Greek-English Lexicon](https://www.bible-discovery.com/dictionary-license-thayer) for Greek. MySword offers a combined "BDB/Thayer's" in one download. 
+Most lexicons are for a single language. But both applications offer a combined Hebrew/Greek lexicon as either "Strongs", "Strongs Lite" or "BDB-Thayer".
 
 ### AHLB - Ancient Hebrew Lexicon of the Bible
 If you want a much richer understanding of the Hebrew language, we highly recommend the [Ancient Hebrew Lexicon of the Bible](https://www.ancient-hebrew.org/ahlb/). It shows the ancient Hebrew pictographs (Paleo Hebrew script) and explains how those pictures form concrete root words and how additional words are built off of that root that share a common theme.
@@ -114,7 +114,19 @@ To get the most out of the AHLB, you will need to read the introduction. On e-Sw
 Installing the AHLB lexicon on e-Sword will make the book's introduction available under the "Reference" section. 
 There is also a short YouTube [introduction video](https://www.youtube.com/watch?v=wc1pV8E3L_Q) if you can't find the intro in your Bible app.
 
+---
 
+## Weekly Torah Portions - Bible in a Year 
+A daily devotional based on the [Messianic Jewish Association of America's](https://mjaa.org/bible-in-a-year/) Bible reading plan.
+- Friday/Saturday weekly Torah/Haftarah readings
+- Sunday/Thursday Bible in a (Hebrew) year readings
+- Includes information on major and minor holidays, new moons and fast days
+- MySword version includes an interactive calendar with both Gregorian and Hebrew dates
+- 5786 Reading Plan downloads:
+  - **[mjaa-5786.bok.mybible](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5786.bok.mybible)**  MySword Devotional (available under Books)
+  - **[mjaa-5786.devi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5786.devi)**  e-Sword Devotional (available under "Devotional" or "Today")
+<img src="assets/mjaa_cal_mysword.jpg" width="360"  alt="Hebrew calendar on MySword"/>
+<img src="assets/mjaa_day_mysword.jpg" width="360"  alt="Daily devotional for MySword"/>
 ---
 
 ## Troubleshooting

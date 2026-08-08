@@ -60,11 +60,16 @@ _FULL_NAMES_IN_CANONICAL_ORDER = [
     '2 Peter', '1 John', '2 John', '3 John', 'Jude',
     'Revelation',
 ]
+# The full books table (all 66 rows, unfiltered) gets copied verbatim into
+# bsb_tables.db's own `books` table below — so a query against bsb_tables.db
+# alone (e.g. "just the OT" or "the first 15 books") doesn't need a second
+# connection to data/books.db just to get testament/canon_order.
 with sqlite3.connect(BOOKS_DB) as _conn:
-    _osis_in_canon_order = [r[0] for r in
-        _conn.execute("SELECT osis_id FROM books ORDER BY canon_order")]
-    _OSIS_TO_ABBREV = {r[0]: r[1] for r in
-        _conn.execute("SELECT osis_id, display_abbrev FROM books")}
+    _BOOKS_ROWS = _conn.execute(
+        "SELECT usx_code, osis_id, display_abbrev, usfm_number, testament, "
+        "canon_order FROM books ORDER BY canon_order").fetchall()
+    _osis_in_canon_order = [r[1] for r in _BOOKS_ROWS]
+    _OSIS_TO_ABBREV = {r[1]: r[2] for r in _BOOKS_ROWS}
 FULL_NAME_TO_OSIS = dict(zip(_FULL_NAMES_IN_CANONICAL_ORDER, _osis_in_canon_order))
 
 # ------------------------------------------------------------- column layout
@@ -565,15 +570,37 @@ _INSERT_COLUMNS = [
 ]
 
 DDL = """
+CREATE TABLE books (
+    usx_code       TEXT PRIMARY KEY,   -- 'GEN', 'MAT', ... (biblelib's own dict key)
+    osis_id        TEXT UNIQUE NOT NULL,
+    display_abbrev TEXT NOT NULL,      -- 'Gen', 'Mat', '1Co', ... (TSK_ABBREV convention)
+    usfm_number    INTEGER NOT NULL,
+    testament      TEXT NOT NULL CHECK(testament IN ('OT','NT')),
+    canon_order    INTEGER NOT NULL UNIQUE
+);
+
 CREATE TABLE verses (
     verse_id INTEGER PRIMARY KEY,  -- bsb_tables.tsv's own "Verse" column
-    book     TEXT NOT NULL,
+    book     TEXT NOT NULL REFERENCES books(osis_id),
     chapter  INTEGER NOT NULL,
     verse    INTEGER NOT NULL,
     heading  TEXT,
     crossref TEXT
 );
 CREATE INDEX verses_book ON verses (book, verse_id);
+
+-- One row per book/chapter, populated once from verses (see
+-- import_bsb_table()'s post-processing step) rather than every consumer
+-- re-running SELECT MAX(verse) ... GROUP BY book, chapter for itself --
+-- e.g. utils/build_heb_devotional_esword.py needs a chapter's real verse
+-- count to turn a bare "book chapter" reference into the verse range
+-- e-Sword's <ref> tag actually requires.
+CREATE TABLE chapters (
+    book        TEXT NOT NULL REFERENCES books(osis_id),
+    chapter     INTEGER NOT NULL,
+    verse_count INTEGER NOT NULL,
+    PRIMARY KEY (book, chapter)
+);
 
 CREATE TABLE tokens (
     bsb_sort      INTEGER PRIMARY KEY,
@@ -608,6 +635,10 @@ _INSERT_SQL = (
     + ", ".join("?" for _ in _INSERT_COLUMNS) + ")"
 )
 _INSERT_VERSE_SQL = "INSERT INTO verses (verse_id, book, chapter, verse, heading, crossref) VALUES (?, ?, ?, ?, ?, ?)"
+_INSERT_BOOKS_SQL = (
+    "INSERT INTO books (usx_code, osis_id, display_abbrev, usfm_number, "
+    "testament, canon_order) VALUES (?, ?, ?, ?, ?, ?)"
+)
 
 
 def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> None:
@@ -628,6 +659,7 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
     conn = sqlite3.connect(db_path)
     conn.executescript(DDL)
     cur = conn.cursor()
+    cur.executemany(_INSERT_BOOKS_SQL, _BOOKS_ROWS)
 
     batch: list = []
 
@@ -759,10 +791,15 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
         discarded_at_boundary += len(pending_vvv)  # trailing, at EOF
 
     flush()
+    conn.execute(
+        "INSERT INTO chapters (book, chapter, verse_count) "
+        "SELECT book, chapter, MAX(verse) FROM verses GROUP BY book, chapter"
+    )
     conn.commit()
     conn.close()
 
     print(f"Imported {row_count:,} rows from {tsv_path.name} to {db_path}")
+    print(f"Copied {len(_BOOKS_ROWS)} books from {BOOKS_DB.name} into {db_path.name}'s own books table")
     if misfiled_crossref_count:
         print(f"Redirected {misfiled_crossref_count} misfiled Crossref value(s) "
               f"(Par-shaped content) onto their own token's par_class.")

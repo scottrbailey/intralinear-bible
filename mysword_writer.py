@@ -16,10 +16,11 @@ class MySwordWriter(SQLiteBibleWriter):
     _table_name  = 'Bible'
     _format_name = 'mysword'
 
-    def __init__(self, profile, **kwargs):
+    def __init__(self, profile, rtl_ot: bool = False, **kwargs):
         super().__init__(profile, **kwargs)
         self._note_counter    = 0
         self._current_chapter = None
+        self._rtl_ot = rtl_ot
 
     def add_verse(self, osis_ref: str, tokens: list,
                   header: str = None, xrefs: dict = None) -> None:
@@ -53,27 +54,29 @@ class MySwordWriter(SQLiteBibleWriter):
     def insert_details(self):
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS Details (
-                Description  NVARCHAR(255),
-                Abbreviation NVARCHAR(50),
-                Comments     TEXT,
-                Version      TEXT,
-                VersionDate  DATETIME,
-                PublishDate  DATETIME,
-                RightToLeft  BOOL,
-                OT           BOOL,
-                NT           BOOL,
-                Strong       BOOL,
-                CustomCSS    TEXT,
-                VerseRules   TEXT
+                Description    NVARCHAR(255),
+                Abbreviation   NVARCHAR(50),
+                Comments       TEXT,
+                Version        TEXT,
+                VersionDate    DATETIME,
+                PublishDate    DATETIME,
+                RightToLeft    BOOL,
+                RightToLeftOT  BOOL,
+                RightToLeftNT  BOOL,
+                OT             BOOL,
+                NT             BOOL,
+                Strong         BOOL,
+                CustomCSS      TEXT,
+                VerseRules     TEXT
             )
         """)
         today = date.today().isoformat()
         self.conn.execute("""
             INSERT INTO Details (
                 Description, Abbreviation, Comments, Version,
-                VersionDate, PublishDate, RightToLeft, OT, NT, Strong,
-                CustomCSS, VerseRules
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VersionDate, PublishDate, RightToLeft, RightToLeftOT, RightToLeftNT,
+                OT, NT, Strong, CustomCSS, VerseRules
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             self.profile.module_name,
             self.profile.abbreviation,
@@ -81,7 +84,9 @@ class MySwordWriter(SQLiteBibleWriter):
             4,           # needs 4 to indicate HTML... I know
             today,
             self.profile.publish_date,
-            0,
+            0,                          # RightToLeft (legacy single flag, unused)
+            1 if self._rtl_ot else 0,   # RightToLeftOT
+            0,                          # RightToLeftNT -- Greek NT is never RTL
             1 if self._has_ot else 0,
             1 if self._has_nt else 0,
             1,

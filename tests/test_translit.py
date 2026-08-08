@@ -88,16 +88,18 @@ class TestPeSamekh:
         ("כּוֹס",    "H3563", "s",  "kos — cup (final samekh no vowel)"),
         ("אָפֵ֖ס",   "H0656", "s",  "afes — to cease (final samekh)"),
         ("מַס",      "H4522", "s",  "mas — tribute (final samekh bare)"),
-        # Medial samekh with dagesh forte
-        ("יְכֻסּ֗וּ", "H3680", "ss", "yekhusu — will cover (medial samekh dagesh forte)"),
+        # Medial samekh with dagesh forte — geminate splits across the syllable
+        # boundary (matches kap·pᵉ / him·mol), so the doubled consonant is
+        # separated by the syllable separator: sꞏs not ss.
+        ("יְכֻסּ֗וּ", "H3680", "sꞏs", "yekhusu — will cover (medial samekh dagesh forte)"),
         # Initial samekh
         ("סוּתֽ",    "H5497", "s",  "suth — garment (initial samekh)"),
         ("אֲסוּרִ֑ים", "H0631", "s", "asurim — prisoners (medial samekh)"),
         # Initial pe
         ("פ֥וּט",    "H6316", "f",  "Put — proper name (initial pe)"),
         ("פּ֥וֹטִיפַר", "H6318", "p", "Potiphar (initial pe+dagesh)"),
-        # Medial pe with dagesh forte
-        ("צִפּ֥וֹר",  "H6833", "pp", "tsippor — bird (medial pe dagesh forte)"),
+        # Medial pe with dagesh forte — same geminate split as above: pꞏp not pp.
+        ("צִפּ֥וֹר",  "H6833", "pꞏp", "tsippor — bird (medial pe dagesh forte)"),
     ]
 
     @pytest.mark.parametrize("hebrew,strongs,substr,label", CASES)

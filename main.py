@@ -10,7 +10,15 @@ Usage:
                 all        build every output target in one pass
 
     --mode      intralinear   English + source annotation above  [default]
-                interlinear   reverse interlinear (source-primary columns)
+                interlinear   forward interlinear: source words in their own
+                              reading order, English glossed below. ROUGH
+                              DRAFT -- layout/CSS not settled, table composer
+                              only (AlignmentComposer's SOURCE_TO_TARGET join
+                              isn't implemented yet)
+                reverse       reverse interlinear: English-primary columns,
+                              source words below
+                stacked       e-Sword only: intralinear with source-language
+                              script shown instead of hidden
 
     --composer  alignment  live join across macula-hebrew/macula-greek/
                            Alignments
@@ -39,14 +47,17 @@ from pathlib import Path
 import yaml
 
 from translit import make_transliterator
+from models import MappingDirection
 from composer import AlignmentComposer
 from table_composer import TableComposer
 from verse_formatter import (
     ESwordIntralinearFormatter,
     ESwordReverseInterlinearFormatter,
+    ESwordForwardInterlinearFormatter,
     MySwordIntralinearFormatter,
     MySwordStackedFormatter,
     MySwordReverseInterlinearFormatter, ESwordStackedFormatter,
+    MySwordForwardInterlinearFormatter,
 )
 from esword_writer import ESwordWriter
 from mysword_writer import MySwordWriter
@@ -111,7 +122,7 @@ def parse_args():
     )
     parser.add_argument(
         "--mode", dest="render_mode",
-        choices=["intralinear", "interlinear", "stacked", "intra", "inter"],
+        choices=["intralinear", "interlinear", "reverse", "stacked", "intra", "inter", "rev"],
         default="intralinear",
         help="Render mode (default: intralinear); ignored when --format=all",
     )
@@ -132,6 +143,8 @@ def parse_args():
         args.render_mode = 'intralinear'
     elif args.render_mode == 'inter':
         args.render_mode = 'interlinear'
+    elif args.render_mode == 'rev':
+        args.render_mode = 'reverse'
 
     return args
 
@@ -145,8 +158,8 @@ def build_writers(output_format: str, render_mode: str,
     def esword(profile_cls):
         return ESwordWriter(profile_cls(transliterate), **common_kw)
 
-    def mysword(profile_cls):
-        return MySwordWriter(profile_cls(transliterate), **common_kw)
+    def mysword(profile_cls, **extra):
+        return MySwordWriter(profile_cls(transliterate), **common_kw, **extra)
 
     if output_format == 'all':
         return [
@@ -163,14 +176,24 @@ def build_writers(output_format: str, render_mode: str,
             return [esword(ESwordIntralinearFormatter), esword(ESwordStackedFormatter)]
         elif render_mode == 'stacked':
             profile_cls = ESwordStackedFormatter
-        else:
+        elif render_mode == 'interlinear':
+            profile_cls = ESwordForwardInterlinearFormatter
+        else:  # reverse
             profile_cls = ESwordReverseInterlinearFormatter
         return [esword(profile_cls)]
 
     if output_format == 'mysword':
         if render_mode == 'intralinear':
             return [mysword(MySwordIntralinearFormatter), mysword(MySwordStackedFormatter)]
-        return [mysword(MySwordReverseInterlinearFormatter)]
+        elif render_mode == 'interlinear':
+            # rtl_ot: forward interlinear reorders Hebrew into its own
+            # (right-to-left) word order, unlike intralinear/reverse
+            # interlinear where English stays the primary, left-to-right
+            # reading order regardless of source language.
+            return [mysword(MySwordForwardInterlinearFormatter, rtl_ot=True)]
+        else:  # reverse (and 'stacked' -- MySword has no separate stacked
+               # writer path today, same pre-existing gap as before this change)
+            return [mysword(MySwordReverseInterlinearFormatter)]
 
     # osis
     return [OSISWriter(transliterate=transliterate)]
@@ -230,10 +253,17 @@ def main():
     for writer in writers:
         writer.open(output_dir)
 
+    # render_mode is ignored for --format=all (fixed target-to-source set),
+    # so the forward-interlinear join is only requested for an explicit,
+    # single-format --mode interlinear run.
+    direction = (MappingDirection.SOURCE_TO_TARGET
+                 if args.render_mode == 'interlinear' and args.output_format != 'all'
+                 else MappingDirection.TARGET_TO_SOURCE)
+
     if config["composer"] == "table":
-        composer = TableComposer(config["table_db"], config=config)
+        composer = TableComposer(config["table_db"], config=config, direction=direction)
     else:
-        composer = AlignmentComposer(config)
+        composer = AlignmentComposer(config, direction=direction)
     for osis_ref, tokens, header, xrefs in composer.iter_verses():
         for writer in writers:
             writer.add_verse(osis_ref, tokens, header=header, xrefs=xrefs)
