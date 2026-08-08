@@ -56,8 +56,10 @@ e-Sword's .devi (no CustomCSS column at all -- every row there repeats
 its own inline <style> block) the CSS below is declared exactly once,
 including three classes for Hebcal annotation categories (major
 holiday/Yom Tov, minor holiday or new moon, fast day) -- see
-_annotation_class()'s docstring for how those are inferred and why
-they're not yet fully confirmed.
+_annotation_class()'s docstring; verified against a real 5787 Hebcal
+fetch (Rosh Hashana/Yom Kippur/Sukkot/Shmini Atzeret/Simchat Torah ->
+major-holiday, Tzom Gedaliah -> fast-day, Rosh Chodesh/Shabbat Shuva ->
+minor-holiday).
 """
 
 import calendar
@@ -105,12 +107,11 @@ def _annotation_class(ann: dict) -> str:
     holiday/new moon (Rosh Chodesh, special Shabbatot, and anything else
     that doesn't fit the other two -- catch-all default).
 
-    yomtov is a real Hebcal field we already capture (process_hebcal_data)
-    and trust; the fast/roshchodesh category check is Hebcal's documented
-    category vocabulary but hasn't been exercised against a real fetch in
-    this session (no live Hebcal access here) -- double check fast days
-    and Rosh Chodesh land in the right bucket the next time this runs
-    against real data.
+    Verified against a real 5787 Hebcal fetch: yomtov=true correctly
+    covers Rosh Hashana (both days), Yom Kippur, Sukkot (both days),
+    Shmini Atzeret, and Simchat Torah; category="fast" correctly covers
+    Tzom Gedaliah; the minor-holiday catch-all correctly covers Rosh
+    Chodesh Cheshvan and Shabbat Shuva.
     """
     if ann["yomtov"]:
         return "major-holiday"
