@@ -54,12 +54,11 @@ does).
 details.customcss is loaded by MySword automatically, so unlike
 e-Sword's .devi (no CustomCSS column at all -- every row there repeats
 its own inline <style> block) the CSS below is declared exactly once,
-including three classes for Hebcal annotation categories (major
-holiday/Yom Tov, minor holiday or new moon, fast day) -- see
-_annotation_class()'s docstring; verified against a real 5787 Hebcal
-fetch (Rosh Hashana/Yom Kippur/Sukkot/Shmini Atzeret/Simchat Torah ->
-major-holiday, Tzom Gedaliah -> fast-day, Rosh Chodesh/Shabbat Shuva ->
-minor-holiday).
+including four classes for Hebcal annotation categories (Yom Tov, major
+holiday, minor holiday/new moon, fast day) -- see _annotation_class()'s
+docstring; verified against a real 5787 Hebcal fetch (Rosh Hashana/Yom
+Kippur/Sukkot/Shmini Atzeret/Simchat Torah -> yom-tov, Tzom Gedaliah ->
+fast-day, Rosh Chodesh/Shabbat Shuva -> minor-holiday).
 """
 
 import calendar
@@ -87,7 +86,8 @@ _CUSTOM_CSS = (
     ".cal-nav {width:100%; display:flex; justify-content:space-between;} "
     ".day-nav {width:100%; display:flex; align-items:center;} "
     ".day-nav-date {flex:1; text-align:center;} "
-    ".major-holiday {background-color:#FFEB3B; padding:4px;} "
+    ".yom-tov {background-color:#FFEB3B; padding:4px;} "
+    ".major-holiday {background-color:#FFF9B0; padding:4px;} "
     ".minor-holiday {background-color:#FFE5B4; padding:4px;} "
     ".fast-day {background-color:#C8A27A; padding:4px;}"
 )
@@ -102,11 +102,20 @@ def _day_id(dt: date) -> str:
 
 
 def _annotation_class(ann: dict) -> str:
-    """Hebcal annotation -> one of three CSS classes: major holiday (Yom
-    Tov -- Rosh Hashana, Yom Kippur, Sukkot, Shmini Atzeret, Pesach,
-    Shavuot), fast day (Tzom Gedaliah, Asara B'Tevet, etc.), or minor
-    holiday/new moon (Rosh Chodesh, special Shabbatot, and anything else
-    that doesn't fit the other two -- catch-all default).
+    """Hebcal annotation -> one of four CSS classes:
+      - yom-tov: an actual Yom Tov / no-work day (Rosh Hashana, Yom
+        Kippur, Sukkot I/II, Shmini Atzeret, Simchat Torah, Pesach
+        I/II/VII/VIII, Shavuot I/II) -- yomtov=true.
+      - fast-day: category/subcat="fast" (Tzom Gedaliah, Asara B'Tevet,
+        Tzom Tammuz, Ta'anit Esther), plus a titled exception for Tish'a
+        B'Av -- see _FAST_TITLE_EXCEPTIONS below.
+      - major-holiday: subcat="major" but NOT yomtov -- the non-Yom-Tov
+        days of a chag (Chol HaMoed, the 8 nights of Chanukah, Purim,
+        Erev Rosh Hashana/Yom Kippur/Sukkot/Pesach/etc.). Genuinely
+        different from a bare Rosh Chodesh or special Shabbat, hence its
+        own tier rather than folding into minor-holiday.
+      - minor-holiday: everything else (Rosh Chodesh, special Shabbatot,
+        Mevarchim) -- catch-all default.
 
     Verified against a real 5787 Hebcal fetch: yomtov=true correctly
     covers Rosh Hashana (both days), Yom Kippur, Sukkot (both days),
@@ -115,18 +124,32 @@ def _annotation_class(ann: dict) -> str:
     Chodesh Cheshvan and Shabbat Shuva.
     """
     if ann["yomtov"]:
-        return "major-holiday"
-    if ann["category"] == "fast" or ann.get("subcat") == "fast":
+        return "yom-tov"
+    if (ann["category"] == "fast" or ann.get("subcat") == "fast"
+            or ann["title_orig"] in _FAST_TITLE_EXCEPTIONS):
         return "fast-day"
+    if ann.get("subcat") == "major":
+        return "major-holiday"
     return "minor-holiday"
 
 
-_CLASS_PRIORITY = {"major-holiday": 0, "fast-day": 1, "minor-holiday": 2}
+# Hebcal tags Tish'a B'Av itself with subcat="major", not "fast", despite
+# it being the most significant fast day of the year (confirmed against a
+# real Hebcal fetch: category="holiday", subcat="major", no fast marker
+# at all) -- caught by title instead, matched against title_orig (ASCII
+# apostrophes) since `title` may carry a typographic Unicode one instead.
+# Deliberately just the fast day itself, not "Erev Tish'a B'Av" -- the
+# eve is more a vigil than the fast proper, and its own subcat="major"
+# already routes it to major-holiday, which reads fine on its own.
+_FAST_TITLE_EXCEPTIONS = {"Tish'a B'Av"}
+
+
+_CLASS_PRIORITY = {"yom-tov": 0, "fast-day": 1, "major-holiday": 2, "minor-holiday": 3}
 
 
 def _day_class(dt, annotations):
     """The single best class for one calendar cell, for a date with any
-    Hebcal annotation(s) -- major-holiday beats fast-day beats
+    Hebcal annotation(s) -- priority yom-tov > fast-day > major-holiday >
     minor-holiday when a date carries more than one (e.g. a special
     Shabbat that's also Rosh Chodesh). None if the date has no
     annotation at all."""
@@ -257,8 +280,8 @@ def render_month_page(year, month, day_entries, annotations, hdates, prev_id=Non
     an next-only first month would otherwise render its "next" link on
     the left where "prev" belongs, still pointing right -- confusing.
 
-    A day cell gets the same major-holiday/minor-holiday/fast-day class
-    render_day_page()'s own annotations use (see _day_class()) whenever
+    A day cell gets the same yom-tov/fast-day/major-holiday/minor-holiday
+    class render_day_page()'s own annotations use (see _day_class()) whenever
     that date carries a Hebcal annotation, whether or not it also has a
     reading -- a date can have an annotation with no day_entries row at
     all (e.g. an annotation landing in the reading plan's uncovered
