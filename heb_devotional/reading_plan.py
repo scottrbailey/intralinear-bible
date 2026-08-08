@@ -151,12 +151,8 @@ def process_hebcal_data(hebcal_json):
     Split a Hebcal fetch (live or loaded from a saved file) into:
       - annotations: {date: [annotation, ...]} for every non-parashat,
         non-hebdate item (fasts, Rosh Chodesh, special Shabbatot,
-        Mevarchim, major holidays), each with title/title_orig/category/
-        subcat/yomtov/memo -- title_orig (ASCII apostrophes, same
-        "prefer title_orig" convention as _bare_title()) is what
-        heb_devotional.mysword._annotation_class() matches its titled
-        exceptions against, since title itself may carry typographic
-        Unicode apostrophes
+        Mevarchim, major holidays), each with title/category/subcat/
+        yomtov/memo
       - hdates: {date: hdate_string}, sourced from every item that has
         one (with d=on, every single day has a "hebdate"-category entry,
         so this covers the full range with no gaps)
@@ -171,7 +167,6 @@ def process_hebcal_data(hebcal_json):
             continue
         annotations.setdefault(dt, []).append({
             "title": item["title"],
-            "title_orig": item.get("title_orig", item["title"]),
             "category": item.get("category"),
             "subcat": item.get("subcat"),
             "yomtov": item.get("yomtov", False),

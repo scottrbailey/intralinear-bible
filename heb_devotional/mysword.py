@@ -107,13 +107,15 @@ def _annotation_class(ann: dict) -> str:
         Kippur, Sukkot I/II, Shmini Atzeret, Simchat Torah, Pesach
         I/II/VII/VIII, Shavuot I/II) -- yomtov=true.
       - fast-day: category/subcat="fast" (Tzom Gedaliah, Asara B'Tevet,
-        Tzom Tammuz, Ta'anit Esther), plus a titled exception for Tish'a
-        B'Av -- see _FAST_TITLE_EXCEPTIONS below.
+        Tzom Tammuz, Ta'anit Esther).
       - major-holiday: subcat="major" but NOT yomtov -- the non-Yom-Tov
         days of a chag (Chol HaMoed, the 8 nights of Chanukah, Purim,
         Erev Rosh Hashana/Yom Kippur/Sukkot/Pesach/etc.). Genuinely
         different from a bare Rosh Chodesh or special Shabbat, hence its
-        own tier rather than folding into minor-holiday.
+        own tier rather than folding into minor-holiday. Note this also
+        covers Tish'a B'Av, which Hebcal itself tags subcat="major"
+        rather than "fast" -- we defer to Hebcal's own categorization
+        rather than hardcoding title-based exceptions.
       - minor-holiday: everything else (Rosh Chodesh, special Shabbatot,
         Mevarchim) -- catch-all default.
 
@@ -125,23 +127,11 @@ def _annotation_class(ann: dict) -> str:
     """
     if ann["yomtov"]:
         return "yom-tov"
-    if (ann["category"] == "fast" or ann.get("subcat") == "fast"
-            or ann["title_orig"] in _FAST_TITLE_EXCEPTIONS):
+    if ann["category"] == "fast" or ann.get("subcat") == "fast":
         return "fast-day"
     if ann.get("subcat") == "major":
         return "major-holiday"
     return "minor-holiday"
-
-
-# Hebcal tags Tish'a B'Av itself with subcat="major", not "fast", despite
-# it being the most significant fast day of the year (confirmed against a
-# real Hebcal fetch: category="holiday", subcat="major", no fast marker
-# at all) -- caught by title instead, matched against title_orig (ASCII
-# apostrophes) since `title` may carry a typographic Unicode one instead.
-# Deliberately just the fast day itself, not "Erev Tish'a B'Av" -- the
-# eve is more a vigil than the fast proper, and its own subcat="major"
-# already routes it to major-holiday, which reads fine on its own.
-_FAST_TITLE_EXCEPTIONS = {"Tish'a B'Av"}
 
 
 _CLASS_PRIORITY = {"yom-tov": 0, "fast-day": 1, "major-holiday": 2, "minor-holiday": 3}
