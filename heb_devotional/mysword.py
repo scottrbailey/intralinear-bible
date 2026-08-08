@@ -81,8 +81,9 @@ _CUSTOM_CSS = (
     ".head-info {min-width:100%; background-color:#F2F7F8; padding:4px; margin:4px 0;} "
     ".head-info * {display:block; width:100%; text-align:center;} "
     ".cal {width:100%; border-collapse:collapse; text-align:center;} "
-    ".cal th, .cal td {border:1px solid #ccc; padding:4px;} "
+    ".cal th, .cal td {border:1px solid #ccc; padding:4px; position:relative;} "
     ".cal td.pad {border:none;} "
+    ".hday {position:absolute; top:1px; right:2px; font-size:0.6em; opacity:0.6; line-height:1;} "
     ".cal-nav {width:100%; display:flex; justify-content:space-between;} "
     ".day-nav {width:100%; display:flex; align-items:center;} "
     ".day-nav-date {flex:1; text-align:center;} "
@@ -235,7 +236,14 @@ def render_day_page(dt, sections, annotations_for_day, book_lookup,
     return "".join(parts)
 
 
-def render_month_page(year, month, day_entries, annotations, prev_id=None, next_id=None):
+def _hebrew_dom(hdate_str):
+    """'15 Tishrei 5787' -> '15' -- just the Hebrew day-of-month, for the
+    small corner label on each calendar cell. None if this date has no
+    hdate at all (see generate_journal()'s missing_hdate warning)."""
+    return hdate_str.split(' ', 1)[0] if hdate_str else None
+
+
+def render_month_page(year, month, day_entries, annotations, hdates, prev_id=None, next_id=None):
     """Build one month's calendar-table content: a Sunday-first grid
     linking each covered day to its own page, blank (unlinked) cells for
     days this cycle has no reading for -- the cycle's first/last partial
@@ -256,7 +264,15 @@ def render_month_page(year, month, day_entries, annotations, prev_id=None, next_
     all (e.g. an annotation landing in the reading plan's uncovered
     tail, see esword.py's docstring on the 51-week template vs. a leap
     year's ~55 weeks), so the class check is independent of the
-    linked/unlinked check right below it."""
+    linked/unlinked check right below it.
+
+    Each cell also gets a small Hebrew day-of-month in its top-right
+    corner (see _hebrew_dom()) -- deliberately just the bare number, not
+    the Hebrew month name: there isn't room for it in a cell this size
+    (confirmed against a real screenshot), and Rosh Chodesh -- the one
+    point where the Hebrew month actually rolls over mid-Gregorian-month
+    -- already gets its own minor-holiday background from _day_class()
+    to flag the transition."""
     parts = ['<p><a class="dict" href="#j Index">Index</a></p>']
 
     prev_link = f'<a class="dict" href="#j {prev_id}">&laquo; {prev_id}</a>' if prev_id else ''
@@ -277,10 +293,12 @@ def render_month_page(year, month, day_entries, annotations, prev_id=None, next_
             dt = date(year, month, day)
             cls = _day_class(dt, annotations)
             cls_attr = f' class="{cls}"' if cls else ''
+            hday = _hebrew_dom(hdates.get(dt))
+            hday_html = f'<span class="hday">{hday}</span>' if hday else ''
             if dt in day_entries:
-                parts.append(f'<td{cls_attr}><a class="dict" href="#j {_day_id(dt)}">{day}</a></td>')
+                parts.append(f'<td{cls_attr}>{hday_html}<a class="dict" href="#j {_day_id(dt)}">{day}</a></td>')
             else:
-                parts.append(f'<td{cls_attr}>{day}</td>')
+                parts.append(f'<td{cls_attr}>{hday_html}{day}</td>')
         parts.append('</tr>')
     parts.append('</table>')
     return "".join(parts)
@@ -424,7 +442,7 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
         mid = month_ids[i]
         prev_id = month_ids[i - 1] if i > 0 else None
         next_id = month_ids[i + 1] if i < len(month_ids) - 1 else None
-        insert_row(mid, mid, render_month_page(y, m, day_entries, annotations, prev_id, next_id))
+        insert_row(mid, mid, render_month_page(y, m, day_entries, annotations, hdates, prev_id, next_id))
 
     missing_hdate = []
     sorted_dates = sorted(day_entries)
