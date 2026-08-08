@@ -560,16 +560,33 @@ def derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=None):
     return result
 
 
-def derive_holiday_dates(hebcal_json, labels):
+def derive_holiday_dates(hebcal_json, labels, min_date=None):
     """
     Look up the specific date each H-row label (e.g. 'Simchat Torah',
     'Purim', 'Yom Kippur') falls on within the fetched window, straight
     from Hebcal's own titles -- no hardcoding, and no separate fetch:
     this searches the same full-cycle hebcal_json already pulled for
-    the daily/weekly readings and annotations.
+    the daily/weekly readings and annotations. Picks the first
+    chronological match per label (items are walked in the order Hebcal
+    returned them, which is date order).
+
+    min_date: skip any item dated before this -- needed when the
+    caller's fetch window starts earlier than cycle_start (e.g.
+    heb_devotional.mysword's Rosh-Hashanah lead-in fetch, see
+    find_cycle_window()'s `start` parameter): most H-row holidays recur
+    yearly, so a week deep in the 51-week cycle (Yom Kippur, week 50 --
+    nearly a full year after cycle_start) can share its title with an
+    earlier, pre-cycle occurrence of the same holiday that the widened
+    fetch now also returns. Without min_date, "first chronological
+    match" would silently grab that wrong, too-early date instead.
+    Simchat Torah itself (week 1's own H-row) is unaffected either way
+    -- its real occurrence is always on or after cycle_start by
+    construction (find_cycle_window() derives cycle_start FROM it).
     """
     result = {}
     for item in hebcal_json["items"]:
+        if min_date is not None and d(item["date"]) < min_date:
+            continue
         if item["title"] in labels and item["title"] not in result:
             result[item["title"]] = item["date"]
     missing = set(labels) - set(result)

@@ -351,15 +351,18 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
     # returns the Fall holidays (Rosh Hashanah, Yom Kippur, Sukkot) that
     # precede it -- _add_lead_in_days() below needs those so those dates
     # get their own page and calendar month instead of being invisible.
-    # Harmless to the rest of the fetch: derive_week_saturdays() explicitly
-    # searches forward for first_week_name ("Bereshit") and ignores any
-    # earlier Saturday, and derive_holiday_dates() only looks up specific
-    # labels. See reading_plan.find_cycle_window()'s docstring.
+    # derive_week_saturdays() is unaffected (it explicitly searches
+    # forward for first_week_name and ignores any earlier Saturday), but
+    # derive_holiday_dates() needs min_date=cycle_start: an H-row like
+    # week 50's Yom Kippur targets the occurrence ~11 months into the
+    # cycle, and without the floor the widened window's own pre-cycle
+    # Yom Kippur (right after Rosh Hashanah) would wrongly match first
+    # -- see that function's docstring.
     rosh_hashanah, cycle_start, cycle_end = find_cycle_window(hebrew_year, start="rosh_hashanah")
     hebcal_json = fetch_hebcal(rosh_hashanah, cycle_end, hebrew_year)
 
     week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
-    holiday_date = derive_holiday_dates(hebcal_json, h_labels)
+    holiday_date = derive_holiday_dates(hebcal_json, h_labels, min_date=cycle_start)
 
     annotations, hdates = process_hebcal_data(hebcal_json)
     day_entries = build_day_entries(weeks, week_saturday, holiday_date)
