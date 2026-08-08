@@ -1,6 +1,6 @@
 # BSB Intralinear Bible — Installation Guide
 
-The Berean Standard Transliterated Bible combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's concordance. 
+The Berean Standard Transliterated Bible combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's lexicon. 
 The module also includes translator notes, cross-references, and words of Christ in red (can be toggled off in the application).
 It is available for two Bible apps:
 
@@ -41,9 +41,9 @@ The application is free, but requires a $25 "donation" to unlock some configurat
 ### Step 2 — Download the BSTB/BSXB Module
 
 1. On your device, open this link to download the module:
-   **[BSTB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.bbl.zip)** Berean Standard Transliterated Bible 
-   **[BSXB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.bbl.zip)** Berean Standard Translinear Bible or  
-   **[BSRB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.bbl.zip)** Berean Standard Reverse Interlinear Bible
+   - **[BSTB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.bbl.zip)** Berean Standard Transliterated Bible 
+   - **[BSXB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.bbl.zip)** Berean Standard Translinear Bible or  
+   - **[BSRB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.bbl.zip)** Berean Standard Reverse Interlinear Bible
 2. When prompted, save the file to your device's **Downloads** folder.
 
 ### Step 3 — Install the Module
@@ -74,9 +74,9 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 ### Step 2 — Download the Module
 
 1. On your device, open this link to download the module:
-   **[BSTB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.zip)** -  Berean Standard Transliterated Bible 
-   **[BSXB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.zip)** - Berean Standard Translinear Bible
-   **[BSRB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.zip)** - Berean Standard Reverse Interlinear Bible + RMAC (morphology) dictionary
+   - **[BSTB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.zip)** -  Berean Standard Transliterated Bible 
+   - **[BSXB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.zip)** - Berean Standard Translinear Bible
+   - **[BSRB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.zip)** - Berean Standard Reverse Interlinear Bible + RMAC (morphology) dictionary
 
 2. Save the file to your device's **Downloads** folder.
 
