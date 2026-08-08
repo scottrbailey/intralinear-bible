@@ -126,7 +126,7 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
     num_weeks = len(weeks)
     h_labels = {wk["H"]["label"] for wk in weeks.values() if wk["H"]}
 
-    cycle_start, cycle_end = find_cycle_window(hebrew_year)
+    _, cycle_start, cycle_end = find_cycle_window(hebrew_year)
     hebcal_json = fetch_hebcal(cycle_start, cycle_end, hebrew_year)
 
     week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
@@ -232,7 +232,7 @@ if __name__ == "__main__":
         hebrew_year=hebrew_year,
         output_path=output_path,
         title=f"MJAA Messianic Reading Plan {hebrew_year}",
-        abbreviation=f"MJAA {hebrew_year}",
+        abbreviation=f"MJAA{hebrew_year}",
         information=(
             "<p>Messianic Jewish Alliance of America \"Read the Bible in a Year\" plan, "
             f"{hebrew_year} cycle. Weekly Torah/Haftarah portions plus daily OT/NT readings, "

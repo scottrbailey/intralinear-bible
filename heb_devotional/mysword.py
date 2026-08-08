@@ -64,7 +64,7 @@ import calendar
 import json
 import os
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from .reading_plan import (
@@ -215,7 +215,8 @@ def render_day_page(dt, sections, annotations_for_day, book_lookup,
             parts.append(f'<p><i>{translation}</i></p>')
         parts.append('</div>')
         links = _ref_links(refs, book_lookup, unresolved)
-        parts.append("<ol>" + "".join(f"<li>{link}</li>" for link in links) + "</ol>")
+        if links:
+            parts.append("<ol>" + "".join(f"<li>{link}</li>" for link in links) + "</ol>")
 
     if annotations_for_day:
         parts.append('<div class="observances">')
@@ -296,6 +297,32 @@ def render_index_page(month_ids):
     return "".join(parts)
 
 
+def _add_lead_in_days(day_entries, rosh_hashanah, simchat_torah):
+    """Fill the gap between Rosh Hashanah and wherever the weekly reading
+    plan actually starts (normally the week of Simchat Torah) with a
+    simple placeholder entry on each day, mutating day_entries in place.
+
+    Without this, the Fall feasts (Rosh Hashanah, Yom Kippur, Sukkot) --
+    which fall before the reading plan's own Bereshit week and so have no
+    day_entries row of their own -- would be invisible: no page to show
+    their Hebcal annotation on, and no calendar month page at all for
+    whatever Gregorian month(s) they fall in (render_month_page()'s own
+    month list is derived entirely from day_entries' dates). Every day
+    from Rosh Hashanah up to (not including) the first real reading date
+    gets the same one-line placeholder, so those months become normal,
+    fully populated, browsable calendar pages -- see this module's
+    generate_journal() caller for the actual message text."""
+    if not day_entries:
+        return
+    first_real_day = min(day_entries)
+    message = (f"The Torah/Bible reading schedule will begin the week of "
+               f"Simchat Torah ({simchat_torah.strftime('%d %b %Y')})")
+    d = rosh_hashanah
+    while d < first_real_day:
+        day_entries.setdefault(d, []).append((message, None, []))
+        d += timedelta(days=1)
+
+
 def generate_journal(reading_plan_path, hebrew_year, output_path,
                       title, abbreviation, description, author="",
                       first_week_name="Bereshit", parashah_translations_path=None):
@@ -313,14 +340,25 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
     num_weeks = len(weeks)
     h_labels = {wk["H"]["label"] for wk in weeks.values() if wk["H"]}
 
-    cycle_start, cycle_end = find_cycle_window(hebrew_year)
-    hebcal_json = fetch_hebcal(cycle_start, cycle_end, hebrew_year)
+    rosh_hashanah, cycle_start, cycle_end = find_cycle_window(hebrew_year)
+    # Fetch from Rosh Hashanah, not cycle_start -- the weekly reading plan
+    # itself doesn't begin until the week of Simchat Torah (~3 weeks
+    # later), but widening the fetch means Hebcal actually returns the
+    # Fall holidays (Rosh Hashanah, Yom Kippur, Sukkot) that precede it,
+    # which _add_lead_in_days() below needs so those dates get their own
+    # page and calendar month instead of being invisible. Harmless to the
+    # rest of the fetch: derive_week_saturdays() explicitly searches
+    # forward for first_week_name ("Bereshit") and ignores any earlier
+    # Saturday, and derive_holiday_dates() only looks up specific labels.
+    hebcal_json = fetch_hebcal(rosh_hashanah, cycle_end, hebrew_year)
 
     week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
     holiday_date = derive_holiday_dates(hebcal_json, h_labels)
 
     annotations, hdates = process_hebcal_data(hebcal_json)
     day_entries = build_day_entries(weeks, week_saturday, holiday_date)
+    simchat_torah = date.fromisoformat(holiday_date["Simchat Torah"])
+    _add_lead_in_days(day_entries, rosh_hashanah, simchat_torah)
     book_lookup = _book_name_to_abbrev()
     unresolved_refs = []
 
@@ -421,7 +459,7 @@ if __name__ == "__main__":
         hebrew_year=hebrew_year,
         output_path=output_path,
         title=f"MJAA Messianic Reading Plan {hebrew_year}",
-        abbreviation=f"MJAA {hebrew_year}",
+        abbreviation=f"MJAA{hebrew_year}",
         description=(
             "Messianic Jewish Alliance of America \"Read the Bible in a Year\" plan, "
             f"{hebrew_year} cycle. Weekly Torah/Haftarah portions plus daily OT/NT readings, "
