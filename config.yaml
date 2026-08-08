@@ -2,7 +2,7 @@
 # Run: python main.py [--format esword|mysword|osis] [--mode intralinear|stacked|interlinear]
 
 # ── Module identity ──────────────────────────────────────────
-version: "1.1.2"
+version: "1.1.4"
 translation: "BSB"
 description: "Berean Standard Bible"
 
@@ -35,8 +35,8 @@ sources:
 # Translit column -- table composer only; falls back to the raw source
 # text if a given token has none).
 transliteration:
-  hebrew:  null   # brill_simple, sbl_simple, sbl_academic, phonetic_dot, null (use source)
-  greek:   null
+  hebrew:  brill_simple   # brill_simple, sbl_simple, sbl_academic, phonetic_dot, null (use source)
+  greek:   SIMPLE
   # Override the Hebrew scheme's own bundled syllable_sep/stress_marker --
   # deliberate, so OT and NT read as one consistent format rather than Greek
   # silently inheriting whatever the Hebrew scheme happens to bundle. Also
@@ -46,7 +46,7 @@ transliteration:
   # null/omit either one to fall back to the Hebrew scheme's own bundled
   # value -- NOT the same as "": "" is a real override too, an explicit
   # "no marker at all" even if the scheme itself bundles one.
-  syllable_sep: "·"
+  syllable_sep: null  # "·"
   stress_marker: null
 
 # ── Annotations ──────────────────────────────────────────────

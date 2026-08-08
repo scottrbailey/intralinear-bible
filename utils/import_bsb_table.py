@@ -589,6 +589,19 @@ CREATE TABLE verses (
 );
 CREATE INDEX verses_book ON verses (book, verse_id);
 
+-- One row per book/chapter, populated once from verses (see
+-- import_bsb_table()'s post-processing step) rather than every consumer
+-- re-running SELECT MAX(verse) ... GROUP BY book, chapter for itself --
+-- e.g. utils/build_heb_devotional_esword.py needs a chapter's real verse
+-- count to turn a bare "book chapter" reference into the verse range
+-- e-Sword's <ref> tag actually requires.
+CREATE TABLE chapters (
+    book        TEXT NOT NULL REFERENCES books(osis_id),
+    chapter     INTEGER NOT NULL,
+    verse_count INTEGER NOT NULL,
+    PRIMARY KEY (book, chapter)
+);
+
 CREATE TABLE tokens (
     bsb_sort      INTEGER PRIMARY KEY,
     verse_id      INTEGER NOT NULL REFERENCES verses(verse_id),
@@ -778,6 +791,10 @@ def import_bsb_table(tsv_path: Path, db_path: Path, batch_size: int = 5000) -> N
         discarded_at_boundary += len(pending_vvv)  # trailing, at EOF
 
     flush()
+    conn.execute(
+        "INSERT INTO chapters (book, chapter, verse_count) "
+        "SELECT book, chapter, MAX(verse) FROM verses GROUP BY book, chapter"
+    )
     conn.commit()
     conn.close()
 
