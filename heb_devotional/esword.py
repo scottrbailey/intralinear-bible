@@ -126,8 +126,8 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
     num_weeks = len(weeks)
     h_labels = {wk["H"]["label"] for wk in weeks.values() if wk["H"]}
 
-    _, cycle_start, cycle_end = find_cycle_window(hebrew_year)
-    hebcal_json = fetch_hebcal(cycle_start, cycle_end, hebrew_year)
+    window_start, cycle_start, cycle_end = find_cycle_window(hebrew_year)
+    hebcal_json = fetch_hebcal(window_start, cycle_end, hebrew_year)
 
     week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
     holiday_date = derive_holiday_dates(hebcal_json, h_labels)

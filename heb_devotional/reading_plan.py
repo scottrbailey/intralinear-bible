@@ -48,7 +48,7 @@ from verse_formatter.base import Reference
 HEBCAL_BASE = "https://www.hebcal.com/hebcal"
 
 
-def find_cycle_window(hebrew_year):
+def find_cycle_window(hebrew_year, start="simchat_torah"):
     """
     Compute the exact date range for one Simchat-Torah-to-Simchat-Torah
     reading cycle, given the Hebrew year its Bereshit falls in.
@@ -58,17 +58,28 @@ def find_cycle_window(hebrew_year):
     Erev Rosh Hashana, and Simchat Torah is always exactly 23 days after
     Erev Rosh Hashana (Tishrei 23), regardless of leap/regular year.
 
-    A cycle starts the Sunday on-or-before Simchat Torah (inclusive --
-    if Simchat Torah itself falls on a Sunday, that's day 1) and the
-    previous cycle ends the Saturday immediately before that Sunday.
+    cycle_start is always the Sunday on-or-before Simchat Torah
+    (inclusive -- if Simchat Torah itself falls on a Sunday, that's day
+    1) and cycle_end is always the Saturday immediately before the next
+    cycle's own cycle_start -- this is the weekly reading plan's own
+    anchor (see build_day_entries()) and is unaffected by `start`.
 
-    Returns (rosh_hashanah, cycle_start, cycle_end) as date objects --
-    rosh_hashanah is this cycle's own Rosh Hashana (the one ~3 weeks
-    before its Simchat Torah, i.e. before cycle_start), for callers that
-    want to cover the Fall holidays leading into the cycle even though
-    the weekly reading plan itself doesn't start until cycle_start (see
-    heb_devotional.mysword's lead-in days).
+    `start` controls window_start, the first of the three returned
+    values, meant for the caller's own Hebcal fetch window --
+    "simchat_torah" (default) sets window_start = cycle_start, matching
+    e-Sword's build (the weekly reading plan is all it ever shows, so
+    there's nothing to gain from fetching earlier); "rosh_hashanah" sets
+    window_start = this cycle's own Rosh Hashana instead (~3 weeks
+    before cycle_start), for a caller -- MySword's build -- that wants
+    Hebcal to actually return the Fall holidays leading into the cycle
+    even though the weekly reading plan itself doesn't start until
+    cycle_start (see heb_devotional.mysword's lead-in days).
+
+    Returns (window_start, cycle_start, cycle_end) as date objects.
     """
+    if start not in ("simchat_torah", "rosh_hashanah"):
+        raise ValueError(f"find_cycle_window: start must be 'simchat_torah' or 'rosh_hashanah', got {start!r}")
+
     resp = requests.get(HEBCAL_BASE, params={
         "v": "1", "cfg": "json", "maj": "on", "yt": "H", "year": str(hebrew_year),
     }, timeout=30)
@@ -81,7 +92,8 @@ def find_cycle_window(hebrew_year):
     floor_sunday = lambda dt: dt - timedelta(days=(dt.weekday() + 1) % 7)
     cycle_start = floor_sunday(st_this)
     cycle_end = floor_sunday(st_next) - timedelta(days=1)
-    return rosh_hashanah, cycle_start, cycle_end
+    window_start = rosh_hashanah if start == "rosh_hashanah" else cycle_start
+    return window_start, cycle_start, cycle_end
 
 def fetch_hebcal(start:date, end:date, hebrew_year:int):
     """

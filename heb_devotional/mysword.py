@@ -341,16 +341,16 @@ def generate_journal(reading_plan_path, hebrew_year, output_path,
     num_weeks = len(weeks)
     h_labels = {wk["H"]["label"] for wk in weeks.values() if wk["H"]}
 
-    rosh_hashanah, cycle_start, cycle_end = find_cycle_window(hebrew_year)
-    # Fetch from Rosh Hashanah, not cycle_start -- the weekly reading plan
-    # itself doesn't begin until the week of Simchat Torah (~3 weeks
-    # later), but widening the fetch means Hebcal actually returns the
-    # Fall holidays (Rosh Hashanah, Yom Kippur, Sukkot) that precede it,
-    # which _add_lead_in_days() below needs so those dates get their own
-    # page and calendar month instead of being invisible. Harmless to the
-    # rest of the fetch: derive_week_saturdays() explicitly searches
-    # forward for first_week_name ("Bereshit") and ignores any earlier
-    # Saturday, and derive_holiday_dates() only looks up specific labels.
+    # start="rosh_hashanah" widens the fetch past cycle_start (the
+    # weekly reading plan's own start, ~3 weeks later) so Hebcal actually
+    # returns the Fall holidays (Rosh Hashanah, Yom Kippur, Sukkot) that
+    # precede it -- _add_lead_in_days() below needs those so those dates
+    # get their own page and calendar month instead of being invisible.
+    # Harmless to the rest of the fetch: derive_week_saturdays() explicitly
+    # searches forward for first_week_name ("Bereshit") and ignores any
+    # earlier Saturday, and derive_holiday_dates() only looks up specific
+    # labels. See reading_plan.find_cycle_window()'s docstring.
+    rosh_hashanah, cycle_start, cycle_end = find_cycle_window(hebrew_year, start="rosh_hashanah")
     hebcal_json = fetch_hebcal(rosh_hashanah, cycle_end, hebrew_year)
 
     week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
