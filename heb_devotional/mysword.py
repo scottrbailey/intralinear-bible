@@ -80,7 +80,7 @@ from verse_formatter.base import ABBREV_TO_BOOK_NUM, _default_ref_label
 _CUSTOM_CSS = (
     ".head-info {min-width:100%; background-color:#F2F7F8; padding:4px; margin:4px 0;} "
     ".head-info * {display:block; width:100%; text-align:center;} "
-    ".cal {width:100%; border-collapse:collapse; text-align:center;} "
+    ".cal {width:100%; table-layout:fixed; border-collapse:collapse; text-align:center;} "
     ".cal th, .cal td {border:1px solid #ccc; padding:4px; position:relative;} "
     ".cal td.pad {border:none;} "
     ".hday {position:absolute; top:1px; right:2px; font-size:0.6em; opacity:0.6; line-height:1;} "
