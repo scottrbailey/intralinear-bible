@@ -485,7 +485,7 @@ if __name__ == "__main__":
         hebrew_year=hebrew_year,
         output_path=output_path,
         title=f"MJAA Messianic Reading Plan {hebrew_year}",
-        abbreviation=f"MJAA{hebrew_year}",
+        abbreviation=f"MJAA-{hebrew_year}",
         description=(
             "Messianic Jewish Alliance of America \"Read the Bible in a Year\" plan, "
             f"{hebrew_year} cycle. Weekly Torah/Haftarah portions plus daily OT/NT readings, "
