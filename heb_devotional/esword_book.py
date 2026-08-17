@@ -13,13 +13,14 @@ and each day's reading in its own subsection further down the SAME row,
 linked by ordinary same-document '#anchor' pairs (which only ever need to
 resolve within one row's own HTML, unlike a cross-row link). Navigating
 from month to month is left entirely to e-Sword's own built-in
-chapter-list/prev-next-chapter UI, keyed off this table's `Chapter`
-column -- see generate_book()'s docstring for why each Chapter value is
-built the way it is.
+chapter-list/prev-next-chapter UI, ordered strictly by the `Chapter`
+string itself (confirmed against real e-Sword Book modules, which number
+their chapters "0000. Preface", "0001. Aaron", "0002. Aaron's Rod", ...
+for exactly this reason) -- see generate_book()'s docstring for why each
+Chapter value is built the way it is.
 
-Book schema (as supplied -- NOT yet confirmed on-device the way esword.py's
-.devi schema was; the file extension below is a best-effort guess pending
-that confirmation too):
+Book schema and file extension (.refi) both confirmed against a real
+e-Sword module:
     CREATE TABLE Details (Title NVARCHAR(100), Abbreviation NVARCHAR(50),
                            Information TEXT, Version INT)
     CREATE TABLE Reference (Chapter NVARCHAR(100), Content TEXT)
@@ -51,6 +52,7 @@ _CSS = (
     '.cal td.pad {border:none;} '
     '.hday {position:absolute; top:1px; right:2px; font-size:0.6em; opacity:0.6; line-height:1;} '
     '.topcal {font-size:0.85em;} '
+    '.day-section {min-height:100vh; box-sizing:border-box; padding-top:8px;} '
     '.yom-tov {background-color:#FFEB3B; padding:4px;} '
     '.major-holiday {background-color:#FFF9B0; padding:4px;} '
     '.minor-holiday {background-color:#FFE5B4; padding:4px;} '
@@ -101,8 +103,12 @@ def render_day_section(dt, sections, annotations_for_day, book_lookup, verses_co
     so unlike esword.render_devotion_html() (which merges colliding
     Month/Day slots across leap-year Gregorian years) there's never more
     than one date's material here; every Reference row is its own real
-    Gregorian month, so that collision can't happen in this format."""
-    parts = [f'<div id="d{dt.day}">']
+    Gregorian month, so that collision can't happen in this format.
+
+    The wrapping div also carries class="day-section" (min-height:100vh,
+    see _CSS) so consecutive days don't visually run together on a long
+    scroll -- each day reads as close to its own full screen instead."""
+    parts = [f'<div id="d{dt.day}" class="day-section">']
     parts.append('<p><a class="topcal" href="#cal">&uarr; Calendar</a></p>')
 
     weekday = dt.strftime('%A')
@@ -139,9 +145,14 @@ def render_month_chapter(year, month, day_entries, annotations, hdates, book_loo
                           verses_conn, unresolved, missing_bounds, parashah_translations):
     """One Reference row's full Content: CSS (no CustomCSS column in this
     schema, so -- same reasoning as esword.py's .devi -- it's repeated
-    inline per row instead of declared once), the month's calendar, then
-    every covered day in that month as its own back-linked subsection."""
-    parts = [_CSS, render_calendar(year, month, day_entries, annotations, hdates)]
+    inline per row instead of declared once), an <h3> heading naming the
+    month (needed here because `Chapter` itself is a sortable "YYYY.MM"
+    key, not a readable label -- see generate_book()'s docstring), the
+    month's calendar, then every covered day in that month as its own
+    back-linked subsection."""
+    month_title = date(year, month, 1).strftime('%B %Y')
+    parts = [_CSS, f'<h3>{month_title}</h3>',
+             render_calendar(year, month, day_entries, annotations, hdates)]
     month_dates = sorted(dt for dt in day_entries if dt.year == year and dt.month == month)
     for dt in month_dates:
         parts.append(render_day_section(
@@ -163,16 +174,17 @@ def generate_book(reading_plan_path, hebrew_year, output_path,
     a calendar month and a day section rather than being invisible.
 
     One Reference row per Gregorian month the cycle touches. `Chapter` is
-    built as "<year>-<month> <Month Name> <year>" (e.g. "2026-10 October
-    2026") rather than just "October 2026": e-Sword's own chapter-list/
-    prev-next navigation may sort or key off `Chapter` (it carries an
-    index, same shape as a Dictionary's alphabetized Topic column) rather
-    than insertion order, and a Simchat-Torah-to-Simchat-Torah cycle spans
-    a Gregorian year boundary -- plain month names ("September" <
-    "October" alphabetically, wrong order for reading Sept THEN Oct of a
-    LATER cycle year) would sort wrong. The zero-padded "YYYY-MM" prefix
-    sorts correctly as plain text either way, and rows are also inserted
-    in chronological order regardless.
+    built as "<year>.<month>" (e.g. "2026.10"), a bare sortable key rather
+    than a readable label: e-Sword's own chapter-list/prev-next navigation
+    orders strictly by the `Chapter` string (confirmed against real e-Sword
+    Book modules, which number their own chapters "0000. Preface", "0001.
+    Aaron", ... for this reason), and a Simchat-Torah-to-Simchat-Torah
+    cycle spans a Gregorian year boundary -- plain month names ("September"
+    < "October" alphabetically) would sort wrong for reading Sept THEN Oct
+    of a LATER cycle year. The zero-padded "YYYY.MM" key sorts correctly as
+    plain text, and rows are also inserted in chronological order
+    regardless. The human-readable "<Month Name> <year>" this replaces now
+    lives inside Content itself, as an <h3> (see render_month_chapter()).
     """
     weeks = load_reading_plan(reading_plan_path)
     num_weeks = len(weeks)
@@ -225,7 +237,7 @@ def generate_book(reading_plan_path, hebrew_year, output_path,
         content = render_month_chapter(y, m, day_entries, annotations, hdates, book_lookup,
                                         verses_conn, unresolved_refs, missing_bounds,
                                         parashah_translations)
-        chapter_key = f"{y:04d}-{m:02d} {date(y, m, 1).strftime('%B %Y')}"
+        chapter_key = f"{y:04d}.{m:02d}"
         cur.execute("INSERT INTO Reference (Chapter, Content) VALUES (?,?)", (chapter_key, content))
 
     conn.commit()
@@ -257,10 +269,7 @@ if __name__ == "__main__":
     hebrew_year = parser.parse_args().hebrew_year
 
     base_dir = Path(__file__).parent.parent
-    # .topx is a best-effort guess at e-Sword's generic-book extension,
-    # NOT yet confirmed on-device -- rename (and tell us the real one) if
-    # e-Sword doesn't pick this file up as a Book/Reference module.
-    output_path = base_dir / "output" / f"mjaa-{hebrew_year}.topx"
+    output_path = base_dir / "output" / f"mjaa-{hebrew_year}.refi"
     count = generate_book(
         reading_plan_path=base_dir / "data" / "parshat.json",
         hebrew_year=hebrew_year,
