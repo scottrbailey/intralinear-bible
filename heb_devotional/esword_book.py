@@ -52,10 +52,11 @@ _CSS = (
     # set on both html and body as a best-effort double cast; harmless
     # where it lands on the wrong element (just inert), and each
     # .day-section's own scroll-snap-align is what actually matters once
-    # *some* ancestor's scroll-snap-type takes effect. Needs on-device
-    # confirmation either way -- if it doesn't snap, that's not a bug here,
-    # e-Sword's viewer just isn't the scroll container we hoped it was.
-    'html, body {scroll-snap-type:y mandatory; scroll-behavior:smooth;} '
+    # *some* ancestor's scroll-snap-type takes effect. Confirmed on-device
+    # to work for manual (wheel/trackpad) scrolling. No scroll-behavior:
+    # smooth -- tried it, but it made anchor-link jumps (calendar<->day)
+    # glide instead of jump, which read as more distracting than helpful.
+    'html, body {scroll-snap-type:y mandatory;} '
     '.head-info {min-width:100%; background-color:#F2F7F8; padding:4px; margin:4px 0;} '
     '.head-info * {display:block; width:100%; text-align:center;} '
     '.cal {width:100%; table-layout:fixed; border-collapse:collapse; text-align:center;} '
@@ -130,8 +131,8 @@ def render_day_section(dt, sections, annotations_for_day, book_lookup, verses_co
     parts = [f'<div id="d{dt.day}" class="day-section">']
     parts.append('<p><a class="topcal" href="#cal">&uarr; Calendar</a></p>')
 
-    greg_date = f"{dt.strftime('%A')}, {dt.strftime('%B')} {dt.day}, {dt.year}"
-    parts.append(f'<div class="head-info"><h3>{greg_date}</h3>')
+    greg_date = dt.strftime('%A - %d %B %Y')
+    parts.append(f'<div class="head-info"><h2>{greg_date}</h2>')
     if hdate_str:
         parts.append(f'<p>{hdate_str}</p>')
     parts.append('</div>')
@@ -166,17 +167,18 @@ def render_month_chapter(year, month, day_entries, annotations, hdates, book_loo
                           verses_conn, unresolved, missing_bounds, parashah_translations):
     """One Reference row's full Content: CSS (no CustomCSS column in this
     schema, so -- same reasoning as esword.py's .devi -- it's repeated
-    inline per row instead of declared once), an <h3>-plus-calendar block
+    inline per row instead of declared once), an <h2>-plus-calendar block
     wrapped in the same id="cal"/class="day-section" div every day section
     below uses (see render_day_section()) -- so the calendar reads as its
     own full-screen "page" too, consistent with every day that follows it,
-    rather than being a short table jammed above the first day. `<h3>`
+    rather than being a short table jammed above the first day. `<h2>`
+    (not `<h3>` -- e-Sword renders `<h3>` unbolded, confirmed on-device)
     names the month because `Chapter` itself is a sortable "YYYY.MM" key,
     not a readable label -- see generate_book()'s docstring."""
     month_title = date(year, month, 1).strftime('%B %Y')
     parts = [
         _CSS,
-        f'<div id="cal" class="day-section"><h3>{month_title}</h3>',
+        f'<div id="cal" class="day-section"><h2>{month_title}</h2>',
         render_calendar(year, month, day_entries, annotations, hdates),
         '</div>',
     ]
