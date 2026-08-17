@@ -386,7 +386,16 @@ needs no such lookup.
   up to the calendar (`href="#cal"`). All of that stays inside one row's
   HTML, so it only ever needs a same-document `#anchor` to resolve, not a
   cross-row link — month-to-month navigation is left to e-Sword's own
-  built-in chapter-list/prev-next UI instead. Reuses `esword.py`'s
+  built-in chapter-list/prev-next UI instead. Each day's own heading
+  spells out the full Gregorian date ("Sunday, October 4, 2026") rather
+  than just weekday/Hebrew date — unlike `.devi`/MySword, nothing in
+  e-Sword's own chrome shows which date a Book subsection belongs to, so
+  the page has to say so itself. `html`/`body` get `scroll-snap-type:y
+  mandatory` and every `.day-section` gets `scroll-snap-align:start` —
+  best-effort (which element actually owns the scrollbar in e-Sword's
+  Content viewer isn't knowable in advance, so this is a double cast that's
+  harmless if it lands on the wrong element) — plus `scroll-behavior:
+  smooth` for the calendar↔day anchor jumps either way. Reuses `esword.py`'s
   `_ref_tags()` (bsb_tables.db-backed `<ref>` tags) and `mysword.py`'s
   annotation/calendar helpers (`_annotation_class`, `_day_class`,
   `_hebrew_dom`, `_add_lead_in_days`) rather than reimplementing them.

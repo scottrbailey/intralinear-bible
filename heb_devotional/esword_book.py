@@ -45,6 +45,17 @@ from .mysword import _annotation_class, _day_class, _hebrew_dom, _add_lead_in_da
 
 _CSS = (
     '<style>'
+    # scroll-snap-type has to land on whatever element actually owns the
+    # scrollbar in e-Sword's Content viewer -- unknown and untestable from
+    # here (no public docs on what e-Sword wraps Content in, could be
+    # html/body directly or some fixed-height div of its own), so this is
+    # set on both html and body as a best-effort double cast; harmless
+    # where it lands on the wrong element (just inert), and each
+    # .day-section's own scroll-snap-align is what actually matters once
+    # *some* ancestor's scroll-snap-type takes effect. Needs on-device
+    # confirmation either way -- if it doesn't snap, that's not a bug here,
+    # e-Sword's viewer just isn't the scroll container we hoped it was.
+    'html, body {scroll-snap-type:y mandatory; scroll-behavior:smooth;} '
     '.head-info {min-width:100%; background-color:#F2F7F8; padding:4px; margin:4px 0;} '
     '.head-info * {display:block; width:100%; text-align:center;} '
     '.cal {width:100%; table-layout:fixed; border-collapse:collapse; text-align:center;} '
@@ -52,7 +63,7 @@ _CSS = (
     '.cal td.pad {border:none;} '
     '.hday {position:absolute; top:1px; right:2px; font-size:0.6em; opacity:0.6; line-height:1;} '
     '.topcal {font-size:0.85em;} '
-    '.day-section {min-height:100vh; box-sizing:border-box; padding-top:8px;} '
+    '.day-section {min-height:100vh; box-sizing:border-box; padding-top:8px; scroll-snap-align:start;} '
     '.yom-tov {background-color:#FFEB3B; padding:4px;} '
     '.major-holiday {background-color:#FFF9B0; padding:4px;} '
     '.minor-holiday {background-color:#FFE5B4; padding:4px;} '
@@ -108,13 +119,22 @@ def render_day_section(dt, sections, annotations_for_day, book_lookup, verses_co
 
     The wrapping div also carries class="day-section" (min-height:100vh,
     see _CSS) so consecutive days don't visually run together on a long
-    scroll -- each day reads as close to its own full screen instead."""
+    scroll -- each day reads as close to its own full screen instead.
+
+    Unlike esword.py's .devi (keyed by real Month/Day, so e-Sword's own
+    Devotional picker chrome already shows the Gregorian date) or MySword's
+    journal (each row's own `date` column shown above content by the app),
+    a Book chapter is one whole month with no per-subsection date metadata
+    e-Sword knows about -- so the Gregorian date has to be spelled out in
+    the day's own heading here, not just implied by weekday/Hebrew date."""
     parts = [f'<div id="d{dt.day}" class="day-section">']
     parts.append('<p><a class="topcal" href="#cal">&uarr; Calendar</a></p>')
 
-    weekday = dt.strftime('%A')
-    hdate_line = " - ".join(p for p in (weekday, hdate_str) if p)
-    parts.append(f'<div class="head-info"><p>{hdate_line}</p></div>')
+    greg_date = f"{dt.strftime('%A')}, {dt.strftime('%B')} {dt.day}, {dt.year}"
+    parts.append(f'<div class="head-info"><h3>{greg_date}</h3>')
+    if hdate_str:
+        parts.append(f'<p>{hdate_str}</p>')
+    parts.append('</div>')
 
     for heading, parashah_name, refs in sections:
         parts.append(f'<h2>{heading}</h2>')
