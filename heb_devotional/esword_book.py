@@ -62,15 +62,16 @@ _CSS = (
 
 
 def render_calendar(year, month, day_entries, annotations, hdates):
-    """Sunday-first calendar table, id="cal" so each day section below can
-    link straight back up to it. A day with an entry links down to its own
-    '#d<day>' section (see render_day_section()); a day with no entry (the
-    reading plan's uncovered stretches -- see esword.py's docstring on the
-    51-week template vs. a leap year's ~55 weeks) is plain text, same as
-    mysword.render_month_page()'s unlinked cells. Annotation styling
-    (_day_class) and the Hebrew day-of-month corner label (_hebrew_dom) are
-    reused as-is from mysword.py rather than reimplemented."""
-    parts = ['<table id="cal" class="cal"><tr>']
+    """Sunday-first calendar table. A day with an entry links down to its
+    own '#d<day>' section (see render_day_section()); a day with no entry
+    (the reading plan's uncovered stretches -- see esword.py's docstring
+    on the 51-week template vs. a leap year's ~55 weeks) is plain text,
+    same as mysword.render_month_page()'s unlinked cells. Annotation
+    styling (_day_class) and the Hebrew day-of-month corner label
+    (_hebrew_dom) are reused as-is from mysword.py rather than
+    reimplemented. The id="cal" anchor target lives on render_month_chapter()'s
+    wrapping div, not this table -- see that function's docstring."""
+    parts = ['<table class="cal"><tr>']
     parts += [f'<th>{d}</th>' for d in ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat')]
     parts.append('</tr>')
 
@@ -145,14 +146,20 @@ def render_month_chapter(year, month, day_entries, annotations, hdates, book_loo
                           verses_conn, unresolved, missing_bounds, parashah_translations):
     """One Reference row's full Content: CSS (no CustomCSS column in this
     schema, so -- same reasoning as esword.py's .devi -- it's repeated
-    inline per row instead of declared once), an <h3> heading naming the
-    month (needed here because `Chapter` itself is a sortable "YYYY.MM"
-    key, not a readable label -- see generate_book()'s docstring), the
-    month's calendar, then every covered day in that month as its own
-    back-linked subsection."""
+    inline per row instead of declared once), an <h3>-plus-calendar block
+    wrapped in the same id="cal"/class="day-section" div every day section
+    below uses (see render_day_section()) -- so the calendar reads as its
+    own full-screen "page" too, consistent with every day that follows it,
+    rather than being a short table jammed above the first day. `<h3>`
+    names the month because `Chapter` itself is a sortable "YYYY.MM" key,
+    not a readable label -- see generate_book()'s docstring."""
     month_title = date(year, month, 1).strftime('%B %Y')
-    parts = [_CSS, f'<h3>{month_title}</h3>',
-             render_calendar(year, month, day_entries, annotations, hdates)]
+    parts = [
+        _CSS,
+        f'<div id="cal" class="day-section"><h3>{month_title}</h3>',
+        render_calendar(year, month, day_entries, annotations, hdates),
+        '</div>',
+    ]
     month_dates = sorted(dt for dt in day_entries if dt.year == year and dt.month == month)
     for dt in month_dates:
         parts.append(render_day_section(
