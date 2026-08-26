@@ -34,6 +34,16 @@ COLOR_TRANSLIT = '#475eaf'
 COLOR_ANCIENT = '#479faf'
 COLOR_UNLINKED = '#666666'
 
+# Strong's numbers whose lemma citation form is too far from -- and too
+# common a mismatch against -- their inflected forms to be worth showing
+# on L1/L2: a handful of extremely frequent Greek function words with
+# suppletive paradigms (all forms collapsed under one Strong's number),
+# where the lemma reads as noise rather than a helpful stem cue. Confirmed
+# by user testing: G3588 (ho/he/to, the article), G1473 (ego/mou, "I"),
+# G4771 (sy/sou, "you"). For these, L1/L2 fall back to the word's own
+# transliteration instead of the lemma's.
+LEMMA_SUPPRESSED_STRONGS = {'G3588', 'G1473', 'G4771'}
+
 # Shared by both MySword and e-Sword.
 #
 # .acrostic/.ihdg/.subhdg stay plain inline spans (no display/float trick —
@@ -129,8 +139,9 @@ class ESwordLemmaFormatter(_ESwordXrefMixin, VerseFormatter):
                 lemmas = []
                 for sw in token.source_words:
                     word_xlit  = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    lemma_xlit = sw.stem.lemma_translit or word_xlit
                     strongs = sw.stem.strongs
+                    lemma_xlit = (word_xlit if strongs in LEMMA_SUPPRESSED_STRONGS
+                                  else sw.stem.lemma_translit or word_xlit)
                     lang = 'gk' if sw.lang == 'G' else 'hb'
                     rt_class = ' class="unlinked"' if not strongs else ''
                     num_tag  = f'<num>{strongs}</num>' if strongs else ''
@@ -332,8 +343,9 @@ class MySwordLemmaFormatter(_MySwordXrefMixin, VerseFormatter):
                 lemmas = []
                 for sw in token.source_words:
                     word_xlit  = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    lemma_xlit = sw.stem.lemma_translit or word_xlit
                     strongs = sw.stem.strongs
+                    lemma_xlit = (word_xlit if strongs in LEMMA_SUPPRESSED_STRONGS
+                                  else sw.stem.lemma_translit or word_xlit)
                     lang = 'gk' if sw.lang == 'G' else 'hb'
                     # With no strongs number, `<a href="s">` would be a real but broken
                     # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
