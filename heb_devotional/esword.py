@@ -61,8 +61,14 @@ def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn
     hdates: {date: hdate_string}, looked up per section instead of being
     passed in as a single scalar.
     """
-    css = '<style>.head_info {min-width:100%; background-color:#F2F7F8;} .head_info * {display:block; width:100%; text-align:center;}</style>'
-    parts = [css]
+    # .devotion-day forces every day's content to claim the full page
+    # width -- without it, e-Sword's tablet reader can size the devotion
+    # to its (narrow) content width and fit two different days' entries
+    # side by side on one screen instead of stacking them.
+    css = ('<style>.devotion-day {width:100%; display:block; box-sizing:border-box;} '
+           '.head_info {min-width:100%; background-color:#F2F7F8;} '
+           '.head_info * {display:block; width:100%; text-align:center;}</style>')
+    parts = [css, '<div class="devotion-day">']
     # Only worth calling out the Gregorian year when this slot actually
     # merges more than one real date (the Oct-15-2026-and-2027 case) --
     # the ordinary one-date-per-slot day shouldn't grow an extra heading.
@@ -96,6 +102,7 @@ def render_devotion_html(sections, annotations_for_day, book_lookup, verses_conn
             parts.append("</p>")
         parts.append("</div>")
 
+    parts.append('</div>')
     return "".join(parts)
 
 
