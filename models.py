@@ -32,6 +32,9 @@ class SourceToken:
     lemma: str = ""
     after: str = " "    # '' = join to next token (same display-word); ' ' = word boundary
     translit: str = ""  # source's own provided transliteration, if any (e.g. bsb_tables.tsv's Translit column)
+    lemma_translit: str = ""  # strongs_lemma's transliteration of this token's Strong's-number
+                              # headword (utils/import_lemma_table.py) -- the beginner-tier
+                              # lemma line, distinct from `translit`'s inflected-word form
 
 
 @dataclass

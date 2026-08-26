@@ -86,14 +86,35 @@ _PASEQ = '׀'  # HEBREW PUNCTUATION PASEQ — looks like an ASCII '|' but is a
 # with no known fix, not something worth destroying the underlying data over.
 
 
-def _to_source_word(row: sqlite3.Row) -> SourceWord:
+def _load_lemma_lookup(conn: sqlite3.Connection) -> dict:
+    """{'H7225': 'reshit', 'G26': 'agape', ...} from strongs_lemma (see
+    utils/import_lemma_table.py) -- keyed to match _prefixed_strongs()'s own
+    output exactly (prefix + bare digits, no leading zeros, Aramaic already
+    folded to 'H'), so a token's own .strongs value is a direct lookup key
+    with no reformatting needed. Empty dict (not an error) if strongs_lemma
+    doesn't exist yet -- an older bsb_tables.db built before that table was
+    added, or one nobody's run utils/import_lemma_table.py against -- so
+    every token's lemma_translit just stays '' rather than the whole
+    pipeline failing over one optional table.
+    """
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='strongs_lemma'"
+    ).fetchone():
+        return {}
+    return {f"{lang}{strongs}": xlit
+            for strongs, lang, xlit in conn.execute(
+                "SELECT strongs, lang, transliteration FROM strongs_lemma")}
+
+
+def _to_source_word(row: sqlite3.Row, lemma_lookup: dict) -> SourceWord:
     parsing_full = row['parsing_full'] or ''
     is_proper    = 'proper' in parsing_full.lower()
     source_text  = row['source_text'].replace(_PASEQ, '')
+    strongs      = _prefixed_strongs(row['strongs'], row['language'])
     token = SourceToken(
         id=str(row['bsb_sort']),
         text=source_text,
-        strongs=_prefixed_strongs(row['strongs'], row['language']),
+        strongs=strongs,
         gloss=row['english'] or '',
         token_class=row['parsing_short'] or '',
         pos='',
@@ -102,6 +123,7 @@ def _to_source_word(row: sqlite3.Row) -> SourceWord:
         lang=row['language'],
         after=' ',
         translit=row['translit'] or '',
+        lemma_translit=lemma_lookup.get(strongs, ''),
     )
     return SourceWord(
         tokens=[token], stem=token, text=source_text,
@@ -175,6 +197,7 @@ class TableComposer(Composer):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
+        lemma_lookup = _load_lemma_lookup(conn)
 
         # verses is small (~31K rows) — load it whole rather than querying
         # per-verse, since heading/book/chapter/verse are facts about the
@@ -201,11 +224,13 @@ class TableComposer(Composer):
             for row in cur:
                 if row['verse_id'] != current_verse_id:
                     if verse_rows:
-                        yield self._build_verse_source_order(verse_info[current_verse_id], verse_rows)
+                        yield self._build_verse_source_order(
+                            verse_info[current_verse_id], verse_rows, lemma_lookup)
                     current_verse_id, verse_rows = row['verse_id'], []
                 verse_rows.append(row)
             if verse_rows:
-                yield self._build_verse_source_order(verse_info[current_verse_id], verse_rows)
+                yield self._build_verse_source_order(
+                    verse_info[current_verse_id], verse_rows, lemma_lookup)
             conn.close()
             return
 
@@ -229,7 +254,7 @@ class TableComposer(Composer):
                 if verse_rows:
                     verse, current_par_class, current_is_red = self._build_verse(
                         verse_info[current_verse_id], verse_rows,
-                        current_par_class, current_is_red,
+                        current_par_class, current_is_red, lemma_lookup,
                     )
                     yield verse
                 current_verse_id, verse_rows = row['verse_id'], []
@@ -237,14 +262,14 @@ class TableComposer(Composer):
         if verse_rows:
             verse, current_par_class, current_is_red = self._build_verse(
                 verse_info[current_verse_id], verse_rows,
-                current_par_class, current_is_red,
+                current_par_class, current_is_red, lemma_lookup,
             )
             yield verse
 
         conn.close()
 
     @staticmethod
-    def _build_verse(verse_info, rows, current_par_class, current_is_red):
+    def _build_verse(verse_info, rows, current_par_class, current_is_red, lemma_lookup):
         osis_ref = f"{verse_info['book']}.{verse_info['chapter']}.{verse_info['verse']}"
         header   = verse_info['heading']
         xrefs    = {'1': verse_info['crossref']} if verse_info['crossref'] else {}
@@ -293,7 +318,7 @@ class TableComposer(Composer):
             english   = _assemble_group_text(members, owner_row)
             notes     = [{'noteId': f"F{r['bsb_sort']}", 'text': r['footnote']}
                          for r in members if r['footnote']]
-            source_words = [_to_source_word(r) for r in members]
+            source_words = [_to_source_word(r, lemma_lookup) for r in members]
 
             has_word  = any(c.isalnum() for c in english)
             has_trail = any(r['end_quote'] or r['punctuation'] for r in members)
@@ -343,7 +368,7 @@ class TableComposer(Composer):
         return (osis_ref, tokens, header, xrefs), current_par_class, current_is_red
 
     @staticmethod
-    def _build_verse_source_order(verse_info, rows) -> tuple:
+    def _build_verse_source_order(verse_info, rows, lemma_lookup) -> tuple:
         """Forward-interlinear build: one AlignedToken per source token, in
         the source language's own reading order (source_sort) rather than
         grouped by English alignment (see _build_verse). Deliberately not a
@@ -387,7 +412,7 @@ class TableComposer(Composer):
             tokens.append(AlignedToken(
                 english=english,
                 skip_space_after=False,
-                source_words=[_to_source_word(row)],
+                source_words=[_to_source_word(row, lemma_lookup)],
                 notes=notes,
             ))
 
