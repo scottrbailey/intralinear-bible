@@ -246,16 +246,16 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
             lemma           TEXT NOT NULL,
             transliteration TEXT NOT NULL,
             variant_count   INTEGER NOT NULL,
+            source          TEXT NOT NULL DEFAULT 'macula' CHECK(source IN ('macula','bsb')),
             PRIMARY KEY (strongs, lang)
         )
     """)
     conn.executemany(
-        "INSERT INTO strongs_lemma (strongs, lang, lemma, transliteration, variant_count) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO strongs_lemma (strongs, lang, lemma, transliteration, variant_count, source) "
+        "VALUES (?, ?, ?, ?, ?, 'macula')",
         rows,
     )
     conn.commit()
-    conn.close()
 
     print(f"Wrote {len(rows):,} strongs_lemma row(s) to {db_path}")
     if collisions:
@@ -265,6 +265,77 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
             print(f"  {lang}{strongs}: {spellings}")
         if len(collisions) > 10:
             print(f"  ... and {len(collisions) - 10} more")
+
+    fill_gaps_from_bsb(conn)
+    conn.close()
+
+
+def fill_gaps_from_bsb(conn: sqlite3.Connection) -> None:
+    """Fallback tier for coverage holes: a (strongs, lang) that bsb_tables.db's
+    own `tokens` table uses but the Macula-derived build above found no entry
+    for -- whether a genuine absence or a numbering disagreement between the
+    two datasets (confirmed case: Bible Hub's H197 vs. Macula's H361 for the
+    same word, אולם/אילם "porch") -- falls back to bsb_tables.db's own data
+    instead of trying to reconcile the two numbering schemes.
+
+    No cross-referencing needed: a token whose parsing_short has no '|' (a
+    single, unprefixed morpheme, e.g. plain 'N-msc' rather than 'Conj-w |
+    N-ms') already has its bare word as source_text, with Bible Hub's own
+    translit column giving that exact word's transliteration -- so the most
+    common such (source_text, translit) pair recorded under a given number
+    is already a usable lemma/transliteration pair, no lookup elsewhere
+    required. Rows land in strongs_lemma with source='bsb' rather than
+    'macula' so it's clear later which entries came from the richer
+    Macula-derived lemma and which are this same-dataset fallback. A no-op
+    if `tokens` doesn't exist yet in this database (fresh db, no BSB import
+    run yet) -- nothing to check gaps against.
+    """
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tokens'"
+    ).fetchone():
+        print("NOTE: no 'tokens' table in this database yet (run utils/import_bsb_table.py "
+              "first) -- skipping the bsb_tables.db fallback fill.")
+        return
+
+    conn.row_factory = sqlite3.Row
+    holes = conn.execute("""
+        SELECT DISTINCT t.strongs AS strongs,
+               CASE WHEN t.language = 'A' THEN 'H' ELSE t.language END AS lang
+        FROM tokens t
+        WHERE t.strongs IS NOT NULL AND t.strongs != ''
+          AND NOT EXISTS (
+              SELECT 1 FROM strongs_lemma sl
+              WHERE sl.strongs = t.strongs
+                AND sl.lang = CASE WHEN t.language = 'A' THEN 'H' ELSE t.language END
+          )
+    """).fetchall()
+
+    filled = 0
+    for hole in holes:
+        strongs, lang = hole['strongs'], hole['lang']
+        best = conn.execute("""
+            SELECT source_text, translit, COUNT(*) AS n
+            FROM tokens
+            WHERE strongs = ?
+              AND (language = ? OR (? = 'H' AND language = 'A'))
+              AND (parsing_short IS NULL OR parsing_short NOT LIKE '%|%')
+            GROUP BY source_text, translit
+            ORDER BY n DESC
+            LIMIT 1
+        """, (strongs, lang, lang)).fetchone()
+        if best is None or not best['source_text']:
+            continue
+        conn.execute(
+            "INSERT INTO strongs_lemma (strongs, lang, lemma, transliteration, variant_count, source) "
+            "VALUES (?, ?, ?, ?, 1, 'bsb')",
+            (strongs, lang, best['source_text'], best['translit'] or ''),
+        )
+        filled += 1
+    conn.commit()
+
+    print(f"Filled {filled:,} of {len(holes):,} coverage hole(s) from bsb_tables.db's own "
+          f"unprefixed occurrences (source='bsb'); {len(holes) - filled:,} had no unprefixed "
+          f"occurrence of that number to fall back to.")
 
 
 def explain_strongs(numbers: set, hebrew_source: Path, greek_source: Path) -> None:
