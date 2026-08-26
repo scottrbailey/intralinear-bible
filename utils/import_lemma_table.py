@@ -228,6 +228,45 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
             print(f"  ... and {len(collisions) - 10} more")
 
 
+def explain_strongs(numbers: set, hebrew_source: Path, greek_source: Path) -> None:
+    """Diagnostic for a coverage hole: for each bare Strong's number in
+    `numbers`, scan both Macula sources and print every distinct raw
+    (unstripped) value seen for it, with its class/lemma and how often.
+    Distinguishes three cases a bare coverage-hole count can't tell apart:
+    the number never appears in the source at all (a genuine cross-dataset
+    gap, nothing this script can do about it); it always appears with the
+    same single trailing letter (a real, unambiguous entry that
+    _collect_lemmas() is currently dropping too cautiously -- worth
+    reconsidering if this shows up a lot); or it appears with multiple
+    different letters/senses (genuinely ambiguous, correctly dropped, see
+    that function's docstring on the H2050 case).
+    """
+    for source_path, label in ((hebrew_source, 'Hebrew/Aramaic'), (greek_source, 'Greek')):
+        print(f"--- {label} ({source_path.name}) ---")
+        if not source_path.exists():
+            print(f"  WARNING: not found -- skipping.")
+            continue
+        found: dict[str, Counter] = defaultdict(Counter)
+        with open(source_path, encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f, delimiter='\t')
+            for row in reader:
+                raw = (row.get('strongnumberx') or row.get('strong') or row.get('strongs') or '').strip()
+                if not raw:
+                    continue
+                bare, _ = _bare_strongs(raw)
+                if bare in numbers:
+                    lemma_text = (row.get('stronglemma') or row.get('lemma') or '').strip()
+                    found[bare][(raw, row.get('class', ''), lemma_text)] += 1
+        for number in sorted(numbers, key=int):
+            variants = found.get(number)
+            if not variants:
+                print(f"  {number}: not found in this source at all")
+                continue
+            print(f"  {number}:")
+            for (raw, cls, lemma_text), n in variants.most_common():
+                print(f"    raw={raw!r} class={cls!r} lemma={lemma_text!r} count={n}")
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--hebrew-source', type=Path, default=DEFAULT_HEBREW_SOURCE,
@@ -236,5 +275,13 @@ if __name__ == '__main__':
                          help=f"Path to macula-greek-SBLGNT.tsv (default: {DEFAULT_GREEK_SOURCE})")
     parser.add_argument('--db', type=Path, default=DEFAULT_DB,
                          help=f"bsb_tables.db path to add strongs_lemma to (default: {DEFAULT_DB})")
+    parser.add_argument('--explain', type=str, default=None,
+                         help="Comma-separated bare Strong's numbers (no H/G prefix) to diagnose "
+                              "against the source files instead of building the table, e.g. "
+                              "--explain 197,3887,6974")
     args = parser.parse_args()
-    build_lemma_table(args.hebrew_source, args.greek_source, args.db)
+    if args.explain:
+        explain_strongs({n.strip() for n in args.explain.split(',') if n.strip()},
+                         args.hebrew_source, args.greek_source)
+    else:
+        build_lemma_table(args.hebrew_source, args.greek_source, args.db)
