@@ -143,10 +143,14 @@ class ESwordStackedFormatter(ESwordIntralinearFormatter):
 # ============================================================ MySword
 #
 # Three tiers, not two: L1/L2 share one render_verse (lemma transliteration
-# in `rt`, this word's own full transliteration in `ro`, shown only when it
-# differs from the lemma -- see MySwordLemmaFormatter's docstring), L3 keeps
-# the original rt=full-word-transliteration/ro=original-script pairing this
+# in `rt`, this word's own full transliteration in `ro`), L3 keeps the
+# original rt=full-word-transliteration/ro=original-script pairing this
 # pair used to share before the lemma feature existed.
+#
+# L1/L2 diverge on what `ro` actually holds, though, not just its CSS --
+# see _ro_content()'s docstring on MySwordLemmaFormatter -- so that one
+# piece of behavior is pulled into its own overridable method rather than
+# duplicating render_verse for a single-line difference.
 
 _MYSWORD_LEMMA_CSS = _INTRALINEAR_CSS +\
     f'ruby > ro {{opacity:0}} .ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
@@ -156,19 +160,34 @@ _MYSWORD_LEMMA_RULES = ''
 class MySwordLemmaFormatter(_MySwordXrefMixin, VerseFormatter):
     """BTB-L1: lemma transliteration only -- links to the Strong's entry via
     a readable word ('reshit') instead of a bare number ('H7225'). Shares
-    render_verse with MySwordLemmaDetailFormatter (BTB-L2); the only
-    difference between them is CSS (`ruby > ro` hidden here, shown there).
-
-    `ro` is only ever populated when this word's own full transliteration
-    actually differs from its lemma's -- an unprefixed, uninflected word has
-    nothing extra to show, so `ro` stays empty for that word even in L2,
-    not merely CSS-hidden the way it always is here in L1.
+    render_verse with MySwordLemmaDetailFormatter (BTB-L2); the CSS
+    difference between them is `ruby > ro` hidden here, shown there -- see
+    _ro_content() for why the two also need different *content* in `ro`,
+    not just different visibility.
     """
     abbreviation   = "BTB-L1"
     module_name    = "Berean Transliterated Bible - Level 1"
     file_extension = ".bbl.mybible"
     css            = _MYSWORD_LEMMA_CSS
     verse_rules    = _MYSWORD_LEMMA_RULES
+
+    @staticmethod
+    def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
+        """L1's `ro` is always a single space, never the real full-word
+        transliteration -- confirmed against a real MySword build that
+        `ruby`'s `display:inline-flex; flex-direction:column` sizes the
+        whole box to its *widest* child, including an invisible one
+        (`opacity:0` keeps the box in flow, just not rendered). Hebrew's
+        full-word transliteration is routinely longer than the bare lemma
+        once prefixes/case endings are involved, so putting the real text
+        in a permanently-hidden `ro` was forcing every word's box wide
+        enough for text nobody ever sees, leaving a visible gap around the
+        short visible lemma. A space has negligible width regardless of
+        what the real word would have been, and there's no reason to carry
+        the real (and sometimes long) text into the DOM at all when it can
+        never be shown.
+        """
+        return ' '
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -210,9 +229,8 @@ class MySwordLemmaFormatter(_MySwordXrefMixin, VerseFormatter):
                         rt = f'<rt><a href="s{strongs}">{lemma_xlit}</a></rt>'
                     else:
                         rt = f'<rt>{lemma_xlit}</rt>'
-                    ro_content = word_xlit if word_xlit != lemma_xlit else ''
                     lemmas.append(
-                        f'<span class="ilb {lang}"><ruby>{rt}<ro>{ro_content}</ro></ruby></span>'
+                        f'<span class="ilb {lang}"><ruby>{rt}<ro>{self._ro_content(word_xlit, lemma_xlit)}</ro></ruby></span>'
                     )
                 parts.append(' '.join(lemmas))
                 parts.append(trail)
@@ -241,11 +259,33 @@ _MYSWORD_LEMMA_DETAIL_CSS = _INTRALINEAR_CSS +\
 
 class MySwordLemmaDetailFormatter(MySwordLemmaFormatter):
     """BTB-L2: lemma transliteration over full-word transliteration -- same
-    render_verse as BTB-L1 (including the per-word ro-suppression when the
-    two match), `ro` shown via CSS instead of hidden."""
+    render_verse as BTB-L1, `ro` shown via CSS instead of hidden. Overrides
+    _ro_content(): unlike L1 (always a space, see that method's docstring
+    on MySwordLemmaFormatter), L2's `ro` is genuinely meant to be read, so
+    it holds the real full-word transliteration whenever that adds
+    information beyond the lemma alone.
+
+    A plain '' for the no-extra-information case (same word, same
+    transliteration -- common in Greek, where the citation form and an
+    inflected form's transliteration often coincide) turned out to be
+    wrong, not just uninformative: an empty `ro` collapses to no
+    meaningful height, so `.ilb`'s vertical-align:middle centers a
+    one-line box for that word while every neighboring word (real
+    two-line box) still centers a two-line one -- `rt` drops to the
+    English baseline for that word alone, producing a visibly jagged line
+    where some words ride high and others sit low depending on whether
+    that specific word's lemma happened to match. A space preserves the
+    same line-height as a populated `ro` without displaying anything,
+    keeping every word's vertical position identical regardless of
+    content.
+    """
     abbreviation = "BTB-L2"
     module_name  = "Berean Transliterated Bible - Level 2"
     css          = _MYSWORD_LEMMA_DETAIL_CSS
+
+    @staticmethod
+    def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
+        return word_xlit if word_xlit != lemma_xlit else ' '
 
 
 _MYSWORD_TRANSLINEAR_CSS = _INTRALINEAR_CSS + \
