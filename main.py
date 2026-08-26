@@ -54,7 +54,8 @@ from verse_formatter import (
     ESwordIntralinearFormatter,
     ESwordReverseInterlinearFormatter,
     ESwordForwardInterlinearFormatter,
-    MySwordIntralinearFormatter,
+    MySwordLemmaFormatter,
+    MySwordLemmaDetailFormatter,
     MySwordStackedFormatter,
     MySwordReverseInterlinearFormatter, ESwordStackedFormatter,
     MySwordForwardInterlinearFormatter,
@@ -122,9 +123,11 @@ def parse_args():
     )
     parser.add_argument(
         "--mode", dest="render_mode",
-        choices=["intralinear", "interlinear", "reverse", "stacked", "intra", "inter", "rev"],
+        choices=["intralinear", "interlinear", "reverse", "L1", "L2", "L3", "intra", "inter", "rev"],
         default="intralinear",
-        help="Render mode (default: intralinear); ignored when --format=all",
+        help="Render mode (default: intralinear, which builds all three BTB "
+             "tiers together); L1/L2/L3 build a single tier alone; ignored "
+             "when --format=all",
     )
     parser.add_argument(
         "--composer", dest="composer", choices=["alignment", "table"], default=None,
@@ -163,19 +166,30 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'all':
         return [
+            # e-Sword still on the old two-module BSTB/BSXB pattern pending
+            # its own three-tier split (see verse_formatter/intralinear.py).
             esword(ESwordIntralinearFormatter),
             esword(ESwordReverseInterlinearFormatter),
-            mysword(MySwordIntralinearFormatter),
+            mysword(MySwordLemmaFormatter),
+            mysword(MySwordLemmaDetailFormatter),
             mysword(MySwordStackedFormatter),
             mysword(MySwordReverseInterlinearFormatter),
             OSISWriter(transliterate=transliterate),
         ]
 
     if output_format == 'esword':
+        # Still the old two-module BSTB/BSXB pattern -- e-Sword's own
+        # three-tier split (BTB-L1/L2/L3, matching MySword below) needs its
+        # own care for the <num>-tag/CSS-overlay dictionary-link workaround
+        # and hasn't been done yet. L1/L2/L3 raise rather than silently
+        # falling through to the wrong formatter.
         if render_mode == 'intralinear':
             return [esword(ESwordIntralinearFormatter), esword(ESwordStackedFormatter)]
-        elif render_mode == 'stacked':
-            profile_cls = ESwordStackedFormatter
+        elif render_mode in ('L1', 'L2', 'L3'):
+            raise NotImplementedError(
+                f"--format esword --mode {render_mode}: e-Sword's three-tier BTB split "
+                f"isn't implemented yet (MySword's is) -- use --mode intralinear for now."
+            )
         elif render_mode == 'interlinear':
             profile_cls = ESwordForwardInterlinearFormatter
         else:  # reverse
@@ -184,15 +198,21 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'mysword':
         if render_mode == 'intralinear':
-            return [mysword(MySwordIntralinearFormatter), mysword(MySwordStackedFormatter)]
+            return [mysword(MySwordLemmaFormatter), mysword(MySwordLemmaDetailFormatter),
+                    mysword(MySwordStackedFormatter)]
+        elif render_mode == 'L1':
+            return [mysword(MySwordLemmaFormatter)]
+        elif render_mode == 'L2':
+            return [mysword(MySwordLemmaDetailFormatter)]
+        elif render_mode == 'L3':
+            return [mysword(MySwordStackedFormatter)]
         elif render_mode == 'interlinear':
             # rtl_ot: forward interlinear reorders Hebrew into its own
             # (right-to-left) word order, unlike intralinear/reverse
             # interlinear where English stays the primary, left-to-right
             # reading order regardless of source language.
             return [mysword(MySwordForwardInterlinearFormatter, rtl_ot=True)]
-        else:  # reverse (and 'stacked' -- MySword has no separate stacked
-               # writer path today, same pre-existing gap as before this change)
+        else:  # reverse
             return [mysword(MySwordReverseInterlinearFormatter)]
 
     # osis
