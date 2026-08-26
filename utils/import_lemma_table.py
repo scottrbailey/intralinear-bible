@@ -2,7 +2,7 @@
 import_lemma_table.py
 
 Builds `strongs_lemma` in data/bsb_tables.db: one row per (Strong's number,
-language) giving the canonical dictionary-citation spelling and its
+lang) giving the canonical dictionary-citation spelling and its
 transliteration, derived from the Macula Hebrew (WLC) and Macula Greek
 (SBLGNT) source files -- the same sources composer.py's alignment-path
 composer reads live (see config.yaml's `sources` block), here processed
@@ -53,8 +53,12 @@ normalization, which only applies to the non-default live-alignment
 composer path. Aramaic tokens' Strong's numbers share the Hebrew number
 space (Strong's own dictionary has no separate Aramaic numbering, per
 composer.py's own '"H" if lang in ("H", "A")' convention), so Aramaic rows
-in the Hebrew source file are folded into language='H' here too -- one
-pass over the whole file, no per-row language check needed.
+in the Hebrew source file are folded into lang='H' here too -- one pass
+over the whole file, no per-row lang check needed. Note that this table's
+'H' also covers Aramaic tokens on the render/query side: a query joining
+against a tokens table whose own language column distinguishes 'A' from
+'H' needs to treat 'A' as 'H' when looking this table up, not compare
+them literally -- there's no 'A' row here to match.
 
 Usage:
     python utils/import_lemma_table.py [--hebrew-source FILE] [--greek-source FILE] [--db FILE]
@@ -167,10 +171,10 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
     if transliterate is None:
         transliterate = _load_transliterate_config()
 
-    rows = []  # (strongs, language, lemma, transliteration, variant_count)
-    collisions = []  # (language, strongs, {spelling: count})
+    rows = []  # (strongs, lang, lemma, transliteration, variant_count)
+    collisions = []  # (lang, strongs, {spelling: count})
 
-    for source_path, language, label in (
+    for source_path, lang, label in (
         (hebrew_source, 'H', 'Hebrew/Aramaic'),
         (greek_source, 'G', 'Greek'),
     ):
@@ -182,9 +186,9 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
             winner, _ = spellings.most_common(1)[0]
             variant_count = len(spellings)
             if variant_count > 1:
-                collisions.append((language, strongs, dict(spellings)))
-            xlit = transliterate(winner, language)
-            rows.append((strongs, language, winner, xlit, variant_count))
+                collisions.append((lang, strongs, dict(spellings)))
+            xlit = transliterate(winner, lang)
+            rows.append((strongs, lang, winner, xlit, variant_count))
         print(f"  {label}: {len(counts):,} distinct Strong's number(s) from {source_path.name}")
         if dropped_for_letter:
             print(f"  NOTE: {dropped_for_letter:,} content-word row(s) in {source_path.name} carried "
@@ -199,15 +203,15 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
     conn.execute("""
         CREATE TABLE strongs_lemma (
             strongs         TEXT NOT NULL,
-            language        TEXT NOT NULL CHECK(language IN ('H','G')),
+            lang            TEXT NOT NULL CHECK(lang IN ('H','G')),
             lemma           TEXT NOT NULL,
             transliteration TEXT NOT NULL,
             variant_count   INTEGER NOT NULL,
-            PRIMARY KEY (strongs, language)
+            PRIMARY KEY (strongs, lang)
         )
     """)
     conn.executemany(
-        "INSERT INTO strongs_lemma (strongs, language, lemma, transliteration, variant_count) "
+        "INSERT INTO strongs_lemma (strongs, lang, lemma, transliteration, variant_count) "
         "VALUES (?, ?, ?, ?, ?)",
         rows,
     )
@@ -218,8 +222,8 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
     if collisions:
         print(f"WARNING: {len(collisions)} Strong's number(s) had more than one lemma spelling "
               f"in the source data (most-common spelling kept -- see variant_count column):")
-        for language, strongs, spellings in collisions[:10]:
-            print(f"  {language}{strongs}: {spellings}")
+        for lang, strongs, spellings in collisions[:10]:
+            print(f"  {lang}{strongs}: {spellings}")
         if len(collisions) > 10:
             print(f"  ... and {len(collisions) - 10} more")
 
