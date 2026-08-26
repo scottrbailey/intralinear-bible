@@ -51,7 +51,8 @@ from models import MappingDirection
 from composer import AlignmentComposer
 from table_composer import TableComposer
 from verse_formatter import (
-    ESwordIntralinearFormatter,
+    ESwordLemmaFormatter,
+    ESwordLemmaDetailFormatter,
     ESwordReverseInterlinearFormatter,
     ESwordForwardInterlinearFormatter,
     MySwordLemmaFormatter,
@@ -166,9 +167,9 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'all':
         return [
-            # e-Sword still on the old two-module BSTB/BSXB pattern pending
-            # its own three-tier split (see verse_formatter/intralinear.py).
-            esword(ESwordIntralinearFormatter),
+            esword(ESwordLemmaFormatter),
+            esword(ESwordLemmaDetailFormatter),
+            esword(ESwordStackedFormatter),
             esword(ESwordReverseInterlinearFormatter),
             mysword(MySwordLemmaFormatter),
             mysword(MySwordLemmaDetailFormatter),
@@ -178,18 +179,15 @@ def build_writers(output_format: str, render_mode: str,
         ]
 
     if output_format == 'esword':
-        # Still the old two-module BSTB/BSXB pattern -- e-Sword's own
-        # three-tier split (BTB-L1/L2/L3, matching MySword below) needs its
-        # own care for the <num>-tag/CSS-overlay dictionary-link workaround
-        # and hasn't been done yet. L1/L2/L3 raise rather than silently
-        # falling through to the wrong formatter.
         if render_mode == 'intralinear':
-            return [esword(ESwordIntralinearFormatter), esword(ESwordStackedFormatter)]
-        elif render_mode in ('L1', 'L2', 'L3'):
-            raise NotImplementedError(
-                f"--format esword --mode {render_mode}: e-Sword's three-tier BTB split "
-                f"isn't implemented yet (MySword's is) -- use --mode intralinear for now."
-            )
+            return [esword(ESwordLemmaFormatter), esword(ESwordLemmaDetailFormatter),
+                    esword(ESwordStackedFormatter)]
+        elif render_mode == 'L1':
+            return [esword(ESwordLemmaFormatter)]
+        elif render_mode == 'L2':
+            return [esword(ESwordLemmaDetailFormatter)]
+        elif render_mode == 'L3':
+            return [esword(ESwordStackedFormatter)]
         elif render_mode == 'interlinear':
             profile_cls = ESwordForwardInterlinearFormatter
         else:  # reverse

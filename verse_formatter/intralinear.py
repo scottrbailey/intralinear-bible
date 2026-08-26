@@ -62,17 +62,137 @@ _INTRALINEAR_CSS = dedent(f'''\
 # below whose `ro` still holds the real original script.
 
 # ============================================================ e-Sword
+#
+# Same three-tier split as MySword (see that section below), adapted for
+# e-Sword's one real constraint: it has no way to make an inline dictionary
+# link directly, so `rt`/`ro` markup is paired with a hidden `<num>` tag,
+# CSS-positioned over the visible line, that e-Sword auto-links to that
+# Strong's number's dictionary entry (`.ilb ruby ~ * {...; opacity:0}`).
+# That overlay is positioned relative to `.ilb`'s own box and has survived
+# real cross-platform (iOS/Android/desktop) testing already -- since `rt`
+# is always visible in every one of the three tiers (never the hidden
+# line), `.ilb`'s box shape never changes between them, so this reuses
+# that same geometry unmodified rather than needing its own per-tier
+# tuning. See MySwordLemmaFormatter's docstring for what L1/L2 share and
+# how `ro`'s content differs from L3's.
 
-_ESWORD_INTRALINEAR_CSS = (_INTRALINEAR_CSS +
-    f'.hb ruby ro {{font-size:1.2em;}} ruby > ro {{opacity:0}} ruby rt {{color:{COLOR_TRANSLIT};}}\n' +
+_ESWORD_LEMMA_CSS = (_INTRALINEAR_CSS +
+    f'ruby > ro {{opacity:0}} ruby rt {{color:{COLOR_TRANSLIT};}}\n' +
     '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 )
 
-class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSTB"
-    module_name    = "Berean Standard Transliterated Bible"
+class ESwordLemmaFormatter(_ESwordXrefMixin, VerseFormatter):
+    """BTB-L1: lemma transliteration only -- links to the Strong's entry via
+    a readable word ('reshit') instead of a bare number ('H7225'). Shares
+    render_verse with ESwordLemmaDetailFormatter (BTB-L2); the CSS
+    difference between them is `ruby > ro` hidden here, shown there -- see
+    _ro_content() (same as MySwordLemmaFormatter's -- see that class's
+    docstring for why L1 always uses a space rather than the real
+    full-word transliteration)."""
+    abbreviation   = "BTB-L1"
+    module_name    = "Berean Transliterated Bible - Level 1"
     file_extension = ".bbli"
-    css            = _ESWORD_INTRALINEAR_CSS
+    css            = _ESWORD_LEMMA_CSS
+
+    @staticmethod
+    def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
+        return ' '
+
+    def render_verse(self, tokens, header=None, note_id_map=None,
+                     xrefs=None, xref_placement=0) -> str:
+        note_id_map = note_id_map or {}
+        xrefs       = xrefs or []
+        parts       = []
+        in_red      = False
+
+        if header:
+            parts.append(self.render_header(header))
+        if xref_placement == 1:
+            parts.append(self.render_crossref(xrefs))
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_red and not in_red:
+                parts.append(self.red_letter_tags[0])
+                in_red = True
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(self.transform_english(token.english, token.par_class))
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+            else:
+                core, trail = _split_trailing_punct(token.english)
+                parts.append(self.transform_english(core, token.par_class))
+                parts.append(' ')
+                lemmas = []
+                for sw in token.source_words:
+                    word_xlit  = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
+                    lemma_xlit = sw.stem.lemma_translit or word_xlit
+                    strongs = sw.stem.strongs
+                    lang = 'gk' if sw.lang == 'G' else 'hb'
+                    rt_class = ' class="unlinked"' if not strongs else ''
+                    num_tag  = f'<num>{strongs}</num>' if strongs else ''
+                    lemmas.append(
+                        f'<span class="ilb {lang}">'
+                        f'<ruby><rt{rt_class}>{lemma_xlit}</rt><ro>{self._ro_content(word_xlit, lemma_xlit)}</ro></ruby>'
+                        f'{num_tag}'
+                        f'</span>'
+                    )
+                parts.append(' '.join(lemmas))
+                parts.append(trail)
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f' <not>N{seq}</not>')
+
+            if in_red and (next_token is None or not next_token.is_red):
+                parts.append(self.red_letter_tags[1])
+                in_red = False
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self.render_crossref(xrefs))
+
+        return ''.join(parts)
+
+
+_ESWORD_LEMMA_DETAIL_CSS = (_INTRALINEAR_CSS +
+    f'ruby > ro {{opacity:1}} ruby rt {{color:{COLOR_TRANSLIT};}}\n' +
+    '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
+)
+
+class ESwordLemmaDetailFormatter(ESwordLemmaFormatter):
+    """BTB-L2: lemma transliteration over full-word transliteration -- same
+    render_verse as BTB-L1, `ro` shown via CSS instead of hidden. See
+    MySwordLemmaDetailFormatter's docstring for why `_ro_content()` falls
+    back to a space (not '') when the two transliterations match, rather
+    than leaving `ro` truly empty."""
+    abbreviation   = "BTB-L2"
+    module_name    = "Berean Transliterated Bible - Level 2"
+    css            = _ESWORD_LEMMA_DETAIL_CSS
+
+    @staticmethod
+    def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
+        return word_xlit if word_xlit != lemma_xlit else ' '
+
+
+_ESWORD_STACKED_CSS = _INTRALINEAR_CSS + \
+    f'.hb ruby ro {{font-size:1.2em;}} ruby > ro {{opacity:1}} ruby rt {{color:{COLOR_TRANSLIT};}}' + \
+    '\n.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
+
+
+class ESwordStackedFormatter(_ESwordXrefMixin, VerseFormatter):
+    """BTB-L3: full-word transliteration over the original script -- the
+    heaviest of the three tiers. Unchanged in substance from before this
+    redesign (previously BSXB); now stands alone with its own render_verse
+    rather than inheriting it from the (now lemma-focused) L1 formatter."""
+    abbreviation   = "BTB-L3"
+    module_name    = "Berean Transliterated Bible - Level 3"
+    file_extension = ".bbli"
+    css            = _ESWORD_STACKED_CSS
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -132,18 +252,6 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
             parts.append(self.render_crossref(xrefs))
 
         return ''.join(parts)
-
-
-_ESWORD_STACKED_CSS = _INTRALINEAR_CSS + \
-    f'.hb ruby ro {{font-size:1.2em;}} ruby > ro {{opacity:1}} ruby rt {{color:{COLOR_TRANSLIT};}}' + \
-    '\n.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
-
-
-class ESwordStackedFormatter(ESwordIntralinearFormatter):
-    abbreviation   = "BSXB"
-    module_name    = "Berean Standard Translinear Bible"
-    file_extension = ".bbli"
-    css            = _ESWORD_STACKED_CSS
 
 # ============================================================ MySword
 #
