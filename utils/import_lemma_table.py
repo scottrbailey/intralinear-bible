@@ -16,33 +16,27 @@ verses -- exactly wrong for something meant to read as "the" canonical
 form for that number. Precomputing picks one spelling per number (the
 most common one actually seen) so it reads the same everywhere it's shown.
 
-No filtering by token class (article/preposition/conjunction/etc.):
-an earlier version of this script skipped models.NON_STEM_CLASS
-token classes on the assumption that bsb_tables.db's own `tokens` table
-(built by utils/import_bsb_table.py from Bible Hub's BSB interlinear
-export -- a different source from WLC/SBLGNT, and the one actually
-joined against at render time) never assigns those a Strong's number of
-their own. That's true for a fused prefix like the preposition in
-בְּרֵאשִׁית ("in [the] beginning") -- Bible Hub's table gives that whole
-word one strongs value, 7225, for the noun only -- but it's false for
-other NON_STEM_CLASS-tagged tokens: the object-marker class ('om',
-Hebrew's untranslated אֵת/אֶת) gets a real, non-placeholder number,
-853, every time, confirmed in Bible Hub's own table -- so filtering by
-class was silently discarding a legitimate, high-frequency number
-(and plausibly others, e.g. 'rel' for the relative particle אֲשֶׁר,
-H834). composer.py's own live-alignment loader (_load_source_index)
-never filters by class either, for the same reason: class isn't what
-decides whether a token carries a real number.
+No class filtering on whether a token is looked at all (article/
+preposition/conjunction/etc.): an earlier version of this script skipped
+every models.NON_STEM_CLASS token outright, on the assumption that
+bsb_tables.db's own `tokens` table (built by utils/import_bsb_table.py
+from Bible Hub's BSB interlinear export -- a different source from
+WLC/SBLGNT, and the one actually joined against at render time) never
+assigns those a Strong's number of their own. That's true for a fused
+prefix like the preposition in בְּרֵאשִׁית ("in [the] beginning") --
+Bible Hub's table gives that whole word one strongs value, 7225, for the
+noun only -- but it's false for other NON_STEM_CLASS-tagged tokens: the
+object-marker class ('om', Hebrew's untranslated אֵת/אֶת) gets a real,
+non-placeholder number, 853, every time, confirmed in Bible Hub's own
+table -- so filtering by class was silently discarding a legitimate,
+high-frequency number. composer.py's own live-alignment loader
+(_load_source_index) never filters by class either, for the same
+reason: class isn't what decides whether a token carries a real number.
 
-What actually distinguishes a real number from Macula's placeholder
-pattern is the trailing letter, not the class: grammatical-morpheme
-tokens are sometimes tagged with a pseudo-Strong's-number ('0871a',
-'2050b') borrowed from an unrelated real dictionary entry rather than a
-genuine sense-disambiguated homograph split (see composer.py's
-_load_source_index() docstring for a worked example), and confirmed
-against a real WLC run to reach real content-word tokens too (see
-_collect_lemmas()'s docstring) -- so that's the one signal this script
-actually filters on.
+Class does still matter for a narrower question -- see
+_collect_lemmas()'s docstring on recovering letter-suffixed numbers --
+where it's the signal that distinguishes a real lettered dictionary
+entry from Macula's placeholder-reuse pattern.
 
 Strong's-number format: keyed as the bare digit string (no H/G/A prefix,
 no leading zeros), to match bsb_tables.db's own tokens.strongs column
@@ -84,6 +78,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from models import NON_STEM_CLASS          # noqa: E402
 from translit import make_transliterator   # noqa: E402
 
 DEFAULT_HEBREW_SOURCE = ROOT.parent / "macula-hebrew" / "WLC" / "tsv" / "macula-hebrew.tsv"
@@ -126,29 +121,37 @@ def _load_transliterate_config():
 
 def _collect_lemmas(tsv_path: Path) -> tuple[dict, int, int]:
     """One pass over a Macula source TSV -> {strongs: Counter({lemma_text: count})}.
-    No token-class filtering (see module docstring on why class isn't a
-    reliable signal for this); the only thing excluded outright is a token
-    whose Strong's number has no value at all.
+    No token-class filtering on whether a token gets looked at all (see
+    module docstring on why class isn't a reliable signal for that); the
+    only thing excluded outright is a token whose Strong's number has no
+    value at all.
 
     Trailing-letter Strong's numbers ('0871a', '3887b') need more care than
-    a blanket drop: confirmed against a real WLC run that a base number
-    surfacing under multiple different letters means genuinely different,
+    a blanket drop. A real WLC run showed two genuinely different patterns:
+    a base number surfacing under multiple different letters means
     unrelated dictionary entries reusing that base as a placeholder (see
     composer.py's _load_source_index() docstring) -- bare '2050' picked up
     11,944 occurrences of 'הוא' plus a handful of totally unrelated words
-    once every '2050<letter>' got stripped and merged in. But the same
-    real run also showed the common case is a base number that surfaces
-    under exactly ONE letter, always, and never bare at all (e.g. every
-    occurrence of '862' is '0862a', no exceptions) -- that's just a real,
-    unambiguous dictionary entry that happens to have an officially
-    lettered number, not a placeholder collision, and dropping it loses
-    real coverage for no reason. So the rule is: a base number keeps its
-    letter-suffixed rows only when every letter-suffixed occurrence shares
-    the same single letter AND the number never also appears bare
-    (bare-and-lettered coexisting means the letter marks a real second
-    sense distinct from the bare one, which must not be merged in either).
-    Any other mix of letters (or letters alongside a bare form) drops all
-    of that number's letter-suffixed rows, same as before.
+    once every '2050<letter>' got merged in. But a base number surfacing
+    under exactly ONE letter, always, and never bare, looked at first like
+    a real entry with an officially lettered number worth recovering --
+    confirmed for a few content-word cases by checking a real Strong's
+    lexicon (H862/H4099/H6974 all matched their lettered lemma exactly).
+
+    That check by itself isn't enough, though: composer.py's own
+    documented cases (H871 for the preposition בְּ, H2050 for the
+    conjunction ו) are grammatical-morpheme placeholders, and at least
+    H871 *also* shows up under exactly one letter every time in a small
+    sample -- letter-consistency alone can't tell that apart from a real
+    lettered entry. What actually distinguishes them is token class: the
+    documented placeholder-reuse cases are all NON_STEM_CLASS morphemes
+    (article/preposition/conjunction/object-marker/particle/relative),
+    which don't have "spelling variants" of their own the way a real
+    lexeme does. So recovery additionally requires that none of a number's
+    letter-suffixed occurrences are NON_STEM_CLASS-tagged -- this doesn't
+    reopen the H853/'om' hole from before: object-marker tokens are bare
+    in this data (no letter at all), so they're unaffected by this check
+    either way, they already flow through as bare rows.
 
     Hebrew prefers the Strong's-specific `stronglemma` column over the
     general `lemma` column when both are present (stronglemma is tied
@@ -160,6 +163,7 @@ def _collect_lemmas(tsv_path: Path) -> tuple[dict, int, int]:
     bare_counts: dict[str, Counter] = defaultdict(Counter)
     lettered_counts: dict[str, Counter] = defaultdict(Counter)
     lettered_letters: dict[str, set] = defaultdict(set)
+    lettered_non_stem: set = set()
 
     with open(tsv_path, encoding='utf-8', newline='') as f:
         reader = csv.DictReader(f, delimiter='\t')
@@ -175,6 +179,8 @@ def _collect_lemmas(tsv_path: Path) -> tuple[dict, int, int]:
             if letter:
                 lettered_counts[strongs][lemma_text] += 1
                 lettered_letters[strongs].add(letter)
+                if row.get('class', '') in NON_STEM_CLASS:
+                    lettered_non_stem.add(strongs)
             else:
                 bare_counts[strongs][lemma_text] += 1
 
@@ -183,7 +189,7 @@ def _collect_lemmas(tsv_path: Path) -> tuple[dict, int, int]:
     recovered_for_letter = 0
     for strongs, letters in lettered_letters.items():
         n = sum(lettered_counts[strongs].values())
-        if len(letters) == 1 and strongs not in bare_counts:
+        if len(letters) == 1 and strongs not in bare_counts and strongs not in lettered_non_stem:
             counts[strongs] = lettered_counts[strongs]
             recovered_for_letter += n
         else:
