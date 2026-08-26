@@ -51,15 +51,20 @@ _INTRALINEAR_CSS = dedent(f'''\
     .pshdg, .inscrip, .selah {{font-style:italic;}}
     .ilb {{display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}}
     .ilb ruby {{display:inline-flex; flex-direction:column;}}
-    .hb ruby ro {{font-size:1.2em;}}
-    ruby ro {{display:block; color:{COLOR_ANCIENT}; text-align:center;}}
+    ruby ro {{display:block; min-height:1em; color:{COLOR_ANCIENT}; text-align:center;}}
     ruby rt {{display:block; font-size:1.1em;}} ruby rt.unlinked {{color: {COLOR_UNLINKED};}}
 ''')
+# .hb ruby ro's larger font-size (helps Hebrew's small vowel points stay
+# legible) used to live in the shared block above -- fine when every
+# formatter's `ro` held the original script (or a hidden copy of it), but
+# no longer, now that BTB-L1/L2 put a transliteration (or a bare space
+# placeholder) there instead. Added explicitly only to the CSS blocks
+# below whose `ro` still holds the real original script.
 
 # ============================================================ e-Sword
 
 _ESWORD_INTRALINEAR_CSS = (_INTRALINEAR_CSS +
-    f'ruby > ro {{opacity:0}} ruby rt {{color:{COLOR_TRANSLIT};}}\n' +
+    f'.hb ruby ro {{font-size:1.2em;}} ruby > ro {{opacity:0}} ruby rt {{color:{COLOR_TRANSLIT};}}\n' +
     '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 )
 
@@ -130,7 +135,7 @@ class ESwordIntralinearFormatter(_ESwordXrefMixin, VerseFormatter):
 
 
 _ESWORD_STACKED_CSS = _INTRALINEAR_CSS + \
-    f'ruby > ro {{opacity:1}} ruby rt {{color:{COLOR_TRANSLIT};}}' + \
+    f'.hb ruby ro {{font-size:1.2em;}} ruby > ro {{opacity:1}} ruby rt {{color:{COLOR_TRANSLIT};}}' + \
     '\n.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 
 
@@ -289,7 +294,7 @@ class MySwordLemmaDetailFormatter(MySwordLemmaFormatter):
 
 
 _MYSWORD_TRANSLINEAR_CSS = _INTRALINEAR_CSS + \
-    f'.ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
+    f'.hb ruby ro {{font-size:1.2em;}} .ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
 
 _MYSWORD_TRANSLINEAR_RULES = ''
 
