@@ -98,15 +98,15 @@ CONFIG_PATH           = ROOT / "config.yaml"
 _STRONGS_RE = re.compile(r'^0*(\d+)([a-zA-Z]*)$')
 
 
-def _bare_strongs(raw: str) -> tuple[str, bool]:
-    """'0871a' -> ('871', True); '07225' -> ('7225', False); '' -> ('', False)."""
+def _bare_strongs(raw: str) -> tuple[str, str]:
+    """'0871a' -> ('871', 'a'); '07225' -> ('7225', ''); '' -> ('', '')."""
     raw = (raw or '').strip()
     if not raw:
-        return '', False
+        return '', ''
     m = _STRONGS_RE.match(raw)
     if not m:
-        return '', False
-    return m.group(1), bool(m.group(2))
+        return '', ''
+    return m.group(1), m.group(2)
 
 
 def _load_transliterate_config():
@@ -124,42 +124,71 @@ def _load_transliterate_config():
     )
 
 
-def _collect_lemmas(tsv_path: Path) -> tuple[dict, int]:
+def _collect_lemmas(tsv_path: Path) -> tuple[dict, int, int]:
     """One pass over a Macula source TSV -> {strongs: Counter({lemma_text: count})}.
     No token-class filtering (see module docstring on why class isn't a
-    reliable signal for this); the only thing excluded is a token whose
-    Strong's number has no value at all, or survives with a trailing
-    letter -- confirmed against a real WLC run that the letter-suffixed
-    placeholder/borrowed-number pattern (see composer.py's
-    _load_source_index() docstring) reaches real content-word tokens too:
-    bare '2050' picked up 11,944 occurrences of 'הוא' plus a handful of
-    totally unrelated words once rows carrying '2050<letter>' got
-    stripped and merged in. Dropping them entirely (composer.py's own
-    rule) loses those rows' lemma data rather than risk that kind of false
-    collision. Hebrew prefers the Strong's-specific `stronglemma` column
-    over the general `lemma` column when both are present (stronglemma is
-    tied directly to the number a reader would look up); Greek's source
-    has no stronglemma column at all, so `lemma` is used there. Returns
-    the count of dropped-for-letter rows for the caller's diagnostic print.
+    reliable signal for this); the only thing excluded outright is a token
+    whose Strong's number has no value at all.
+
+    Trailing-letter Strong's numbers ('0871a', '3887b') need more care than
+    a blanket drop: confirmed against a real WLC run that a base number
+    surfacing under multiple different letters means genuinely different,
+    unrelated dictionary entries reusing that base as a placeholder (see
+    composer.py's _load_source_index() docstring) -- bare '2050' picked up
+    11,944 occurrences of 'הוא' plus a handful of totally unrelated words
+    once every '2050<letter>' got stripped and merged in. But the same
+    real run also showed the common case is a base number that surfaces
+    under exactly ONE letter, always, and never bare at all (e.g. every
+    occurrence of '862' is '0862a', no exceptions) -- that's just a real,
+    unambiguous dictionary entry that happens to have an officially
+    lettered number, not a placeholder collision, and dropping it loses
+    real coverage for no reason. So the rule is: a base number keeps its
+    letter-suffixed rows only when every letter-suffixed occurrence shares
+    the same single letter AND the number never also appears bare
+    (bare-and-lettered coexisting means the letter marks a real second
+    sense distinct from the bare one, which must not be merged in either).
+    Any other mix of letters (or letters alongside a bare form) drops all
+    of that number's letter-suffixed rows, same as before.
+
+    Hebrew prefers the Strong's-specific `stronglemma` column over the
+    general `lemma` column when both are present (stronglemma is tied
+    directly to the number a reader would look up); Greek's source has no
+    stronglemma column at all, so `lemma` is used there. Returns
+    (counts, dropped_for_letter, recovered_for_letter) row counts for the
+    caller's diagnostic print.
     """
-    counts: dict[str, Counter] = defaultdict(Counter)
-    dropped_for_letter = 0
+    bare_counts: dict[str, Counter] = defaultdict(Counter)
+    lettered_counts: dict[str, Counter] = defaultdict(Counter)
+    lettered_letters: dict[str, set] = defaultdict(set)
+
     with open(tsv_path, encoding='utf-8', newline='') as f:
         reader = csv.DictReader(f, delimiter='\t')
         for row in reader:
-            strongs, had_letter = _bare_strongs(
+            strongs, letter = _bare_strongs(
                 row.get('strongnumberx') or row.get('strong') or row.get('strongs') or ''
             )
-            if had_letter:
-                dropped_for_letter += 1
-                continue
             if not strongs:
                 continue
             lemma_text = (row.get('stronglemma') or row.get('lemma') or '').strip()
             if not lemma_text:
                 continue
-            counts[strongs][lemma_text] += 1
-    return counts, dropped_for_letter
+            if letter:
+                lettered_counts[strongs][lemma_text] += 1
+                lettered_letters[strongs].add(letter)
+            else:
+                bare_counts[strongs][lemma_text] += 1
+
+    counts = bare_counts
+    dropped_for_letter = 0
+    recovered_for_letter = 0
+    for strongs, letters in lettered_letters.items():
+        n = sum(lettered_counts[strongs].values())
+        if len(letters) == 1 and strongs not in bare_counts:
+            counts[strongs] = lettered_counts[strongs]
+            recovered_for_letter += n
+        else:
+            dropped_for_letter += n
+    return counts, dropped_for_letter, recovered_for_letter
 
 
 def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
@@ -181,7 +210,7 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
         if not source_path.exists():
             print(f"WARNING: {source_path} not found -- skipping {label} lemmas entirely.")
             continue
-        counts, dropped_for_letter = _collect_lemmas(source_path)
+        counts, dropped_for_letter, recovered_for_letter = _collect_lemmas(source_path)
         for strongs, spellings in counts.items():
             winner, _ = spellings.most_common(1)[0]
             variant_count = len(spellings)
@@ -190,10 +219,14 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
             xlit = transliterate(winner, lang)
             rows.append((strongs, lang, winner, xlit, variant_count))
         print(f"  {label}: {len(counts):,} distinct Strong's number(s) from {source_path.name}")
+        if recovered_for_letter:
+            print(f"  NOTE: {recovered_for_letter:,} row(s) in {source_path.name} carried a "
+                  f"trailing-letter Strong's number that was the only letter ever seen for that "
+                  f"base number (and never appeared bare) -- kept, see _collect_lemmas()'s docstring.")
         if dropped_for_letter:
-            print(f"  NOTE: {dropped_for_letter:,} content-word row(s) in {source_path.name} carried "
-                  f"a trailing-letter Strong's number and were dropped entirely (not merged into "
-                  f"the bare number) -- see _collect_lemmas()'s docstring.")
+            print(f"  NOTE: {dropped_for_letter:,} row(s) in {source_path.name} carried a "
+                  f"trailing-letter Strong's number that conflicted with another letter or a bare "
+                  f"form of the same number -- dropped entirely, see _collect_lemmas()'s docstring.")
 
     if not db_path.exists():
         print(f"WARNING: {db_path} does not exist yet -- creating it with only strongs_lemma "
