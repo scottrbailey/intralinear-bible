@@ -16,23 +16,33 @@ verses -- exactly wrong for something meant to read as "the" canonical
 form for that number. Precomputing picks one spelling per number (the
 most common one actually seen) so it reads the same everywhere it's shown.
 
-Grammatical-morpheme tokens (article/preposition/conjunction/object
-marker/particle/relative -- see models.NON_STEM_CLASS) are skipped
-entirely: bsb_tables.db's own `tokens` table (built by
-utils/import_bsb_table.py from Bible Hub's BSB interlinear export -- a
-different source from WLC/SBLGNT, and the one actually joined against at
-render time) never assigns those a Strong's number of their own. A fused
-word like בְּרֵאשִׁית ("in [the] beginning") carries one strongs value,
-7225 (for the noun), with no separate number for the prefixed
-preposition -- so a lemma row for a NON_STEM_CLASS token would be dead
-weight nothing will ever join against. It also sidesteps real messiness
-in the Macula data itself: those same grammatical-morpheme tokens are
-sometimes tagged with a trailing-letter pseudo-Strong's-number ('0871a',
+No filtering by token class (article/preposition/conjunction/etc.):
+an earlier version of this script skipped models.NON_STEM_CLASS
+token classes on the assumption that bsb_tables.db's own `tokens` table
+(built by utils/import_bsb_table.py from Bible Hub's BSB interlinear
+export -- a different source from WLC/SBLGNT, and the one actually
+joined against at render time) never assigns those a Strong's number of
+their own. That's true for a fused prefix like the preposition in
+בְּרֵאשִׁית ("in [the] beginning") -- Bible Hub's table gives that whole
+word one strongs value, 7225, for the noun only -- but it's false for
+other NON_STEM_CLASS-tagged tokens: the object-marker class ('om',
+Hebrew's untranslated אֵת/אֶת) gets a real, non-placeholder number,
+853, every time, confirmed in Bible Hub's own table -- so filtering by
+class was silently discarding a legitimate, high-frequency number
+(and plausibly others, e.g. 'rel' for the relative particle אֲשֶׁר,
+H834). composer.py's own live-alignment loader (_load_source_index)
+never filters by class either, for the same reason: class isn't what
+decides whether a token carries a real number.
+
+What actually distinguishes a real number from Macula's placeholder
+pattern is the trailing letter, not the class: grammatical-morpheme
+tokens are sometimes tagged with a pseudo-Strong's-number ('0871a',
 '2050b') borrowed from an unrelated real dictionary entry rather than a
 genuine sense-disambiguated homograph split (see composer.py's
-_load_source_index() docstring for a worked example) -- content words
-don't have this problem in practice, so filtering by class sidesteps it
-rather than needing to replicate that suppression logic here.
+_load_source_index() docstring for a worked example), and confirmed
+against a real WLC run to reach real content-word tokens too (see
+_collect_lemmas()'s docstring) -- so that's the one signal this script
+actually filters on.
 
 Strong's-number format: keyed as the bare digit string (no H/G/A prefix,
 no leading zeros), to match bsb_tables.db's own tokens.strongs column
@@ -70,7 +80,6 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from models import NON_STEM_CLASS          # noqa: E402
 from translit import make_transliterator   # noqa: E402
 
 DEFAULT_HEBREW_SOURCE = ROOT.parent / "macula-hebrew" / "WLC" / "tsv" / "macula-hebrew.tsv"
@@ -79,9 +88,9 @@ DEFAULT_DB            = ROOT / "data" / "bsb_tables.db"
 CONFIG_PATH           = ROOT / "config.yaml"
 
 # Leading zeros stripped, trailing letter captured separately (see
-# _bare_strongs) rather than discarded silently -- NON_STEM_CLASS
-# filtering keeps content-word rows from ever needing that suppression,
-# but this still flags any survivor for a manual look at real data.
+# _bare_strongs) so the caller can drop it rather than merge it into the
+# bare number -- see module docstring on why trailing letter, not token
+# class, is what actually flags Macula's placeholder numbers.
 _STRONGS_RE = re.compile(r'^0*(\d+)([a-zA-Z]*)$')
 
 
@@ -112,33 +121,28 @@ def _load_transliterate_config():
 
 
 def _collect_lemmas(tsv_path: Path) -> tuple[dict, int]:
-    """One pass over a Macula source TSV -> {strongs: Counter({lemma_text: count})},
-    restricted to genuine stem/content-word tokens (see module docstring).
-    Hebrew prefers the Strong's-specific `stronglemma` column over the
-    general `lemma` column when both are present (stronglemma is tied
-    directly to the number a reader would look up); Greek's source has no
-    stronglemma column at all, so `lemma` is used there.
-
-    Trailing-letter Strong's numbers are dropped entirely, not
-    stripped-and-kept -- confirmed against a real WLC run that this
+    """One pass over a Macula source TSV -> {strongs: Counter({lemma_text: count})}.
+    No token-class filtering (see module docstring on why class isn't a
+    reliable signal for this); the only thing excluded is a token whose
+    Strong's number has no value at all, or survives with a trailing
+    letter -- confirmed against a real WLC run that the letter-suffixed
     placeholder/borrowed-number pattern (see composer.py's
-    _load_source_index() docstring) isn't confined to the
-    NON_STEM_CLASS-filtered grammatical morphemes the way it first looked
-    from the small sample file: bare '2050' picked up 11,944 occurrences of
-    'הוא' plus a handful of totally unrelated words once real content-word
-    rows carrying '2050<letter>' got stripped and merged in too. Dropping
-    them (composer.py's own rule, just applied uniformly here rather than
-    only to grammatical classes) loses those rows' lemma data rather than
-    risk exactly this kind of false collision. Returns the count of
-    dropped rows for the caller's diagnostic print.
+    _load_source_index() docstring) reaches real content-word tokens too:
+    bare '2050' picked up 11,944 occurrences of 'הוא' plus a handful of
+    totally unrelated words once rows carrying '2050<letter>' got
+    stripped and merged in. Dropping them entirely (composer.py's own
+    rule) loses those rows' lemma data rather than risk that kind of false
+    collision. Hebrew prefers the Strong's-specific `stronglemma` column
+    over the general `lemma` column when both are present (stronglemma is
+    tied directly to the number a reader would look up); Greek's source
+    has no stronglemma column at all, so `lemma` is used there. Returns
+    the count of dropped-for-letter rows for the caller's diagnostic print.
     """
     counts: dict[str, Counter] = defaultdict(Counter)
     dropped_for_letter = 0
     with open(tsv_path, encoding='utf-8', newline='') as f:
         reader = csv.DictReader(f, delimiter='\t')
         for row in reader:
-            if row.get('class', '') in NON_STEM_CLASS:
-                continue
             strongs, had_letter = _bare_strongs(
                 row.get('strongnumberx') or row.get('strong') or row.get('strongs') or ''
             )
