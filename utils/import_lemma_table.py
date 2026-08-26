@@ -51,7 +51,7 @@ sys.path.insert(0, str(ROOT))
 from translit import make_transliterator   # noqa: E402
 
 DEFAULT_HEBREW_LEXICON = ROOT / "data" / "HebrewStrong.xml"
-DEFAULT_GREEK_LEXICON  = ROOT / "data" / "strongsgreek.xml"
+DEFAULT_GREEK_LEXICON  = ROOT / "data" / "stronggreek.xml"
 DEFAULT_DB             = ROOT / "data" / "bsb_tables.db"
 CONFIG_PATH            = ROOT / "config.yaml"
 
@@ -74,6 +74,11 @@ def _load_transliterate_config():
 _HEBREW_ID_RE = re.compile(r'^[HA](\d+)$')
 
 
+def _strip_ns(tag: str) -> str:
+    """'{http://openscriptures.github.com/morphhb/namespace}entry' -> 'entry'."""
+    return tag.rsplit('}', 1)[-1]
+
+
 def _parse_hebrew_lexicon(path: Path) -> dict:
     """{bare Strong's digit string: headword text}, from openscriptures'
     HebrewStrong.xml. entry/@id is 'H6747'-style (H or A prefix; no
@@ -83,9 +88,21 @@ def _parse_hebrew_lexicon(path: Path) -> dict:
     '<source>from <w src="H6743">6743</w>;</source>', not the entry's own
     headword) -- ElementTree's .find('w') only looks at direct children of
     <entry>, so it can't accidentally pick that up.
+
+    The file declares a default XML namespace on its root <lexicon>
+    element, so every real tag is actually '{http://...}entry'/'{http://
+    ...}w', not the bare name -- confirmed against the real file (a
+    hand-built sample without the xmlns declaration masked this during
+    development). Namespaces are stripped from every element up front
+    rather than qualifying every tag lookup, since nothing here needs to
+    distinguish same-named elements from different namespaces.
     """
+    root = ET.parse(path).getroot()
+    for elem in root.iter():
+        elem.tag = _strip_ns(elem.tag)
+
     lemmas = {}
-    for entry in ET.parse(path).getroot().iter('entry'):
+    for entry in root.iter('entry'):
         m = _HEBREW_ID_RE.match(entry.get('id', ''))
         if not m:
             continue
