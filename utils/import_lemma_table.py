@@ -51,7 +51,7 @@ sys.path.insert(0, str(ROOT))
 from translit import make_transliterator   # noqa: E402
 
 DEFAULT_HEBREW_LEXICON = ROOT / "data" / "HebrewStrong.xml"
-DEFAULT_GREEK_LEXICON  = ROOT / "data" / "stronggreek.xml"
+DEFAULT_GREEK_LEXICON  = ROOT / "data" / "strongsgreek.xml"
 DEFAULT_DB             = ROOT / "data" / "bsb_tables.db"
 CONFIG_PATH            = ROOT / "config.yaml"
 
