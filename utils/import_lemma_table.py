@@ -117,12 +117,23 @@ def _collect_lemmas(tsv_path: Path) -> tuple[dict, int]:
     Hebrew prefers the Strong's-specific `stronglemma` column over the
     general `lemma` column when both are present (stronglemma is tied
     directly to the number a reader would look up); Greek's source has no
-    stronglemma column at all, so `lemma` is used there. Also returns the
-    count of content-word rows whose Strong's number survived with a
-    trailing letter, for the caller's diagnostic print.
+    stronglemma column at all, so `lemma` is used there.
+
+    Trailing-letter Strong's numbers are dropped entirely, not
+    stripped-and-kept -- confirmed against a real WLC run that this
+    placeholder/borrowed-number pattern (see composer.py's
+    _load_source_index() docstring) isn't confined to the
+    NON_STEM_CLASS-filtered grammatical morphemes the way it first looked
+    from the small sample file: bare '2050' picked up 11,944 occurrences of
+    'הוא' plus a handful of totally unrelated words once real content-word
+    rows carrying '2050<letter>' got stripped and merged in too. Dropping
+    them (composer.py's own rule, just applied uniformly here rather than
+    only to grammatical classes) loses those rows' lemma data rather than
+    risk exactly this kind of false collision. Returns the count of
+    dropped rows for the caller's diagnostic print.
     """
     counts: dict[str, Counter] = defaultdict(Counter)
-    letter_survivors = 0
+    dropped_for_letter = 0
     with open(tsv_path, encoding='utf-8', newline='') as f:
         reader = csv.DictReader(f, delimiter='\t')
         for row in reader:
@@ -131,15 +142,16 @@ def _collect_lemmas(tsv_path: Path) -> tuple[dict, int]:
             strongs, had_letter = _bare_strongs(
                 row.get('strongnumberx') or row.get('strong') or row.get('strongs') or ''
             )
+            if had_letter:
+                dropped_for_letter += 1
+                continue
             if not strongs:
                 continue
-            if had_letter:
-                letter_survivors += 1
             lemma_text = (row.get('stronglemma') or row.get('lemma') or '').strip()
             if not lemma_text:
                 continue
             counts[strongs][lemma_text] += 1
-    return counts, letter_survivors
+    return counts, dropped_for_letter
 
 
 def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
@@ -161,7 +173,7 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
         if not source_path.exists():
             print(f"WARNING: {source_path} not found -- skipping {label} lemmas entirely.")
             continue
-        counts, letter_survivors = _collect_lemmas(source_path)
+        counts, dropped_for_letter = _collect_lemmas(source_path)
         for strongs, spellings in counts.items():
             winner, _ = spellings.most_common(1)[0]
             variant_count = len(spellings)
@@ -170,9 +182,10 @@ def build_lemma_table(hebrew_source: Path, greek_source: Path, db_path: Path,
             xlit = transliterate(winner, language)
             rows.append((strongs, language, winner, xlit, variant_count))
         print(f"  {label}: {len(counts):,} distinct Strong's number(s) from {source_path.name}")
-        if letter_survivors:
-            print(f"  NOTE: {letter_survivors} content-word row(s) in {source_path.name} carried "
-                  f"a trailing-letter Strong's number (kept, digits only) -- worth a manual look.")
+        if dropped_for_letter:
+            print(f"  NOTE: {dropped_for_letter:,} content-word row(s) in {source_path.name} carried "
+                  f"a trailing-letter Strong's number and were dropped entirely (not merged into "
+                  f"the bare number) -- see _collect_lemmas()'s docstring.")
 
     if not db_path.exists():
         print(f"WARNING: {db_path} does not exist yet -- creating it with only strongs_lemma "
