@@ -1,14 +1,27 @@
 """
 verse_formatter/intralinear.py
 
-BSTB (intralinear) and BSXB (stacked) formatters for both e-Sword and
-MySword, kept side by side deliberately: these two platforms' CSS and
-render_verse() are edited together to keep them visually matched, so this
-file is the one to open when tuning intralinear/stacked layout or styling
-for either target.
+Three-tier BTB-L1/L2/L3 formatters for both e-Sword and MySword, kept side
+by side deliberately: these two platforms' CSS and render_verse() are
+edited together to keep them visually matched, so this file is the one to
+open when tuning any of the three tiers' layout or styling for either
+target.
 
-Stacked reuses its platform's Intralinear render_verse() unchanged -- same
-tags, different CSS (ruby's original-language line shown instead of hidden).
+L1 (lemma transliteration only) and L2 (lemma over full-word
+transliteration) share one render_verse() per platform -- same tags,
+different CSS (ruby's `ro` line shown instead of hidden) -- since L2's
+markup is identical to L1's, just with `ro` populated whenever it would
+add real information (see MySwordLemmaFormatter's docstring). L3
+(full-word transliteration over the original script) predates the lemma
+feature and keeps its own render_verse(), unchanged in substance.
+
+MySword implemented first: e-Sword has no way to make an inline dictionary
+link directly, so its `rt`/`ro` markup is paired with a hidden `<num>` tag
+CSS-positioned over the visible line to fake one (e-Sword auto-links a
+bare `<num>` tag's content to that Strong's number's dictionary entry) --
+see the e-Sword section below for that mechanism. MySword's real inline
+`<a href="s...">` links have no such workaround to get right, so they're
+the simpler starting point to validate the three-tier structure against.
 """
 
 from .base import (
@@ -128,22 +141,131 @@ class ESwordStackedFormatter(ESwordIntralinearFormatter):
     css            = _ESWORD_STACKED_CSS
 
 # ============================================================ MySword
+#
+# Three tiers, not two: L1/L2 share one render_verse (lemma transliteration
+# in `rt`, this word's own full transliteration in `ro`, shown only when it
+# differs from the lemma -- see MySwordLemmaFormatter's docstring), L3 keeps
+# the original rt=full-word-transliteration/ro=original-script pairing this
+# pair used to share before the lemma feature existed.
 
-_MYSWORD_INTRALINEAR_CSS = _INTRALINEAR_CSS +\
+_MYSWORD_LEMMA_CSS = _INTRALINEAR_CSS +\
     f'ruby > ro {{opacity:0}} .ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
 
-_MYSWORD_INTRALINEAR_RULES = ''
+_MYSWORD_LEMMA_RULES = ''
 
-class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
-    abbreviation   = "BSTB"
-    module_name    = "Berean Standard Transliterated Bible"
+class MySwordLemmaFormatter(_MySwordXrefMixin, VerseFormatter):
+    """BTB-L1: lemma transliteration only -- links to the Strong's entry via
+    a readable word ('reshit') instead of a bare number ('H7225'). Shares
+    render_verse with MySwordLemmaDetailFormatter (BTB-L2); the only
+    difference between them is CSS (`ruby > ro` hidden here, shown there).
+
+    `ro` is only ever populated when this word's own full transliteration
+    actually differs from its lemma's -- an unprefixed, uninflected word has
+    nothing extra to show, so `ro` stays empty for that word even in L2,
+    not merely CSS-hidden the way it always is here in L1.
+    """
+    abbreviation   = "BTB-L1"
+    module_name    = "Berean Transliterated Bible - Level 1"
     file_extension = ".bbl.mybible"
-    css            = _MYSWORD_INTRALINEAR_CSS
-    verse_rules    = _MYSWORD_INTRALINEAR_RULES
+    css            = _MYSWORD_LEMMA_CSS
+    verse_rules    = _MYSWORD_LEMMA_RULES
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
-        """Render tokens with <span class="ilb"><ruby> markup for lemma display."""
+        note_id_map = note_id_map or {}
+        xrefs = xrefs or []
+        parts = []
+        in_red = False
+        if header:
+            parts.append(self.render_header(header))
+        if xref_placement == 1:
+            parts.append(self.render_crossref(xrefs))
+
+        for i, token in enumerate(tokens):
+            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
+
+            if token.is_red and not in_red:
+                parts.append(self.red_letter_tags[0])
+                in_red = True
+
+            if token.is_plain_text or not token.source_words:
+                parts.append(self.transform_english(token.english, token.par_class))
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f"<RF q=N{seq}>{note['text']}<Rf> ")
+            else:
+                core, trail = _split_trailing_punct(token.english)
+                parts.append(self.transform_english(core, token.par_class))
+                parts.append(' ')
+                lemmas = []
+                for sw in token.source_words:
+                    word_xlit  = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
+                    lemma_xlit = sw.stem.lemma_translit or word_xlit
+                    strongs = sw.stem.strongs
+                    lang = 'gk' if sw.lang == 'G' else 'hb'
+                    # With no strongs number, `<a href="s">` would be a real but broken
+                    # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
+                    # as "known unavailable" rather than a dead link (see _INTRALINEAR_CSS).
+                    if strongs:
+                        rt = f'<rt><a href="s{strongs}">{lemma_xlit}</a></rt>'
+                    else:
+                        rt = f'<rt>{lemma_xlit}</rt>'
+                    ro_content = word_xlit if word_xlit != lemma_xlit else ''
+                    lemmas.append(
+                        f'<span class="ilb {lang}"><ruby>{rt}<ro>{ro_content}</ro></ruby></span>'
+                    )
+                parts.append(' '.join(lemmas))
+                parts.append(trail)
+                for note in token.notes:
+                    seq = note_id_map.get(note['noteId'], note['noteId'])
+                    parts.append(f"<RF q=N{seq}>{note['text']}<Rf> ")
+
+            if in_red and (next_token is None or not next_token.is_red):
+                parts.append(self.red_letter_tags[1])
+                in_red = False
+
+            if not token.skip_space_after and next_token is not None:
+                parts.append(' ')
+
+        if xref_placement == 2:
+            parts.append(self.render_crossref(xrefs))
+
+        return ''.join(parts)
+
+    def preview_transform(self, scripture: str) -> str:
+        return self._apply_rules(scripture, self.verse_rules)
+
+
+_MYSWORD_LEMMA_DETAIL_CSS = _INTRALINEAR_CSS +\
+    f'ruby > ro {{opacity:1}} .ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
+
+class MySwordLemmaDetailFormatter(MySwordLemmaFormatter):
+    """BTB-L2: lemma transliteration over full-word transliteration -- same
+    render_verse as BTB-L1 (including the per-word ro-suppression when the
+    two match), `ro` shown via CSS instead of hidden."""
+    abbreviation = "BTB-L2"
+    module_name  = "Berean Transliterated Bible - Level 2"
+    css          = _MYSWORD_LEMMA_DETAIL_CSS
+
+
+_MYSWORD_TRANSLINEAR_CSS = _INTRALINEAR_CSS + \
+    f'.ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
+
+_MYSWORD_TRANSLINEAR_RULES = ''
+
+class MySwordStackedFormatter(_MySwordXrefMixin, VerseFormatter):
+    """BTB-L3: full-word transliteration over the original script -- the
+    heaviest of the three tiers. Unchanged in substance from before this
+    redesign (previously BSXB); now stands alone with its own render_verse
+    rather than inheriting it from the (now lemma-focused) L1 formatter."""
+    abbreviation   = "BTB-L3"
+    module_name    = "Berean Transliterated Bible - Level 3"
+    file_extension = ".bbl.mybible"
+    css            = _MYSWORD_TRANSLINEAR_CSS
+    verse_rules    = _MYSWORD_TRANSLINEAR_RULES
+
+    def render_verse(self, tokens, header=None, note_id_map=None,
+                     xrefs=None, xref_placement=0) -> str:
         note_id_map = note_id_map or {}
         xrefs = xrefs or []
         parts = []
@@ -174,9 +296,6 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
                     xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
                     strongs = sw.stem.strongs
                     lang = 'gk' if sw.lang == 'G' else 'hb'
-                    # With no strongs number, `<a href="s">` would be a real but broken
-                    # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
-                    # as "known unavailable" rather than a dead link (see _INTRALINEAR_CSS).
                     if strongs:
                         rt = f'<rt><a href="s{strongs}">{xlit}</a></rt>'
                     else:
@@ -204,15 +323,3 @@ class MySwordIntralinearFormatter(_MySwordXrefMixin, VerseFormatter):
 
     def preview_transform(self, scripture: str) -> str:
         return self._apply_rules(scripture, self.verse_rules)
-
-_MYSWORD_STACKED_CSS = _INTRALINEAR_CSS + \
-    f'.ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
-
-_MYSWORD_STACKED_RULES = ''
-
-class MySwordStackedFormatter(MySwordIntralinearFormatter):
-    """Stacked variant: same verse content, different CSS."""
-    abbreviation = "BSXB"
-    module_name  = "Berean Standard Translinear Bible"
-    css          = _MYSWORD_STACKED_CSS
-    verse_rules  = _MYSWORD_STACKED_RULES
