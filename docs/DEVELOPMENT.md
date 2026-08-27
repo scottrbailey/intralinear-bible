@@ -406,7 +406,8 @@ current limitations and open questions.
 ## Devotional Modules
 
 A separate pipeline, `heb_devotional/`, generates a Hebrew-calendar
-reading-plan devotional module — e-Sword Daily Devotional (`.devi`), MySword
+reading-plan devotional module — e-Sword Daily Devotional (`.devi`),
+e-Sword generic Book-format reference module (`.refi`), MySword
 Journal-format reference book (`.bok.mybible`) — from `data/parshat.json`
 (the MJAA "Bible in a Year" reading plan: weekly Torah/Haftarah portions plus
 daily OT/NT readings, keyed to Simchat Torah through Simchat Torah) and a
@@ -422,8 +423,9 @@ change) — so it isn't wired into `main.py`.
 ### Run
 
 ```bash
-python -m heb_devotional.esword [hebrew_year]    # e-Sword .devi
-python -m heb_devotional.mysword [hebrew_year]   # MySword Journal .bok.mybible
+python -m heb_devotional.esword [hebrew_year]        # e-Sword .devi
+python -m heb_devotional.esword_book [hebrew_year]   # e-Sword Book .refi
+python -m heb_devotional.mysword [hebrew_year]       # MySword Journal .bok.mybible
 ```
 
 `hebrew_year` is the Hebrew year the cycle's Bereshit falls in — optional,
@@ -449,6 +451,41 @@ needs no such lookup.
   (e.g. Oct 15 2026 and Oct 15 2027) — those merge into one row, each
   section carrying its own date/weekday/hdate and a Gregorian-year `<h2>`
   when a slot actually merges more than one.
+- `heb_devotional/esword_book.py` — e-Sword generic Book-format (`Details`
+  + `Reference(Chapter, Content)`, `.refi`) rendering + SQLite writing, an
+  alternative to `.devi` for apps where cross-row linking between
+  Devotional entries isn't reliable. One `Reference` row per Gregorian
+  month the cycle touches, `Chapter` built as `"<year>.<month>"` (e.g.
+  `"2026.10"`) — a bare sortable key, not a readable label, since e-Sword's
+  chapter-list/prev-next navigation orders strictly by the `Chapter`
+  string itself (confirmed against real e-Sword Book modules, which number
+  their own chapters `"0000. Preface"`, `"0001. Aaron"`, ... for the same
+  reason) and a Simchat-Torah-to-Simchat-Torah cycle spans a Gregorian
+  year boundary, where plain month names would sort wrong. The
+  human-readable month name lives inside `Content` instead, as an `<h2>`
+  (not `<h3>` — e-Sword renders `<h3>` unbolded, confirmed on-device).
+  Each row's own `Content` holds that `<h2>`, then the month's calendar
+  (Sunday-first table, `id="cal"`), then every covered day's reading in
+  its own `id="d<day>"` subsection (`class="day-section"`, `min-height:
+  100vh` so consecutive days don't visually run together) — calendar cells
+  link down to their day (`href="#d<day>"`), each day section links back
+  up to the calendar (`href="#cal"`). All of that stays inside one row's
+  HTML, so it only ever needs a same-document `#anchor` to resolve, not a
+  cross-row link — month-to-month navigation is left to e-Sword's own
+  built-in chapter-list/prev-next UI instead. Each day's own heading
+  spells out the full Gregorian date ("Sunday - 04 October 2026") rather
+  than just weekday/Hebrew date — unlike `.devi`/MySword, nothing in
+  e-Sword's own chrome shows which date a Book subsection belongs to, so
+  the page has to say so itself. `html`/`body` get `scroll-snap-type:y
+  mandatory` and every `.day-section` gets `scroll-snap-align:start` —
+  **confirmed on-device**: manual (wheel/trackpad) scrolling now steps
+  cleanly from one day to the next. No `scroll-behavior:smooth` — that was
+  tried too, but made the calendar↔day anchor-link jumps glide instead of
+  jump, which read as distracting rather than helpful, so it was dropped.
+  Reuses `esword.py`'s `_ref_tags()` (bsb_tables.db-backed `<ref>` tags)
+  and `mysword.py`'s annotation/calendar helpers (`_annotation_class`,
+  `_day_class`, `_hebrew_dom`, `_add_lead_in_days`) rather than
+  reimplementing them.
 - `heb_devotional/mysword.py` — MySword Journal-format (`journal` table)
   rendering + SQLite writing. Every row id/title bakes in the Gregorian
   year, so the Month/Day collision above never happens here — Index →
