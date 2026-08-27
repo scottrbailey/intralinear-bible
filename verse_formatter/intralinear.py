@@ -48,6 +48,9 @@ see the e-Sword section below for that mechanism. MySword's real inline
 the simpler starting point to validate the three-tier structure against.
 """
 
+import re
+import unicodedata
+
 from .base import (
     VerseFormatter, _ESwordXrefMixin, _MySwordXrefMixin,
     _split_trailing_punct
@@ -57,6 +60,37 @@ from textwrap import dedent
 COLOR_TRANSLIT = '#475eaf'   # primary line: always linked, always this color
 COLOR_ANCIENT = '#2f747a'    # secondary line: helper text, lower contrast
 COLOR_UNLINKED = '#666666'   # primary line when there's no Strong's number to link
+
+_NON_LETTER_RE = re.compile(r'[^a-zA-Z]')
+
+
+def _letters_only(xlit: str) -> str:
+    """Reduce a transliteration to its bare letters for "are these really
+    the same word" comparisons on L2's secondary line -- an exact string
+    match would treat 'al' vs 'al-' (a bound-form hyphen) or two different
+    stress placements as "different," triggering a helper line with
+    nothing real to add. NFKD-decomposes first, for two different reasons:
+      - A precomposed accented letter (e.g. 'í', one codepoint) splits
+        back into its plain base letter plus a separate combining-accent
+        codepoint -- stripping straight to [a-zA-Z] without that step
+        would silently drop the base letter along with the accent, not
+        just the accent.
+      - The sheva marker ('ᵉ', MODIFIER LETTER SMALL E, used for Hebrew's
+        vocal shva) is its own distinct codepoint with no canonical
+        (NFD) decomposition -- plain NFD would leave it untouched, and it
+        would then just get silently dropped by the [a-zA-Z] filter same
+        as punctuation, rather than counted as the 'e' it represents.
+        Its decomposition is tagged <super>, a *compatibility* mapping,
+        which only NFKD (not NFD) applies -- confirmed:
+        unicodedata.normalize('NFKD', 'bᵉer') == 'beer'. NFKD is a
+        superset of NFD (it performs the same canonical decompositions
+        for stress marks, plus compatibility ones like this), so this
+        loses nothing NFD was doing.
+    What's left after NFKD + filtering is the syllable separator, the
+    stress mark, any hyphen/apostrophe, and sheva styling all gone, only
+    the actual letters remaining.
+    """
+    return _NON_LETTER_RE.sub('', unicodedata.normalize('NFKD', xlit)).lower()
 
 # Strong's numbers whose lemma citation form is too far from -- and too
 # common a mismatch against -- their inflected forms to be worth showing:
@@ -273,7 +307,7 @@ class ESwordLemmaDetailFormatter(_ESwordBTBFormatter):
         if strongs in LEMMA_SUPPRESSED_STRONGS:
             return ' '
         lemma_xlit = sw.stem.lemma_translit or word_xlit
-        return lemma_xlit if lemma_xlit != primary else ' '
+        return lemma_xlit if _letters_only(lemma_xlit) != _letters_only(primary) else ' '
 
 
 class ESwordStackedFormatter(_ESwordBTBFormatter):
@@ -466,7 +500,7 @@ class MySwordLemmaDetailFormatter(_MySwordBTBFormatter):
         if strongs in LEMMA_SUPPRESSED_STRONGS:
             return ' '
         lemma_xlit = sw.stem.lemma_translit or word_xlit
-        return lemma_xlit if lemma_xlit != primary else ' '
+        return lemma_xlit if _letters_only(lemma_xlit) != _letters_only(primary) else ' '
 
 
 class MySwordStackedFormatter(_MySwordBTBFormatter):

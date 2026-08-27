@@ -3,6 +3,22 @@
 ## [1.1.5] - 2026-08-27
 
 ### Added
+- **`_letters_only()`** (`verse_formatter/intralinear.py`): BTB-L2's
+  secondary-line comparison (is the lemma transliteration genuinely
+  different from the word's own, or is there nothing new to show) now
+  compares bare letters only, NFKD-normalized, instead of exact strings —
+  a trailing bound-form hyphen ("al" vs. "al-"), a stress mark landing on
+  a different syllable, or a syllable separator in a different spot no
+  longer trigger a helper line with nothing real to add. NFKD specifically
+  (not NFD): NFD alone leaves Hebrew's vocal-shva marker (`ᵉ`, MODIFIER
+  LETTER SMALL E) untouched, since its mapping to plain `e` is a
+  *compatibility* decomposition, not a *canonical* one — confirmed
+  `unicodedata.normalize('NFKD', 'bᵉer') == 'beer'` where NFD leaves it as
+  `ᵉ` (then silently dropped by the letters-only filter, same as
+  punctuation, rather than counted as the `e` it represents). NFKD is a
+  strict superset of NFD, so nothing already working (stress-mark
+  stripping) is lost.
+
 - **Compound-headword lemma suppression** (`table_composer.py`'s
   `_find_compound_strongs()`): fixes 1 Sam 1:1's "Ramathaim-zophim"
   showing the identical full compound name as the lemma line on both of
