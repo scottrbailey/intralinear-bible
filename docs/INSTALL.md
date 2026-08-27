@@ -10,6 +10,7 @@ It is available for two Bible apps:
 ---
 
 ### Choosing Between Transliteration Levels
+
 Each word in the BTB series pairs the English translation with a line (or two) drawn from one of three kinds of source text:
 
 1. **The original text** — the actual Hebrew, Aramaic, or Greek script as it appears in the source codices.
@@ -70,6 +71,7 @@ The application is free, but requires a $25 "donation" to unlock some configurat
 ---
 
 ## e-Sword (Android and iOS)
+
 e-Sword is one of the original free Bible study tools with an ecosystem of thousands of downloadable modules and versions targeting Windows, macOS, Android and iOS phones and tablets.
 If you want to use the transliterated Bible on iOS, this is your only choice.
 
@@ -88,9 +90,9 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 ### Step 2 — Download the Module
 
 1. On your device, open this link to download the module:
-   - **[BTB-L1.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L1.zip)** Berean Transliterated Bible - Level 1
-   - **[BTB-L2.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L2.zip)** Berean Transliterated Bible - Level 2
-   - **[BTB-L3.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L3.zip)** Berean Transliterated Bible - Level 3
+   - **[BTB-L1.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L1.zip)** Berean Transliterated Bible - Level 1
+   - **[BTB-L2.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L2.zip)** Berean Transliterated Bible - Level 2
+   - **[BTB-L3.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L3.zip)** Berean Transliterated Bible - Level 3
    - **[BSRB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.zip)** - Berean Standard Reverse Interlinear Bible + RMAC (morphology) dictionary
 
 2. Save the file to your device's **Downloads** folder.
@@ -106,8 +108,8 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 
 ## Features
 
-- **Transliteration** — Hebrew and Greek words are shown in Latin script so you can pronounce them without knowing the original alphabets. As the target audience for the Transliterated/Translinear Bible is not seminarians and Bible academics, a simple transliteration scheme with syllable separators and stress markers was chosen. If you want academic or phonetic transliterations, you can select a different transliteration scheme in the config.yaml file.
-- **Hebrew and Greek** — The Translinear version has the original Hebrew, Aramaic and Greek text below the transliteration.  
+- **Transliteration** — Hebrew and Greek words are shown in Latin script so you can pronounce them without knowing the original alphabets. As the target audience for the Transliterated Bible is not seminarians and Bible academics, a simple transliteration scheme with syllable separators and stress markers was chosen. If you want academic or phonetic transliterations, you can select a different transliteration scheme in the config.yaml file.
+- **Hebrew and Greek** — The BSB-L3 version has the original Hebrew, Aramaic and Greek text over the transliteration.  
 - **Strong's Links** — Tap any transliteration to open the corresponding Strong's lexicon entry explaining the word's meaning and usage.
 - **Translator Notes** — Footnotes from the BSB translation team are included and accessible by tapping the note markers.
 - **Cross-References** — The BSB translator cross-references are included.
@@ -125,7 +127,7 @@ Most lexicons are for a single language. But both applications offer a combined 
 ### AHLB - Ancient Hebrew Lexicon of the Bible
 If you want a much richer understanding of the Hebrew language, we highly recommend the [Ancient Hebrew Lexicon of the Bible](https://www.ancient-hebrew.org/ahlb/). It shows the ancient Hebrew pictographs (Paleo Hebrew script) and explains how those pictures form concrete root words and how additional words are built off of that root that share a common theme.
 
-To get the most out of the AHLB, you will need to read the introduction. On e-Sword, the AHLB introduction is available as a "Reference" book once you install the Lexicon. On MySword, the introduction is in the lexicon under the entries "01" through "16", so you will have to search for "01".
+To get the most out of the AHLB, you will need to read the introduction. On e-Sword, the AHLB introduction is available as a "Reference" book once you install the Lexicon. On MySword, the introduction is in the lexicon under the entries "01" through "16", linked at the bottom of every entry.
 Installing the AHLB lexicon on e-Sword will make the book's introduction available under the "Reference" section. 
 There is also a short YouTube [introduction video](https://www.youtube.com/watch?v=wc1pV8E3L_Q) if you can't find the intro in your Bible app.
 
