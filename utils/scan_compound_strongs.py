@@ -224,6 +224,16 @@ def scan_compound_lemma_mismatch(conn: sqlite3.Connection) -> list[tuple]:
     return hits
 
 
+def _load_verse_refs(conn: sqlite3.Connection) -> dict:
+    """{verse_id: 'Gen 36:8', ...} from the verses table -- small (~31K
+    rows), loaded whole rather than queried per-hit, same reasoning as
+    table_composer.py's own verse_info load. Lets every scan's output
+    reference a real, human-readable location instead of the opaque
+    integer verse_id."""
+    return {r['verse_id']: f"{r['book']} {r['chapter']}:{r['verse']}"
+            for r in conn.execute("SELECT verse_id, book, chapter, verse FROM verses")}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                       formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -232,6 +242,10 @@ def main():
 
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
+    refs = _load_verse_refs(conn)
+
+    def ref(verse_id):
+        return refs.get(verse_id, f"verse_id={verse_id}")
 
     print("=== [1] parent_id groups sharing one Strong's number (superseded -- see docstring item 1) ===")
     hits = scan_parent_groups(conn)
@@ -248,7 +262,7 @@ def main():
     print("=== [4] compound-lemma mismatch against strongs_lemma (the scan that matters -- see docstring item 4) ===")
     hits4 = scan_compound_lemma_mismatch(conn)
     for verse_id, english, strongs, lemma, count in hits4:
-        print(f"  {verse_id}  {english!r}  strongs={strongs}  lemma={lemma!r}  ({count} tokens)")
+        print(f"  {ref(verse_id)}  {english!r}  strongs={strongs}  lemma={lemma!r}  ({count} tokens)")
     print(f"  {len(hits4)} total")
 
     conn.close()
