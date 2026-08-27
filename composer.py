@@ -70,7 +70,8 @@ class AlignmentComposer(Composer):
                  direction: MappingDirection = MappingDirection.TARGET_TO_SOURCE):
         self.config    = config
         self.direction = direction
-        self._books_filter = config.get('books')
+        self._books_filter   = config.get('books')
+        self._chapter_filter = config.get('chapter')
 
     # ------------------------------------------------------------------ public
 
@@ -119,7 +120,9 @@ class AlignmentComposer(Composer):
         alignment_index = _load_alignment_index(tcfg['alignment'])
 
         verse_count = 0
-        for verse_id, target_tokens in _iter_target_verses(tcfg['target'], self._books_filter):
+        for verse_id, target_tokens in _iter_target_verses(
+            tcfg['target'], self._books_filter, self._chapter_filter
+        ):
             alignment_records = alignment_index.get(verse_id, [])
             tokens   = self._join_verse(verse_id, target_tokens,
                                         alignment_records, source_index, notes_index)
@@ -231,7 +234,7 @@ def _load_alignment_index(path: Path) -> dict:
     return index
 
 
-def _iter_target_verses(path: Path, books_filter: list):
+def _iter_target_verses(path: Path, books_filter: list, chapter_filter: int = None):
     """Iterate BSB target TSV, yielding (verse_id, [TargetToken]) tuples."""
     allowed_book_nums = None
     if books_filter:
@@ -244,6 +247,9 @@ def _iter_target_verses(path: Path, books_filter: list):
             else:
                 print(f"  Warning: could not resolve book '{osis_id}'")
 
+    # verse_id is a fixed BBCCCVVV string -- chapter is characters [2:5].
+    chapter_str = f'{chapter_filter:03d}' if chapter_filter else None
+
     current_verse_id = None
     current_tokens   = []
 
@@ -254,7 +260,9 @@ def _iter_target_verses(path: Path, books_filter: list):
             verse_id = token_id[:8]
             book_num = token_id[:2]
 
-            if allowed_book_nums and book_num not in allowed_book_nums:
+            skip = (allowed_book_nums and book_num not in allowed_book_nums) or \
+                   (chapter_str and verse_id[2:5] != chapter_str)
+            if skip:
                 if current_verse_id and current_tokens:
                     yield current_verse_id, current_tokens
                     current_verse_id = None

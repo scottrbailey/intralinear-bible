@@ -3,6 +3,16 @@
 ## [1.1.5] - 2026-08-27
 
 ### Added
+- **`--test` flag** (`main.py`): restricts a build to Genesis 1 and
+  Matthew 1 only, for fast layout/CSS iteration without a full-Bible
+  build. Overrides `config.yaml`'s new `books`/`chapter` keys in memory
+  only — the file itself is untouched. `chapter` (optional, alongside the
+  existing `books` filter) restricts to one chapter number within
+  whichever books are selected; both `TableComposer` and `AlignmentComposer`
+  honor it (`table_composer.py`'s SQL gains a `chapter = ?` condition
+  alongside its existing `book IN (...)` one; `composer.py`'s
+  `_iter_target_verses()` compares it directly against `verse_id`'s fixed
+  `BBCCCVVV` chapter digits).
 - **BTB-L1/L2/L3 — three-tier beginner intralinear modules**, replacing the
   old two-module `BSTB`/`BSXB` pair for both e-Sword and MySword. Every
   tier shares one shape: `ro` is always the primary line — the one a

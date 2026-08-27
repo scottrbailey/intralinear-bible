@@ -188,10 +188,11 @@ class TableComposer(Composer):
 
     def __init__(self, db_path: Path, config: dict = None,
                  direction: MappingDirection = MappingDirection.TARGET_TO_SOURCE):
-        self.db_path        = Path(db_path)
-        self.config         = config or {}
+        self.db_path         = Path(db_path)
+        self.config          = config or {}
         self.direction       = direction
-        self._books_filter  = self.config.get('books')
+        self._books_filter   = self.config.get('books')
+        self._chapter_filter = self.config.get('chapter')
 
     def iter_verses(self):
         conn = sqlite3.connect(self.db_path)
@@ -206,12 +207,20 @@ class TableComposer(Composer):
         cur.execute("SELECT verse_id, book, chapter, verse, heading, crossref FROM verses")
         verse_info = {r['verse_id']: r for r in cur}
 
-        where, params = "", ()
+        conditions, params = [], []
         if self._books_filter:
             placeholders = ','.join('?' for _ in self._books_filter)
-            where  = (f"WHERE verse_id IN (SELECT verse_id FROM verses "
-                      f"WHERE book IN ({placeholders}))")
-            params = tuple(self._books_filter)
+            conditions.append(f"book IN ({placeholders})")
+            params.extend(self._books_filter)
+        if self._chapter_filter:
+            conditions.append("chapter = ?")
+            params.append(self._chapter_filter)
+
+        where = ""
+        if conditions:
+            where = (f"WHERE verse_id IN (SELECT verse_id FROM verses "
+                     f"WHERE {' AND '.join(conditions)})")
+        params = tuple(params)
 
         if self.direction == MappingDirection.SOURCE_TO_TARGET:
             # verse_id is an explicit sort key here (unlike the bsb_sort path

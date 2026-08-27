@@ -9,7 +9,9 @@ Usage:
                 osis       OSIS XML
                 all        build every output target in one pass
 
-    --mode      intralinear   English + source annotation above  [default]
+    --mode      intralinear   BTB-L1/L2/L3 (beginner tiers), all three
+                              together                              [default]
+                L1/L2/L3      one BTB tier alone
                 interlinear   forward interlinear: source words in their own
                               reading order, English glossed below. ROUGH
                               DRAFT -- layout/CSS not settled, table composer
@@ -17,8 +19,7 @@ Usage:
                               isn't implemented yet)
                 reverse       reverse interlinear: English-primary columns,
                               source words below
-                stacked       e-Sword only: intralinear with source-language
-                              script shown instead of hidden
+                Ignored when --format=all (fixed target-to-source set).
 
     --composer  alignment  live join across macula-hebrew/macula-greek/
                            Alignments
@@ -32,12 +33,18 @@ Usage:
     --zip       Also zip this run's output file(s) into one archive
                 (output/<translation>_<format>.zip) alongside the originals.
 
+    --test      Quick-render mode: restrict to Genesis 1 and Matthew 1 only,
+                overriding config.yaml's "books"/"chapter" keys in memory (the
+                file itself is untouched). For fast iteration on layout/CSS
+                changes without a full-Bible build.
+
 Examples:
     python main.py
     python main.py config_nt.yaml --format mysword
     python main.py --format all
     python main.py --composer table
     python main.py --format mysword --zip
+    python main.py --format mysword --mode L2 --test
 """
 
 import argparse
@@ -140,6 +147,13 @@ def parse_args():
         "--zip", action="store_true",
         help="Also zip this run's output file(s) into one archive in the output directory",
     )
+    parser.add_argument(
+        "--test", action="store_true",
+        help="Quick-render mode: restrict to chapter 1 of Genesis and Matthew "
+             "only, overriding config.yaml's 'books'/'chapter' keys in memory "
+             "(the file itself is untouched). For fast iteration on layout/CSS "
+             "changes without a full-Bible build.",
+    )
     args = parser.parse_args()
 
     # Normalize aliases
@@ -240,6 +254,11 @@ def zip_outputs(paths: list, zip_path: Path) -> None:
 def main():
     args   = parse_args()
     config = load_config(args.config, composer_override=args.composer)
+
+    if args.test:
+        config['books']   = ['Gen', 'Matt']
+        config['chapter'] = 1
+        print("--test: restricting to Genesis 1 and Matthew 1 only")
 
     print(f"Config: {args.config}")
     print(f"Translation: {config['translation']} v{config['version']}")
