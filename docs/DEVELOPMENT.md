@@ -33,9 +33,13 @@ look up Strong's entries:
   straight to the Strong's dictionary entry. Meant to get you to the lexicon
   as directly as possible; no stress marking.
 - **L2** — lemma transliteration over the word's own full-word
-  transliteration, with the second line shown only when it actually differs
-  from the lemma — so a heavily inflected or prefixed word shows both forms,
-  while an unmarked/uninflected one doesn't repeat itself.
+  transliteration, both lines always shown even when they're identical.
+  (An earlier version suppressed the bottom line when it matched the
+  lemma; on-device testing showed that broke the reading rhythm of anyone
+  treating the bottom line as their primary line — an intermittently
+  missing line reads as "did I lose my place?", not "this word needs no
+  extra detail" — so it's now unconditional, at the cost of an occasional
+  literal repeat.)
 - **L3** — full-word transliteration over the original Hebrew/Greek script.
   The heaviest tier, predates the lemma feature, unchanged in substance
   (previously shipped as `BSXB`).

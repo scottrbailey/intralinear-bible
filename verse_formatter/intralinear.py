@@ -10,10 +10,12 @@ target.
 L1 (lemma transliteration only) and L2 (lemma over full-word
 transliteration) share one render_verse() per platform -- same tags,
 different CSS (ruby's `ro` line shown instead of hidden) -- since L2's
-markup is identical to L1's, just with `ro` populated whenever it would
-add real information (see MySwordLemmaFormatter's docstring). L3
-(full-word transliteration over the original script) predates the lemma
-feature and keeps its own render_verse(), unchanged in substance.
+markup is identical to L1's, just with `ro` always populated with the
+word's own transliteration (see MySwordLemmaDetailFormatter's docstring
+for why L2 shows it even when it's identical to the lemma above, rather
+than suppressing the redundant line). L3 (full-word transliteration over
+the original script) predates the lemma feature and keeps its own
+render_verse(), unchanged in substance.
 
 MySword implemented first: e-Sword has no way to make an inline dictionary
 link directly, so its `rt`/`ro` markup is paired with a hidden `<num>` tag
@@ -178,16 +180,16 @@ _ESWORD_LEMMA_DETAIL_CSS = (_INTRALINEAR_CSS +
 class ESwordLemmaDetailFormatter(ESwordLemmaFormatter):
     """BTB-L2: lemma transliteration over full-word transliteration -- same
     render_verse as BTB-L1, `ro` shown via CSS instead of hidden. See
-    MySwordLemmaDetailFormatter's docstring for why `_ro_content()` falls
-    back to a space (not '') when the two transliterations match, rather
-    than leaving `ro` truly empty."""
+    MySwordLemmaDetailFormatter's docstring for why `_ro_content()` always
+    shows the word's own transliteration, even when it's identical to the
+    lemma line above it, rather than suppressing the (redundant) line."""
     abbreviation   = "BTB-L2"
     module_name    = "Berean Transliterated Bible - Level 2"
     css            = _ESWORD_LEMMA_DETAIL_CSS
 
     @staticmethod
     def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
-        return word_xlit if word_xlit != lemma_xlit else ' '
+        return word_xlit
 
 
 _ESWORD_STACKED_CSS = _INTRALINEAR_CSS + \
@@ -387,22 +389,29 @@ class MySwordLemmaDetailFormatter(MySwordLemmaFormatter):
     render_verse as BTB-L1, `ro` shown via CSS instead of hidden. Overrides
     _ro_content(): unlike L1 (always a space, see that method's docstring
     on MySwordLemmaFormatter), L2's `ro` is genuinely meant to be read, so
-    it holds the real full-word transliteration whenever that adds
-    information beyond the lemma alone.
+    it always holds the word's own real full-word transliteration.
 
-    A plain '' for the no-extra-information case (same word, same
-    transliteration -- common in Greek, where the citation form and an
-    inflected form's transliteration often coincide) turned out to be
-    wrong, not just uninformative: an empty `ro` collapses to no
-    meaningful height, so `.ilb`'s vertical-align:middle centers a
-    one-line box for that word while every neighboring word (real
-    two-line box) still centers a two-line one -- `rt` drops to the
-    English baseline for that word alone, producing a visibly jagged line
-    where some words ride high and others sit low depending on whether
-    that specific word's lemma happened to match. A space preserves the
-    same line-height as a populated `ro` without displaying anything,
-    keeping every word's vertical position identical regardless of
-    content.
+    Earlier versions suppressed `ro` (falling back to a space) whenever it
+    was identical to the lemma line above it -- reasonable on paper ("only
+    show it when it adds information"), but confirmed on-device to break
+    the reading rhythm of anyone using `rt`/`ro` as a fixed two-line unit:
+    with English on the baseline and `ro` as the line they actually read,
+    an intermittently-blank `ro` forces a "wait, is something missing?"
+    detour up to the lemma line before they can get their pronunciation --
+    worse the more often lemma and word coincide, which is routine for
+    Greek's short, common function words. `ro` is now unconditionally
+    populated so that line's presence is never in question; a small
+    redundancy for the reader who does track the top line (the same word
+    twice, verbatim) is a smaller cost than an unpredictable gap for the
+    reader who doesn't.
+
+    (A plain '' rather than a space for the identical case would have its
+    own bug -- an empty `ro` collapses to no meaningful height, so
+    `.ilb`'s vertical-align:middle centers a one-line box for that word
+    while every neighboring word centers a two-line one, riding `rt` down
+    to the English baseline for that word alone -- moot now that `ro`
+    always holds real content, but the reason a bare '' is never the right
+    fallback here even for a future third case.)
     """
     abbreviation = "BTB-L2"
     module_name  = "Berean Transliterated Bible - Level 2"
@@ -410,7 +419,7 @@ class MySwordLemmaDetailFormatter(MySwordLemmaFormatter):
 
     @staticmethod
     def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
-        return word_xlit if word_xlit != lemma_xlit else ' '
+        return word_xlit
 
 
 _MYSWORD_TRANSLINEAR_CSS = _INTRALINEAR_CSS + \

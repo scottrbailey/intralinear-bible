@@ -10,8 +10,10 @@
     straight to the Strong's dictionary entry — for readers who just want
     the fastest path to the lexicon.
   - **BTB-L2** ("...Level 2"): lemma transliteration over the word's own
-    full-word transliteration, with the second line shown only when it
-    actually adds information beyond the lemma.
+    full-word transliteration — both lines always shown, even when they're
+    identical, so a reader using the bottom line as their primary reading
+    line never has to notice it's missing and jump up to the lemma line
+    instead.
   - **BTB-L3** ("...Level 3"): full-word transliteration over the original
     script — unchanged in substance from the retired `BSXB`, now standing
     alone with its own `render_verse()` instead of inheriting one shared
@@ -61,10 +63,7 @@
   testing: L1's full transliterated word (hidden but still in the flex
   box) was widening the ruby box and leaving large horizontal gaps — fixed
   by always rendering `ro`'s content as a single space on L1 rather than
-  the real transliteration; L2's `ro` collapsing to a truly empty string
-  whenever the lemma and word transliterations matched was riding the `rt`
-  line onto the baseline instead of raising it — fixed by falling back to
-  a single space there too; a `min-height:1em` on the shared `ruby ro`
+  the real transliteration; a `min-height:1em` on the shared `ruby ro`
   rule fixes the same baseline-riding behavior recurring on L1 even with a
   space-only `ro`; L3's Hebrew-only `font-size:1.2em` boost on `ro` had
   been living in the shared base CSS and leaking into L1/L2 — moved to
