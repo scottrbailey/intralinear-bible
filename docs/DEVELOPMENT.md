@@ -32,12 +32,18 @@ look up Strong's entries.
 Every tier shares one shape: a **primary** line (`ro` in the markup) that's
 always populated, always the Strong's link, and higher contrast — the line
 a reader actually tracks — and a **secondary** line (`rt`) below it, lower
-contrast, sometimes omitted entirely when it has nothing to add. Only what
-fills each role changes per tier:
+contrast, sometimes reduced to a blank space when it has nothing to add.
+`rt` is never actually *absent*, even on L1, which has no secondary
+content at all: its reserved (if empty) line height is what lifts `ro`
+into its raised, superscript-like position under `.ilb`'s
+vertical-align:middle — omit `rt` entirely and `ro` drops straight onto
+the English baseline instead (a real regression caught on-device during
+this redesign). Only what fills each role changes per tier:
 
 - **L1** — primary: lemma transliteration only (e.g. `reshit`, not
-  `H7225`); no secondary line at all. Meant to get you to the lexicon
-  entry as directly as possible, not to teach pronunciation.
+  `H7225`); secondary line is always a blank space, never real content.
+  Meant to get you to the lexicon entry as directly as possible, not to
+  teach pronunciation.
 - **L2** — primary: the word's own full transliteration, always shown, so
   the line a continuous reader is actually following is never in
   question. The lemma becomes the secondary line, shown only when it
@@ -127,7 +133,7 @@ python main.py --format all                 # every output target in one pass
 python main.py --format esword --mode rev   # e-Sword reverse interlinear
 python main.py my_config.yaml --format osis
 python main.py --composer alignment         # force the live join even if table_db exists
-python main.py --format mysword --mode L2 --test   # Genesis 1 + Matthew 1 only, fast iteration
+python main.py --format mysword --mode L2 --test   # Genesis 5 + Matthew 5 only, fast iteration
 ```
 
 Output files are written to the directory set in `config.yaml → output.dir`.

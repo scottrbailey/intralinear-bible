@@ -10,14 +10,21 @@ target.
 Every tier shares one shape: `ro` is always the primary line -- the one
 readers actually track, always populated, always the Strong's link, higher
 contrast -- and `rt` is always secondary: a lower-contrast helper line,
-shown below `ro`, sometimes omitted entirely when it has nothing to add.
-Only *what content* fills each role changes per tier:
+shown below `ro`. Only *what content* fills each role changes per tier:
 
     Tier   ro (primary, linked)        rt (secondary, helper)
-    L1     lemma transliteration       (none)
+    L1     lemma transliteration       no real content, but still a
+                                        space -- see below
     L2     word's own transliteration  lemma transliteration, only when
-                                        it differs from ro
+                                        it differs from ro (else a space)
     L3     original script             word's own transliteration (always)
+
+`rt` is never truly *absent* in any tier, even L1, where it has nothing to
+say: `rt`'s `min-height` reserves a second line's worth of box height, and
+`.ilb`'s `vertical-align:middle` needs that reserved height to lift `ro`
+above the English baseline into its intended raised, superscript-like
+position. Confirmed on-device: omitting `rt` entirely for L1 (rather than
+emitting `<rt> </rt>`) dropped `ro` straight onto the baseline instead.
 
 `ro` written before `rt` in the markup (not just visually on top via CSS)
 is deliberate: default (non-reversed) `flex-direction: column` then puts
@@ -120,18 +127,30 @@ _ESWORD_STACKED_CSS = _ESWORD_LEMMA_CSS + f'\n.hb ruby ro {{font-size:1.2em;}}'
 class _ESwordBTBFormatter(_ESwordXrefMixin, VerseFormatter):
     """Shared render_verse() for all three e-Sword BTB tiers. Each concrete
     tier supplies `_primary_content()` (always required -- `ro` is never
-    optional) and, if it has one, `_secondary_content()` (the default
-    returns None, meaning "no `rt` at all" -- L1's case).
+    optional) and `_secondary_content()`.
 
     `_secondary_content()` returning a real string is genuinely meant to be
-    read; returning `' '` (a space, not `''`) reserves the same line-height
-    as a populated `rt` without displaying anything, so words with and
-    without a secondary line still center identically inside `.ilb`'s
-    vertical-align:middle box (an empty string would collapse to no
-    meaningful height and ride that one word's `ro` down to the English
-    baseline while its neighbors stay elevated -- the same bug a bare ''
-    caused here before, just relocated from `ro` to `rt` by this tier's own
-    role swap).
+    read; returning `' '` (a space, not `''` and not None -- see below) for
+    the "nothing to add" case reserves the same line-height as a populated
+    `rt` without displaying anything, so every word centers identically
+    inside `.ilb`'s vertical-align:middle box regardless of whether it has
+    real secondary content. Two failure modes this guards against, both
+    confirmed on real devices:
+      - `''` collapses to no meaningful height, riding that one word's `ro`
+        down to the English baseline while its neighbors (real two-line
+        boxes) stay elevated -- a visibly jagged line.
+      - None (omitting the `<rt>` tag entirely, not just its content) is
+        worse still: it drops the *whole tier's* box height by a full
+        line, which un-raises `ro` from its intended superscript-like
+        position back onto the baseline even when every word in that tier
+        is consistently one line (L1's case) -- there's no sibling to look
+        jagged against, but the raised positioning depends on the reserved
+        height existing at all, not on it varying.
+    The default implementation below still returns None for a formatter
+    that hasn't overridden it, since forgetting to implement
+    `_secondary_content()` should be obviously broken rather than silently
+    look right -- but no concrete tier actually returns None; even L1
+    overrides it to return `' '` unconditionally.
     """
     file_extension = ".bbli"
 
@@ -209,8 +228,14 @@ class _ESwordBTBFormatter(_ESwordXrefMixin, VerseFormatter):
 class ESwordLemmaFormatter(_ESwordBTBFormatter):
     """BTB-L1: lemma transliteration only -- links to the Strong's entry via
     a readable word ('reshit') instead of a bare number ('H7225'). No
-    secondary line at all: L1 is meant to get you to the lexicon as
-    directly as possible, not to teach pronunciation."""
+    secondary *content* -- L1 is meant to get you to the lexicon as
+    directly as possible, not to teach pronunciation -- but `_secondary_
+    content()` still returns a bare space rather than None: `rt`'s
+    min-height reserves a second line's worth of box height even with
+    nothing in it, and `.ilb`'s vertical-align:middle needs that reserved
+    height to lift `ro` above the English baseline (confirmed on-device --
+    omitting `rt` entirely dropped `ro` straight onto the baseline instead
+    of the intended raised, superscript-like position)."""
     abbreviation = "BTB-L1"
     module_name  = "Berean Transliterated Bible - Level 1"
     css          = _ESWORD_LEMMA_CSS
@@ -221,6 +246,10 @@ class ESwordLemmaFormatter(_ESwordBTBFormatter):
         if strongs in LEMMA_SUPPRESSED_STRONGS:
             return word_xlit
         return sw.stem.lemma_translit or word_xlit
+
+    @staticmethod
+    def _secondary_content(sw, word_xlit: str, primary: str) -> str:
+        return ' '
 
 
 class ESwordLemmaDetailFormatter(_ESwordBTBFormatter):
@@ -292,9 +321,8 @@ _MYSWORD_BTB_RULES = ''
 
 class _MySwordBTBFormatter(_MySwordXrefMixin, VerseFormatter):
     """Shared render_verse() for all three MySword BTB tiers -- see
-    _ESwordBTBFormatter's docstring, same contract (`_primary_content()`
-    required, `_secondary_content()` optional, defaulting to "no `rt`
-    at all")."""
+    _ESwordBTBFormatter's docstring, same contract and the same
+    never-actually-None-in-practice caveat on `_secondary_content()`."""
     file_extension = ".bbl.mybible"
     verse_rules    = _MYSWORD_BTB_RULES
 
@@ -379,8 +407,14 @@ class _MySwordBTBFormatter(_MySwordXrefMixin, VerseFormatter):
 class MySwordLemmaFormatter(_MySwordBTBFormatter):
     """BTB-L1: lemma transliteration only -- links to the Strong's entry via
     a readable word ('reshit') instead of a bare number ('H7225'). No
-    secondary line at all: L1 is meant to get you to the lexicon as
-    directly as possible, not to teach pronunciation."""
+    secondary *content* -- L1 is meant to get you to the lexicon as
+    directly as possible, not to teach pronunciation -- but `_secondary_
+    content()` still returns a bare space rather than None: `rt`'s
+    min-height reserves a second line's worth of box height even with
+    nothing in it, and `.ilb`'s vertical-align:middle needs that reserved
+    height to lift `ro` above the English baseline (confirmed on-device --
+    omitting `rt` entirely dropped `ro` straight onto the baseline instead
+    of the intended raised, superscript-like position)."""
     abbreviation = "BTB-L1"
     module_name  = "Berean Transliterated Bible - Level 1"
     css          = _MYSWORD_LEMMA_CSS
@@ -391,6 +425,10 @@ class MySwordLemmaFormatter(_MySwordBTBFormatter):
         if strongs in LEMMA_SUPPRESSED_STRONGS:
             return word_xlit
         return sw.stem.lemma_translit or word_xlit
+
+    @staticmethod
+    def _secondary_content(sw, word_xlit: str, primary: str) -> str:
+        return ' '
 
 
 class MySwordLemmaDetailFormatter(_MySwordBTBFormatter):

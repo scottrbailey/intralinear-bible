@@ -33,9 +33,11 @@ Usage:
     --zip       Also zip this run's output file(s) into one archive
                 (output/<translation>_<format>.zip) alongside the originals.
 
-    --test      Quick-render mode: restrict to Genesis 1 and Matthew 1 only,
-                overriding config.yaml's "books"/"chapter" keys in memory (the
-                file itself is untouched). For fast iteration on layout/CSS
+    --test      Quick-render mode: restrict to Genesis 5 and Matthew 5 only
+                (Matthew 5 opens the Sermon on the Mount, so this also
+                exercises the words-of-Christ red-letter feature), overriding
+                config.yaml's "books"/"chapter" keys in memory (the file
+                itself is untouched). For fast iteration on layout/CSS
                 changes without a full-Bible build.
 
 Examples:
@@ -149,10 +151,12 @@ def parse_args():
     )
     parser.add_argument(
         "--test", action="store_true",
-        help="Quick-render mode: restrict to chapter 1 of Genesis and Matthew "
-             "only, overriding config.yaml's 'books'/'chapter' keys in memory "
-             "(the file itself is untouched). For fast iteration on layout/CSS "
-             "changes without a full-Bible build.",
+        help="Quick-render mode: restrict to chapter 5 of Genesis and Matthew "
+             "only (Matthew 5 opens the Sermon on the Mount, exercising the "
+             "words-of-Christ red-letter feature too), overriding "
+             "config.yaml's 'books'/'chapter' keys in memory (the file "
+             "itself is untouched). For fast iteration on layout/CSS changes "
+             "without a full-Bible build.",
     )
     args = parser.parse_args()
 
@@ -257,8 +261,8 @@ def main():
 
     if args.test:
         config['books']   = ['Gen', 'Matt']
-        config['chapter'] = 1
-        print("--test: restricting to Genesis 1 and Matthew 1 only")
+        config['chapter'] = 5
+        print("--test: restricting to Genesis 5 and Matthew 5 only")
 
     print(f"Config: {args.config}")
     print(f"Translation: {config['translation']} v{config['version']}")

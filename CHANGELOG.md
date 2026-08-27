@@ -3,9 +3,11 @@
 ## [1.1.5] - 2026-08-27
 
 ### Added
-- **`--test` flag** (`main.py`): restricts a build to Genesis 1 and
-  Matthew 1 only, for fast layout/CSS iteration without a full-Bible
-  build. Overrides `config.yaml`'s new `books`/`chapter` keys in memory
+- **`--test` flag** (`main.py`): restricts a build to Genesis 5 and
+  Matthew 5 only (Matthew 5 opens the Sermon on the Mount, so this also
+  exercises the words-of-Christ red-letter feature), for fast layout/CSS
+  iteration without a full-Bible build. Overrides `config.yaml`'s new
+  `books`/`chapter` keys in memory
   only — the file itself is untouched. `chapter` (optional, alongside the
   existing `books` filter) restricts to one chapter number within
   whichever books are selected; both `TableComposer` and `AlignmentComposer`
@@ -108,6 +110,17 @@
   rule. L3's Hebrew-only `font-size:1.2em` boost on the original-script
   line stays scoped to L3's own CSS block rather than the shared base, so
   it never leaks into L1/L2's transliteration-only primary line.
+- **BTB-L1 riding the English baseline instead of its intended raised,
+  superscript-like position**, on both platforms — a regression introduced
+  by the `ro`/`rt` role swap above and caught in the same on-device round:
+  L1 initially omitted `<rt>` entirely rather than emitting it empty,
+  since L1 genuinely has no secondary *content*. But the raised appearance
+  was never about position, only about box height — a second line's worth
+  of reserved height (even invisible) is what shifts `ro`'s vertical
+  midpoint up under `.ilb`'s vertical-align:middle. Dropping `<rt>`
+  entirely dropped that reserved height too, so `ro` centered like any
+  other one-line box: at the baseline. Fixed by having L1's
+  `_secondary_content()` return `' '` unconditionally rather than `None`.
 
 ## [1.1.4] - 2026-08-07
 
