@@ -188,11 +188,11 @@ class TableComposer(Composer):
 
     def __init__(self, db_path: Path, config: dict = None,
                  direction: MappingDirection = MappingDirection.TARGET_TO_SOURCE):
-        self.db_path         = Path(db_path)
-        self.config          = config or {}
-        self.direction       = direction
-        self._books_filter   = self.config.get('books')
-        self._chapter_filter = self.config.get('chapter')
+        self.db_path          = Path(db_path)
+        self.config           = config or {}
+        self.direction        = direction
+        self._books_filter    = self.config.get('books')
+        self._chapters_filter = self.config.get('chapters')  # optional {book: chapter}
 
     def iter_verses(self):
         conn = sqlite3.connect(self.db_path)
@@ -209,12 +209,23 @@ class TableComposer(Composer):
 
         conditions, params = [], []
         if self._books_filter:
-            placeholders = ','.join('?' for _ in self._books_filter)
-            conditions.append(f"book IN ({placeholders})")
-            params.extend(self._books_filter)
-        if self._chapter_filter:
-            conditions.append("chapter = ?")
-            params.append(self._chapter_filter)
+            if self._chapters_filter:
+                # Per-book chapter restriction (e.g. {'Gen': 1, 'Matt': 5}) --
+                # a book with no entry here shows all of its chapters.
+                book_conds = []
+                for book in self._books_filter:
+                    chapter = self._chapters_filter.get(book)
+                    if chapter:
+                        book_conds.append("(book = ? AND chapter = ?)")
+                        params.extend([book, chapter])
+                    else:
+                        book_conds.append("(book = ?)")
+                        params.append(book)
+                conditions.append(f"({' OR '.join(book_conds)})")
+            else:
+                placeholders = ','.join('?' for _ in self._books_filter)
+                conditions.append(f"book IN ({placeholders})")
+                params.extend(self._books_filter)
 
         where = ""
         if conditions:

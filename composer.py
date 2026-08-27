@@ -70,8 +70,8 @@ class AlignmentComposer(Composer):
                  direction: MappingDirection = MappingDirection.TARGET_TO_SOURCE):
         self.config    = config
         self.direction = direction
-        self._books_filter   = config.get('books')
-        self._chapter_filter = config.get('chapter')
+        self._books_filter    = config.get('books')
+        self._chapters_filter = config.get('chapters')  # optional {book: chapter}
 
     # ------------------------------------------------------------------ public
 
@@ -121,7 +121,7 @@ class AlignmentComposer(Composer):
 
         verse_count = 0
         for verse_id, target_tokens in _iter_target_verses(
-            tcfg['target'], self._books_filter, self._chapter_filter
+            tcfg['target'], self._books_filter, self._chapters_filter
         ):
             alignment_records = alignment_index.get(verse_id, [])
             tokens   = self._join_verse(verse_id, target_tokens,
@@ -234,9 +234,10 @@ def _load_alignment_index(path: Path) -> dict:
     return index
 
 
-def _iter_target_verses(path: Path, books_filter: list, chapter_filter: int = None):
+def _iter_target_verses(path: Path, books_filter: list, chapters_filter: dict = None):
     """Iterate BSB target TSV, yielding (verse_id, [TargetToken]) tuples."""
     allowed_book_nums = None
+    reverse_map = None
     if books_filter:
         reverse_map       = {v: k for k, v in BOOK_NUM_MAP.items()}
         allowed_book_nums = set()
@@ -247,8 +248,16 @@ def _iter_target_verses(path: Path, books_filter: list, chapter_filter: int = No
             else:
                 print(f"  Warning: could not resolve book '{osis_id}'")
 
-    # verse_id is a fixed BBCCCVVV string -- chapter is characters [2:5].
-    chapter_str = f'{chapter_filter:03d}' if chapter_filter else None
+    # Optional per-book chapter restriction (e.g. {'Gen': 1, 'Matt': 5}) --
+    # a book with no entry here shows all of its chapters. verse_id is a
+    # fixed BBCCCVVV string, so chapter is characters [2:5].
+    chapter_by_book_num = {}
+    if chapters_filter:
+        reverse_map = reverse_map or {v: k for k, v in BOOK_NUM_MAP.items()}
+        for osis_id, chapter in chapters_filter.items():
+            num = reverse_map.get(osis_id)
+            if num:
+                chapter_by_book_num[num] = f'{chapter:03d}'
 
     current_verse_id = None
     current_tokens   = []
@@ -260,8 +269,9 @@ def _iter_target_verses(path: Path, books_filter: list, chapter_filter: int = No
             verse_id = token_id[:8]
             book_num = token_id[:2]
 
+            required_chapter = chapter_by_book_num.get(book_num)
             skip = (allowed_book_nums and book_num not in allowed_book_nums) or \
-                   (chapter_str and verse_id[2:5] != chapter_str)
+                   (required_chapter and verse_id[2:5] != required_chapter)
             if skip:
                 if current_verse_id and current_tokens:
                     yield current_verse_id, current_tokens

@@ -3,18 +3,20 @@
 ## [1.1.5] - 2026-08-27
 
 ### Added
-- **`--test` flag** (`main.py`): restricts a build to Genesis 5 and
-  Matthew 5 only (Matthew 5 opens the Sermon on the Mount, so this also
-  exercises the words-of-Christ red-letter feature), for fast layout/CSS
-  iteration without a full-Bible build. Overrides `config.yaml`'s new
-  `books`/`chapter` keys in memory
-  only — the file itself is untouched. `chapter` (optional, alongside the
-  existing `books` filter) restricts to one chapter number within
-  whichever books are selected; both `TableComposer` and `AlignmentComposer`
-  honor it (`table_composer.py`'s SQL gains a `chapter = ?` condition
-  alongside its existing `book IN (...)` one; `composer.py`'s
+- **`--test` flag** (`main.py`): restricts a build to Genesis 1 (known
+  trouble spots from earlier layout testing) and Matthew 5 (opens the
+  Sermon on the Mount, exercising the words-of-Christ red-letter feature)
+  only, for fast layout/CSS iteration without a full-Bible build.
+  Overrides `config.yaml`'s new `books`/`chapters` keys in memory only —
+  the file itself is untouched. `chapters` (optional, alongside the
+  existing `books` filter) is a `{book: chapter}` dict restricting each
+  selected book to one chapter — a book with no entry shows all of its
+  chapters — since different books legitimately need different chapters
+  restricted for different reasons. Both `TableComposer` and
+  `AlignmentComposer` honor it (`table_composer.py`'s SQL gains a
+  per-book `(book = ? AND chapter = ?)` condition; `composer.py`'s
   `_iter_target_verses()` compares it directly against `verse_id`'s fixed
-  `BBCCCVVV` chapter digits).
+  `BBCCCVVV` chapter digits, per book number).
 - **BTB-L1/L2/L3 — three-tier beginner intralinear modules**, replacing the
   old two-module `BSTB`/`BSXB` pair for both e-Sword and MySword. Every
   tier shares one shape: `ro` is always the primary line — the one a

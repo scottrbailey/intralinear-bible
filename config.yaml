@@ -64,8 +64,8 @@ output:
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
 books: null #[Gen, Matt]
-# Optional: restrict to a single chapter number within whichever books are
-# selected above (e.g. 1 = only chapter 1 of each). null for all chapters.
-# main.py's --test flag sets both books and chapter in memory without
-# touching this file -- see main.py --help.
-chapter: null
+# Optional: restrict to one chapter per book, e.g. {Gen: 1, Matt: 5} -- a
+# book listed above with no entry here shows all of its chapters. null for
+# no restriction at all. main.py's --test flag sets both books and
+# chapters in memory without touching this file -- see main.py --help.
+chapters: null
