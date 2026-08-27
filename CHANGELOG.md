@@ -4,28 +4,42 @@
 
 ### Added
 - **BTB-L1/L2/L3 — three-tier beginner intralinear modules**, replacing the
-  old two-module `BSTB`/`BSXB` pair for both e-Sword and MySword:
-  - **BTB-L1** ("Berean Transliterated Bible - Level 1"): lemma
-    transliteration only (e.g. `reshit` instead of `H7225`), linking
-    straight to the Strong's dictionary entry — for readers who just want
-    the fastest path to the lexicon.
-  - **BTB-L2** ("...Level 2"): lemma transliteration over the word's own
-    full-word transliteration — both lines always shown, even when they're
-    identical, so a reader using the bottom line as their primary reading
-    line never has to notice it's missing and jump up to the lemma line
-    instead.
-  - **BTB-L3** ("...Level 3"): full-word transliteration over the original
-    script — unchanged in substance from the retired `BSXB`, now standing
-    alone with its own `render_verse()` instead of inheriting one shared
-    with the lemma tiers.
+  old two-module `BSTB`/`BSXB` pair for both e-Sword and MySword. Every
+  tier shares one shape: `ro` is always the primary line — the one a
+  reader actually tracks, always populated, always the Strong's link,
+  higher contrast — and `rt` is always a lower-contrast secondary helper
+  line below it, sometimes omitted when it has nothing to add. Only what
+  fills each role changes per tier:
+  - **BTB-L1** ("Berean Transliterated Bible - Level 1"): primary = lemma
+    transliteration only (e.g. `reshit` instead of `H7225`); no secondary
+    line at all. For readers who just want the fastest path to the
+    lexicon entry, not pronunciation help.
+  - **BTB-L2** ("...Level 2"): primary = the word's own full
+    transliteration, always shown, so the line a continuous reader
+    actually follows is never in question; the lemma becomes a secondary,
+    occasional helper line below, shown only when it differs from the
+    primary.
+  - **BTB-L3** ("...Level 3"): primary = the original script; secondary =
+    the word's own transliteration, always shown (script and
+    transliteration never coincide, so there's no "matches, omit it" case
+    here). The heaviest tier, unchanged in substance from the retired
+    `BSXB`.
+
+  Tapping the primary line always opens the Strong's dictionary entry, at
+  every tier — the lemma at L1, the inflected word you're reading at L2,
+  the actual Hebrew/Greek word at L3 — rather than a separate reference
+  form sitting apart from what's actually being read. All three tiers per
+  platform now share one `render_verse()` (`_ESwordBTBFormatter` /
+  `_MySwordBTBFormatter`), with each tier supplying only its own
+  `_primary_content()`/`_secondary_content()`.
+
   `main.py --mode intralinear` builds all three tiers together; `--mode
   L1`/`L2`/`L3` builds one alone. `--mode stacked` is retired. MySword's
   formatters were built first since its real inline `<a href="s...">`
   dictionary links made it the simpler platform to validate the redesign
   against; e-Sword has no way to make an inline link directly, so its
-  `rt`/`ro` ruby markup is instead paired with a hidden `<num>` tag,
-  CSS-positioned over the visible line, that e-Sword auto-links to the
-  Strong's entry.
+  primary line is instead paired with a hidden `<num>` tag, CSS-positioned
+  over the visible line, that e-Sword auto-links to the Strong's entry.
 - **Strong's lemma transliteration pipeline** powering BTB-L1/L2:
   `utils/import_lemma_table.py` parses `data/HebrewStrong.xml`
   ([openscriptures/HebrewLexicon](https://github.com/openscriptures/HebrewLexicon))
@@ -42,16 +56,20 @@
   hard-coded exclusion list for the handful of extremely common Greek
   function words whose suppletive paradigms collapse every inflected form
   under one Strong's number (G3588 `ho`/`he`/`to` "the", G1473 `ego`/`mou`
-  "I", G4771 `sy`/`sou` "you") — showing a mismatched lemma over the actual
-  word on every single occurrence was more noise than help, so these fall
-  back to the word's own transliteration on L1/L2 instead.
+  "I", G4771 `sy`/`sou` "you") — showing a mismatched lemma against the
+  actual word was more noise than help, so these fall back to the word's
+  own transliteration wherever the lemma would otherwise appear (L1's
+  primary line, L2's secondary line).
 
 ### Changed
-- `ruby ro`'s font-size now matches `ruby rt`'s (1.1em) in the shared base
-  CSS across all six BTB-L1/L2/L3 formatters — previously `ro` had no
-  font-size rule of its own and rendered ~10% smaller than `rt` everywhere
-  except Hebrew L3, which already boosts `ro` to 1.2em for vowel-point
-  legibility (still wins on selector specificity).
+- `ro`/`rt`'s colors and roles are now fixed by tag identity rather than
+  by tier: `ro` (primary) is always `COLOR_TRANSLIT` (`#475eaf`, link-blue,
+  overridable to `COLOR_UNLINKED` `#666666` via a `class="unlinked"` when
+  there's no Strong's number), `rt` (secondary) is always `COLOR_ANCIENT`
+  (darkened this version from `#479faf` to `#2f747a` for better contrast —
+  ~3.1:1 against white before, ~5.4:1 after, at nearly the same hue).
+  Since the mapping no longer varies by tier, both colors now live once in
+  the shared base CSS instead of being redeclared per formatter.
 
 ### Fixed
 - **MJAA reading-plan devotions showing two days side by side on e-Sword
@@ -59,15 +77,27 @@
   wraps each day's content in `<div class="devotion-day">` with
   `width:100%; display:block; box-sizing:border-box`, so e-Sword's tablet
   layout can no longer lay two days out in the same row.
-- A round of BTB-L1/L2 layout bugs surfaced by real e-Sword/MySword
-  testing: L1's full transliterated word (hidden but still in the flex
-  box) was widening the ruby box and leaving large horizontal gaps — fixed
-  by always rendering `ro`'s content as a single space on L1 rather than
-  the real transliteration; a `min-height:1em` on the shared `ruby ro`
-  rule fixes the same baseline-riding behavior recurring on L1 even with a
-  space-only `ro`; L3's Hebrew-only `font-size:1.2em` boost on `ro` had
-  been living in the shared base CSS and leaking into L1/L2 — moved to
-  live only in the CSS blocks whose `ro` still holds the original script.
+- **Reading-rhythm break on BTB-L2**, found through real on-device use:
+  an earlier version kept the lemma as the always-visible primary line and
+  suppressed the word's-own-transliteration secondary line whenever it
+  matched the lemma. For anyone using the secondary line as their actual
+  reading line (common in Greek, where lemma and inflected form coincide
+  often), its intermittent disappearance broke reading rhythm and invited
+  "is this word missing from the source?" questions. Promoting the word's
+  own transliteration to the always-shown primary line (this version)
+  means the line people actually read is never in question, and the lemma
+  is free to be genuinely optional underneath it without costing anyone
+  their place.
+- A related round of layout bugs surfaced by the same on-device testing:
+  a secondary line reduced to a bare `''` (rather than a space) for the
+  "nothing to add" case collapses to no meaningful height, so `.ilb`'s
+  vertical-align:middle centers that one word's shorter box differently
+  than its two-line neighbors, riding its primary line down to the
+  English baseline alone — fixed by always emitting a space instead, plus
+  a `min-height:1em` on the (possibly-space-only) secondary line's CSS
+  rule. L3's Hebrew-only `font-size:1.2em` boost on the original-script
+  line stays scoped to L3's own CSS block rather than the shared base, so
+  it never leaks into L1/L2's transliteration-only primary line.
 
 ## [1.1.4] - 2026-08-07
 

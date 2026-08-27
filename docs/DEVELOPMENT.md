@@ -27,30 +27,51 @@ transliteration linked to Strong's concordance.
 "Berean Transliterated Bible" ships as three separate modules per platform
 rather than one, each a step deeper into the source language for readers who
 don't read Hebrew/Greek script but still want to recognize word stems and
-look up Strong's entries:
+look up Strong's entries.
 
-- **L1** — lemma transliteration only (e.g. `reshit`, not `H7225`), linking
-  straight to the Strong's dictionary entry. Meant to get you to the lexicon
-  as directly as possible; no stress marking.
-- **L2** — lemma transliteration over the word's own full-word
-  transliteration, both lines always shown even when they're identical.
-  (An earlier version suppressed the bottom line when it matched the
-  lemma; on-device testing showed that broke the reading rhythm of anyone
-  treating the bottom line as their primary line — an intermittently
-  missing line reads as "did I lose my place?", not "this word needs no
-  extra detail" — so it's now unconditional, at the cost of an occasional
-  literal repeat.)
-- **L3** — full-word transliteration over the original Hebrew/Greek script.
-  The heaviest tier, predates the lemma feature, unchanged in substance
-  (previously shipped as `BSXB`).
+Every tier shares one shape: a **primary** line (`ro` in the markup) that's
+always populated, always the Strong's link, and higher contrast — the line
+a reader actually tracks — and a **secondary** line (`rt`) below it, lower
+contrast, sometimes omitted entirely when it has nothing to add. Only what
+fills each role changes per tier:
+
+- **L1** — primary: lemma transliteration only (e.g. `reshit`, not
+  `H7225`); no secondary line at all. Meant to get you to the lexicon
+  entry as directly as possible, not to teach pronunciation.
+- **L2** — primary: the word's own full transliteration, always shown, so
+  the line a continuous reader is actually following is never in
+  question. The lemma becomes the secondary line, shown only when it
+  differs from the primary.
+
+  (An earlier version had this backwards — lemma primary/always-shown,
+  word-transliteration secondary/suppressed-when-matching — confirmed on
+  real devices to break reading rhythm: hiding the line most readers were
+  actually tracking, whenever it happened to match the lemma, reads as
+  "did I lose my place?" rather than "nothing extra here," and invites
+  "is this word missing from the source?" questions. Promoting the word's
+  own transliteration to primary fixes both.)
+- **L3** — primary: the original Hebrew/Greek script; secondary: the
+  word's own transliteration, always shown (script and transliteration
+  never coincide, so there's no "matches, omit it" case here). The
+  heaviest tier, unchanged in substance from the retired `BSXB`.
+
+Because tapping the primary line always opens the Strong's dictionary
+entry, every tier's tap target matches what's actually being read — the
+lemma at L1, the inflected word at L2, the real Hebrew/Greek word at L3 —
+rather than a separate reference form sitting apart from the text. All
+three tiers per platform share one `render_verse()`
+(`_ESwordBTBFormatter` / `_MySwordBTBFormatter` in
+`verse_formatter/intralinear.py`), with each tier supplying only its own
+`_primary_content()`/`_secondary_content()`.
 
 A handful of extremely common Greek function words with suppletive paradigms
 — every inflected form collapsed under one Strong's number, e.g. `ho`/`he`/
 `to` all under G3588's article entry — would otherwise show a jarring,
-uninformative lemma mismatch on L1/L2 (`ho` stacked over `ton` on every
-occurrence). `LEMMA_SUPPRESSED_STRONGS` in `verse_formatter/intralinear.py`
-hard-codes the confirmed offenders (currently G3588 "the", G1473 "I", G4771
-"you") to fall back to the word's own transliteration instead of the lemma.
+uninformative lemma mismatch (`ho` against `ton` on every occurrence).
+`LEMMA_SUPPRESSED_STRONGS` in `verse_formatter/intralinear.py` hard-codes
+the confirmed offenders (currently G3588 "the", G1473 "I", G4771 "you") to
+fall back to the word's own transliteration wherever the lemma would
+otherwise appear (L1's primary line, L2's secondary line).
 
 `main.py --mode intralinear` builds all three tiers together; `--mode L1`/
 `L2`/`L3` builds one alone (see Run, below).

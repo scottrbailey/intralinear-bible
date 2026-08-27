@@ -7,18 +7,33 @@ edited together to keep them visually matched, so this file is the one to
 open when tuning any of the three tiers' layout or styling for either
 target.
 
-L1 (lemma transliteration only) and L2 (lemma over full-word
-transliteration) share one render_verse() per platform -- same tags,
-different CSS (ruby's `ro` line shown instead of hidden) -- since L2's
-markup is identical to L1's, just with `ro` always populated with the
-word's own transliteration (see MySwordLemmaDetailFormatter's docstring
-for why L2 shows it even when it's identical to the lemma above, rather
-than suppressing the redundant line). L3 (full-word transliteration over
-the original script) predates the lemma feature and keeps its own
-render_verse(), unchanged in substance.
+Every tier shares one shape: `ro` is always the primary line -- the one
+readers actually track, always populated, always the Strong's link, higher
+contrast -- and `rt` is always secondary: a lower-contrast helper line,
+shown below `ro`, sometimes omitted entirely when it has nothing to add.
+Only *what content* fills each role changes per tier:
+
+    Tier   ro (primary, linked)        rt (secondary, helper)
+    L1     lemma transliteration       (none)
+    L2     word's own transliteration  lemma transliteration, only when
+                                        it differs from ro
+    L3     original script             word's own transliteration (always)
+
+`ro` written before `rt` in the markup (not just visually on top via CSS)
+is deliberate: default (non-reversed) `flex-direction: column` then puts
+DOM order and visual order in agreement, so the source itself reads
+top-to-bottom the same way the rendered page does.
+
+Because every tier now has the same shape, all three share one
+render_verse() per platform (`_ESwordBTBFormatter` / `_MySwordBTBFormatter`
+below) -- each concrete tier class only supplies `_primary_content()` and
+(if it has one) `_secondary_content()`. Earlier revisions of this file had
+`ro`/`rt`'s roles reversed (primary always `rt`, on top only via CSS
+positioning, secondary `ro`) and L1/L2 sharing render_verse() while L3
+stood alone; this version replaces both of those.
 
 MySword implemented first: e-Sword has no way to make an inline dictionary
-link directly, so its `rt`/`ro` markup is paired with a hidden `<num>` tag
+link directly, so its markup is paired with a hidden `<num>` tag
 CSS-positioned over the visible line to fake one (e-Sword auto-links a
 bare `<num>` tag's content to that Strong's number's dictionary entry) --
 see the e-Sword section below for that mechanism. MySword's real inline
@@ -32,18 +47,21 @@ from .base import (
 )
 from textwrap import dedent
 
-COLOR_TRANSLIT = '#475eaf'
-COLOR_ANCIENT = '#2f747a'
-COLOR_UNLINKED = '#666666'
+COLOR_TRANSLIT = '#475eaf'   # primary line: always linked, always this color
+COLOR_ANCIENT = '#2f747a'    # secondary line: helper text, lower contrast
+COLOR_UNLINKED = '#666666'   # primary line when there's no Strong's number to link
 
 # Strong's numbers whose lemma citation form is too far from -- and too
-# common a mismatch against -- their inflected forms to be worth showing
-# on L1/L2: a handful of extremely frequent Greek function words with
-# suppletive paradigms (all forms collapsed under one Strong's number),
-# where the lemma reads as noise rather than a helpful stem cue. Confirmed
-# by user testing: G3588 (ho/he/to, the article), G1473 (ego/mou, "I"),
-# G4771 (sy/sou, "you"). For these, L1/L2 fall back to the word's own
-# transliteration instead of the lemma's.
+# common a mismatch against -- their inflected forms to be worth showing:
+# a handful of extremely frequent Greek function words with suppletive
+# paradigms (all forms collapsed under one Strong's number), where the
+# lemma reads as noise rather than a helpful stem cue. Confirmed by user
+# testing: G3588 (ho/he/to, the article), G1473 (ego/mou, "I"), G4771
+# (sy/sou, "you"). For these, wherever a tier would otherwise show the
+# lemma, it falls back to the word's own transliteration instead: L1's
+# primary line (where the lemma normally lives) and L2's secondary line
+# (where the lemma normally shows up only when it differs from L2's
+# word-transliteration primary).
 LEMMA_SUPPRESSED_STRONGS = {'G3588', 'G1473', 'G4771'}
 
 # Shared by both MySword and e-Sword.
@@ -55,6 +73,13 @@ LEMMA_SUPPRESSED_STRONGS = {'G3588', 'G1473', 'G4771'}
 # rendering engine too) — render_header() appends a literal <br/> after each
 # span instead, which is guaranteed to force the wrap without touching
 # whatever precedes it on the line.
+#
+# ruby ro / ruby rt: `ro` is always primary (populated in every tier, in
+# every word that has one) so its `min-height:1em` is just insurance; `rt`
+# is the one that's sometimes a bare space (L2, see
+# _MySwordBTBFormatter._secondary_content's docstring) or entirely absent
+# (L1), so *its* min-height is what actually prevents the baseline-riding
+# bug a collapsed box used to cause.
 _INTRALINEAR_CSS = dedent(f'''\
     .acrostic, .ihdg, .subhdg {{color:#777; font-style:italic; font-weight:bold;}}
     .acrostic {{text-align:center;}}
@@ -63,52 +88,60 @@ _INTRALINEAR_CSS = dedent(f'''\
     .pshdg, .inscrip, .selah {{font-style:italic;}}
     .ilb {{display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}}
     .ilb ruby {{display:inline-flex; flex-direction:column;}}
-    ruby ro {{display:block; min-height:1em; font-size:1.1em; color:{COLOR_ANCIENT}; text-align:center;}}
-    ruby rt {{display:block; font-size:1.1em;}} ruby rt.unlinked {{color: {COLOR_UNLINKED};}}
+    ruby ro {{display:block; min-height:1em; font-size:1.1em; color:{COLOR_TRANSLIT}; text-align:center;}}
+    ruby ro.unlinked {{color: {COLOR_UNLINKED};}}
+    ruby rt {{display:block; min-height:1em; font-size:1.1em; color:{COLOR_ANCIENT}; text-align:center;}}
 ''')
 # .hb ruby ro's larger font-size (helps Hebrew's small vowel points stay
-# legible) used to live in the shared block above -- fine when every
-# formatter's `ro` held the original script (or a hidden copy of it), but
-# no longer, now that BTB-L1/L2 put a transliteration (or a bare space
-# placeholder) there instead. Added explicitly only to the CSS blocks
-# below whose `ro` still holds the real original script.
+# legible) used to live in the shared block above -- fine back when every
+# formatter's `ro` held the original script, but not since BTB-L1/L2 put a
+# transliteration there instead. Added explicitly only to the CSS blocks
+# below whose `ro` still holds the real original script (L3).
+
 
 # ============================================================ e-Sword
 #
-# Same three-tier split as MySword (see that section below), adapted for
 # e-Sword's one real constraint: it has no way to make an inline dictionary
-# link directly, so `rt`/`ro` markup is paired with a hidden `<num>` tag,
-# CSS-positioned over the visible line, that e-Sword auto-links to that
-# Strong's number's dictionary entry (`.ilb ruby ~ * {...; opacity:0}`).
-# That overlay is positioned relative to `.ilb`'s own box and has survived
-# real cross-platform (iOS/Android/desktop) testing already -- since `rt`
-# is always visible in every one of the three tiers (never the hidden
-# line), `.ilb`'s box shape never changes between them, so this reuses
-# that same geometry unmodified rather than needing its own per-tier
-# tuning. See MySwordLemmaFormatter's docstring for what L1/L2 share and
-# how `ro`'s content differs from L3's.
+# link directly, so `ro` (always primary, see module docstring) is paired
+# with a hidden `<num>` tag, CSS-positioned over the visible line, that
+# e-Sword auto-links to that Strong's number's dictionary entry
+# (`.ilb ruby ~ * {...; opacity:0}`). That overlay is positioned relative
+# to `.ilb`'s own box and has survived real cross-platform (iOS/Android/
+# desktop) testing already; it doesn't care which content sits at the top
+# of that box, only that *something* reliably does, so it needed no changes
+# when `ro`/`rt`'s roles were swapped.
 
 _ESWORD_LEMMA_CSS = (_INTRALINEAR_CSS +
-    f'ruby > ro {{opacity:0}} ruby rt {{color:{COLOR_TRANSLIT};}}\n' +
     '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 )
+_ESWORD_STACKED_CSS = _ESWORD_LEMMA_CSS + f'\n.hb ruby ro {{font-size:1.2em;}}'
 
-class ESwordLemmaFormatter(_ESwordXrefMixin, VerseFormatter):
-    """BTB-L1: lemma transliteration only -- links to the Strong's entry via
-    a readable word ('reshit') instead of a bare number ('H7225'). Shares
-    render_verse with ESwordLemmaDetailFormatter (BTB-L2); the CSS
-    difference between them is `ruby > ro` hidden here, shown there -- see
-    _ro_content() (same as MySwordLemmaFormatter's -- see that class's
-    docstring for why L1 always uses a space rather than the real
-    full-word transliteration)."""
-    abbreviation   = "BTB-L1"
-    module_name    = "Berean Transliterated Bible - Level 1"
+
+class _ESwordBTBFormatter(_ESwordXrefMixin, VerseFormatter):
+    """Shared render_verse() for all three e-Sword BTB tiers. Each concrete
+    tier supplies `_primary_content()` (always required -- `ro` is never
+    optional) and, if it has one, `_secondary_content()` (the default
+    returns None, meaning "no `rt` at all" -- L1's case).
+
+    `_secondary_content()` returning a real string is genuinely meant to be
+    read; returning `' '` (a space, not `''`) reserves the same line-height
+    as a populated `rt` without displaying anything, so words with and
+    without a secondary line still center identically inside `.ilb`'s
+    vertical-align:middle box (an empty string would collapse to no
+    meaningful height and ride that one word's `ro` down to the English
+    baseline while its neighbors stay elevated -- the same bug a bare ''
+    caused here before, just relocated from `ro` to `rt` by this tier's own
+    role swap).
+    """
     file_extension = ".bbli"
-    css            = _ESWORD_LEMMA_CSS
 
     @staticmethod
-    def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
-        return ' '
+    def _primary_content(sw, word_xlit: str) -> str:
+        raise NotImplementedError
+
+    @staticmethod
+    def _secondary_content(sw, word_xlit: str, primary: str) -> str | None:
+        return None
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -138,22 +171,23 @@ class ESwordLemmaFormatter(_ESwordXrefMixin, VerseFormatter):
                 core, trail = _split_trailing_punct(token.english)
                 parts.append(self.transform_english(core, token.par_class))
                 parts.append(' ')
-                lemmas = []
+                words = []
                 for sw in token.source_words:
-                    word_xlit  = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    strongs = sw.stem.strongs
-                    lemma_xlit = (word_xlit if strongs in LEMMA_SUPPRESSED_STRONGS
-                                  else sw.stem.lemma_translit or word_xlit)
-                    lang = 'gk' if sw.lang == 'G' else 'hb'
-                    rt_class = ' class="unlinked"' if not strongs else ''
+                    word_xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
+                    strongs   = sw.stem.strongs
+                    primary   = self._primary_content(sw, word_xlit)
+                    secondary = self._secondary_content(sw, word_xlit, primary)
+                    lang     = 'gk' if sw.lang == 'G' else 'hb'
+                    ro_class = ' class="unlinked"' if not strongs else ''
                     num_tag  = f'<num>{strongs}</num>' if strongs else ''
-                    lemmas.append(
+                    rt_tag   = f'<rt>{secondary}</rt>' if secondary is not None else ''
+                    words.append(
                         f'<span class="ilb {lang}">'
-                        f'<ruby><rt{rt_class}>{lemma_xlit}</rt><ro>{self._ro_content(word_xlit, lemma_xlit)}</ro></ruby>'
+                        f'<ruby><ro{ro_class}>{primary}</ro>{rt_tag}</ruby>'
                         f'{num_tag}'
                         f'</span>'
                     )
-                parts.append(' '.join(lemmas))
+                parts.append(' '.join(words))
                 parts.append(trail)
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
@@ -172,148 +206,105 @@ class ESwordLemmaFormatter(_ESwordXrefMixin, VerseFormatter):
         return ''.join(parts)
 
 
-_ESWORD_LEMMA_DETAIL_CSS = (_INTRALINEAR_CSS +
-    f'ruby > ro {{opacity:1}} ruby rt {{color:{COLOR_TRANSLIT};}}\n' +
-    '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
-)
-
-class ESwordLemmaDetailFormatter(ESwordLemmaFormatter):
-    """BTB-L2: lemma transliteration over full-word transliteration -- same
-    render_verse as BTB-L1, `ro` shown via CSS instead of hidden. See
-    MySwordLemmaDetailFormatter's docstring for why `_ro_content()` always
-    shows the word's own transliteration, even when it's identical to the
-    lemma line above it, rather than suppressing the (redundant) line."""
-    abbreviation   = "BTB-L2"
-    module_name    = "Berean Transliterated Bible - Level 2"
-    css            = _ESWORD_LEMMA_DETAIL_CSS
+class ESwordLemmaFormatter(_ESwordBTBFormatter):
+    """BTB-L1: lemma transliteration only -- links to the Strong's entry via
+    a readable word ('reshit') instead of a bare number ('H7225'). No
+    secondary line at all: L1 is meant to get you to the lexicon as
+    directly as possible, not to teach pronunciation."""
+    abbreviation = "BTB-L1"
+    module_name  = "Berean Transliterated Bible - Level 1"
+    css          = _ESWORD_LEMMA_CSS
 
     @staticmethod
-    def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
+    def _primary_content(sw, word_xlit: str) -> str:
+        strongs = sw.stem.strongs
+        if strongs in LEMMA_SUPPRESSED_STRONGS:
+            return word_xlit
+        return sw.stem.lemma_translit or word_xlit
+
+
+class ESwordLemmaDetailFormatter(_ESwordBTBFormatter):
+    """BTB-L2: the word's own transliteration, primary and always shown --
+    unlike L1, the point here is to read the actual inflected form
+    continuously. The lemma becomes a secondary, occasional helper note
+    below, shown only when it adds something beyond what's already on the
+    primary line (see LEMMA_SUPPRESSED_STRONGS for the extremely common
+    Greek function words excluded from that comparison entirely)."""
+    abbreviation = "BTB-L2"
+    module_name  = "Berean Transliterated Bible - Level 2"
+    css          = _ESWORD_LEMMA_CSS
+
+    @staticmethod
+    def _primary_content(sw, word_xlit: str) -> str:
         return word_xlit
 
+    @staticmethod
+    def _secondary_content(sw, word_xlit: str, primary: str) -> str:
+        strongs = sw.stem.strongs
+        if strongs in LEMMA_SUPPRESSED_STRONGS:
+            return ' '
+        lemma_xlit = sw.stem.lemma_translit or word_xlit
+        return lemma_xlit if lemma_xlit != primary else ' '
 
-_ESWORD_STACKED_CSS = _INTRALINEAR_CSS + \
-    f'.hb ruby ro {{font-size:1.2em;}} ruby > ro {{opacity:1}} ruby rt {{color:{COLOR_TRANSLIT};}}' + \
-    '\n.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 
+class ESwordStackedFormatter(_ESwordBTBFormatter):
+    """BTB-L3: the original script, primary and linked -- the heaviest of
+    the three tiers, and the most literal mapping of "tap what you're
+    reading" onto the Strong's link. The word's own transliteration is
+    always the secondary line, as a pronunciation aid -- unlike L2's lemma,
+    it never coincides with the primary line's content, so there's no
+    "matches, omit it" case here."""
+    abbreviation = "BTB-L3"
+    module_name  = "Berean Transliterated Bible - Level 3"
+    css          = _ESWORD_STACKED_CSS
 
-class ESwordStackedFormatter(_ESwordXrefMixin, VerseFormatter):
-    """BTB-L3: full-word transliteration over the original script -- the
-    heaviest of the three tiers. Unchanged in substance from before this
-    redesign (previously BSXB); now stands alone with its own render_verse
-    rather than inheriting it from the (now lemma-focused) L1 formatter."""
-    abbreviation   = "BTB-L3"
-    module_name    = "Berean Transliterated Bible - Level 3"
-    file_extension = ".bbli"
-    css            = _ESWORD_STACKED_CSS
+    @staticmethod
+    def _primary_content(sw, word_xlit: str) -> str:
+        return sw.text
 
-    def render_verse(self, tokens, header=None, note_id_map=None,
-                     xrefs=None, xref_placement=0) -> str:
-        note_id_map = note_id_map or {}
-        xrefs       = xrefs or []
-        parts       = []
-        in_red      = False
+    @staticmethod
+    def _secondary_content(sw, word_xlit: str, primary: str) -> str:
+        return word_xlit
 
-        if header:
-            parts.append(self.render_header(header))
-        if xref_placement == 1:
-            parts.append(self.render_crossref(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_red and not in_red:
-                parts.append(self.red_letter_tags[0])
-                in_red = True
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(self.transform_english(token.english, token.par_class))
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-            else:
-                core, trail = _split_trailing_punct(token.english)
-                parts.append(self.transform_english(core, token.par_class))
-                parts.append(' ')
-                lemmas = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    strongs = sw.stem.strongs
-                    lang = 'gk' if sw.lang == 'G' else 'hb'
-                    rt_class = ' class="unlinked"' if not strongs else ''
-                    num_tag  = f'<num>{strongs}</num>' if strongs else ''
-                    lemmas.append(
-                        f'<span class="ilb {lang}">'
-                        f'<ruby><rt{rt_class}>{xlit}</rt><ro>{sw.text}</ro></ruby>'
-                        f'{num_tag}'
-                        f'</span>'
-                    )
-                parts.append(' '.join(lemmas))
-                parts.append(trail)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f' <not>N{seq}</not>')
-
-            if in_red and (next_token is None or not next_token.is_red):
-                parts.append(self.red_letter_tags[1])
-                in_red = False
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self.render_crossref(xrefs))
-
-        return ''.join(parts)
 
 # ============================================================ MySword
 #
-# Three tiers, not two: L1/L2 share one render_verse (lemma transliteration
-# in `rt`, this word's own full transliteration in `ro`), L3 keeps the
-# original rt=full-word-transliteration/ro=original-script pairing this
-# pair used to share before the lemma feature existed.
+# Same three-tier shape as e-Sword (see module docstring): `ro` always
+# primary and linked, `rt` always secondary. MySword's `ro` carries a real
+# `<a href="s...">` anchor when there's a Strong's number, instead of
+# e-Sword's hidden-`<num>`-overlay workaround.
 #
-# L1/L2 diverge on what `ro` actually holds, though, not just its CSS --
-# see _ro_content()'s docstring on MySwordLemmaFormatter -- so that one
-# piece of behavior is pulled into its own overridable method rather than
-# duplicating render_verse for a single-line difference.
+# `ro`'s "unlinked" class -- e-Sword needs it as an explicit CSS hook since
+# it never has a real anchor to key off of; MySword's `ro` does sometimes
+# have one (`<a>`), so it could in principle rely on "gray unless there's
+# an anchor to override it" the way this used to work before `rt`/`ro`
+# swapped roles. Kept explicit here anyway: one shared
+# `ruby ro.unlinked {...}` rule in _INTRALINEAR_CSS now covers both
+# platforms identically instead of MySword needing its own separate
+# gray-by-default mechanism.
 
-_MYSWORD_LEMMA_CSS = _INTRALINEAR_CSS +\
-    f'ruby > ro {{opacity:0}} .ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
+_MYSWORD_LEMMA_CSS = _INTRALINEAR_CSS + \
+    f'ruby ro a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
+_MYSWORD_TRANSLINEAR_CSS = _MYSWORD_LEMMA_CSS + f'\n.hb ruby ro {{font-size:1.2em;}}'
 
-_MYSWORD_LEMMA_RULES = ''
+_MYSWORD_BTB_RULES = ''
 
-class MySwordLemmaFormatter(_MySwordXrefMixin, VerseFormatter):
-    """BTB-L1: lemma transliteration only -- links to the Strong's entry via
-    a readable word ('reshit') instead of a bare number ('H7225'). Shares
-    render_verse with MySwordLemmaDetailFormatter (BTB-L2); the CSS
-    difference between them is `ruby > ro` hidden here, shown there -- see
-    _ro_content() for why the two also need different *content* in `ro`,
-    not just different visibility.
-    """
-    abbreviation   = "BTB-L1"
-    module_name    = "Berean Transliterated Bible - Level 1"
+
+class _MySwordBTBFormatter(_MySwordXrefMixin, VerseFormatter):
+    """Shared render_verse() for all three MySword BTB tiers -- see
+    _ESwordBTBFormatter's docstring, same contract (`_primary_content()`
+    required, `_secondary_content()` optional, defaulting to "no `rt`
+    at all")."""
     file_extension = ".bbl.mybible"
-    css            = _MYSWORD_LEMMA_CSS
-    verse_rules    = _MYSWORD_LEMMA_RULES
+    verse_rules    = _MYSWORD_BTB_RULES
 
     @staticmethod
-    def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
-        """L1's `ro` is always a single space, never the real full-word
-        transliteration -- confirmed against a real MySword build that
-        `ruby`'s `display:inline-flex; flex-direction:column` sizes the
-        whole box to its *widest* child, including an invisible one
-        (`opacity:0` keeps the box in flow, just not rendered). Hebrew's
-        full-word transliteration is routinely longer than the bare lemma
-        once prefixes/case endings are involved, so putting the real text
-        in a permanently-hidden `ro` was forcing every word's box wide
-        enough for text nobody ever sees, leaving a visible gap around the
-        short visible lemma. A space has negligible width regardless of
-        what the real word would have been, and there's no reason to carry
-        the real (and sometimes long) text into the DOM at all when it can
-        never be shown.
-        """
-        return ' '
+    def _primary_content(sw, word_xlit: str) -> str:
+        raise NotImplementedError
+
+    @staticmethod
+    def _secondary_content(sw, word_xlit: str, primary: str) -> str | None:
+        return None
 
     def render_verse(self, tokens, header=None, note_id_map=None,
                      xrefs=None, xref_placement=0) -> str:
@@ -342,24 +333,28 @@ class MySwordLemmaFormatter(_MySwordXrefMixin, VerseFormatter):
                 core, trail = _split_trailing_punct(token.english)
                 parts.append(self.transform_english(core, token.par_class))
                 parts.append(' ')
-                lemmas = []
+                words = []
                 for sw in token.source_words:
-                    word_xlit  = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    strongs = sw.stem.strongs
-                    lemma_xlit = (word_xlit if strongs in LEMMA_SUPPRESSED_STRONGS
-                                  else sw.stem.lemma_translit or word_xlit)
-                    lang = 'gk' if sw.lang == 'G' else 'hb'
-                    # With no strongs number, `<a href="s">` would be a real but broken
-                    # link, so <rt> gets plain text instead — plus 'unlinked' so it reads
-                    # as "known unavailable" rather than a dead link (see _INTRALINEAR_CSS).
+                    word_xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
+                    strongs   = sw.stem.strongs
+                    primary   = self._primary_content(sw, word_xlit)
+                    secondary = self._secondary_content(sw, word_xlit, primary)
+                    lang     = 'gk' if sw.lang == 'G' else 'hb'
+                    ro_class = ' class="unlinked"' if not strongs else ''
+                    # With no strongs number, `<a href="s">` would be a real
+                    # but broken link, so `ro` gets plain text plus the
+                    # 'unlinked' class instead, reading as "known
+                    # unavailable" rather than a dead link (see
+                    # _INTRALINEAR_CSS's `ruby ro.unlinked` rule).
                     if strongs:
-                        rt = f'<rt><a href="s{strongs}">{lemma_xlit}</a></rt>'
+                        ro = f'<ro{ro_class}><a href="s{strongs}">{primary}</a></ro>'
                     else:
-                        rt = f'<rt>{lemma_xlit}</rt>'
-                    lemmas.append(
-                        f'<span class="ilb {lang}"><ruby>{rt}<ro>{self._ro_content(word_xlit, lemma_xlit)}</ro></ruby></span>'
+                        ro = f'<ro{ro_class}>{primary}</ro>'
+                    rt = f'<rt>{secondary}</rt>' if secondary is not None else ''
+                    words.append(
+                        f'<span class="ilb {lang}"><ruby>{ro}{rt}</ruby></span>'
                     )
-                parts.append(' '.join(lemmas))
+                parts.append(' '.join(words))
                 parts.append(trail)
                 for note in token.notes:
                     seq = note_id_map.get(note['noteId'], note['noteId'])
@@ -381,119 +376,76 @@ class MySwordLemmaFormatter(_MySwordXrefMixin, VerseFormatter):
         return self._apply_rules(scripture, self.verse_rules)
 
 
-_MYSWORD_LEMMA_DETAIL_CSS = _INTRALINEAR_CSS +\
-    f'ruby > ro {{opacity:1}} .ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
+class MySwordLemmaFormatter(_MySwordBTBFormatter):
+    """BTB-L1: lemma transliteration only -- links to the Strong's entry via
+    a readable word ('reshit') instead of a bare number ('H7225'). No
+    secondary line at all: L1 is meant to get you to the lexicon as
+    directly as possible, not to teach pronunciation."""
+    abbreviation = "BTB-L1"
+    module_name  = "Berean Transliterated Bible - Level 1"
+    css          = _MYSWORD_LEMMA_CSS
 
-class MySwordLemmaDetailFormatter(MySwordLemmaFormatter):
-    """BTB-L2: lemma transliteration over full-word transliteration -- same
-    render_verse as BTB-L1, `ro` shown via CSS instead of hidden. Overrides
-    _ro_content(): unlike L1 (always a space, see that method's docstring
-    on MySwordLemmaFormatter), L2's `ro` is genuinely meant to be read, so
-    it always holds the word's own real full-word transliteration.
+    @staticmethod
+    def _primary_content(sw, word_xlit: str) -> str:
+        strongs = sw.stem.strongs
+        if strongs in LEMMA_SUPPRESSED_STRONGS:
+            return word_xlit
+        return sw.stem.lemma_translit or word_xlit
 
-    Earlier versions suppressed `ro` (falling back to a space) whenever it
-    was identical to the lemma line above it -- reasonable on paper ("only
-    show it when it adds information"), but confirmed on-device to break
-    the reading rhythm of anyone using `rt`/`ro` as a fixed two-line unit:
-    with English on the baseline and `ro` as the line they actually read,
-    an intermittently-blank `ro` forces a "wait, is something missing?"
-    detour up to the lemma line before they can get their pronunciation --
-    worse the more often lemma and word coincide, which is routine for
-    Greek's short, common function words. `ro` is now unconditionally
-    populated so that line's presence is never in question; a small
-    redundancy for the reader who does track the top line (the same word
-    twice, verbatim) is a smaller cost than an unpredictable gap for the
-    reader who doesn't.
 
-    (A plain '' rather than a space for the identical case would have its
-    own bug -- an empty `ro` collapses to no meaningful height, so
-    `.ilb`'s vertical-align:middle centers a one-line box for that word
-    while every neighboring word centers a two-line one, riding `rt` down
-    to the English baseline for that word alone -- moot now that `ro`
-    always holds real content, but the reason a bare '' is never the right
-    fallback here even for a future third case.)
+class MySwordLemmaDetailFormatter(_MySwordBTBFormatter):
+    """BTB-L2: the word's own transliteration, primary and always shown --
+    unlike L1, the point here is to read the actual inflected form
+    continuously. The lemma becomes a secondary, occasional helper note
+    below, shown only when it adds something beyond what's already on the
+    primary line (see LEMMA_SUPPRESSED_STRONGS for the extremely common
+    Greek function words excluded from that comparison entirely).
+
+    Earlier revisions of this file had this relationship backwards -- lemma
+    primary/always-shown, word-transliteration secondary -- and separately
+    went through a phase of hiding the secondary line whenever it matched
+    the primary. Both were confirmed on real devices to cause problems:
+    hiding the line anyone's tracking continuously breaks their reading
+    rhythm (worse the more often lemma and word coincide, which is routine
+    for Greek's short, common function words), and it invites "is this word
+    missing from the source?" questions that a genuinely optional *helper*
+    line doesn't. Promoting the word's own transliteration to primary (this
+    revision) means the line people actually read is never in question;
+    the lemma is now free to be genuinely optional without costing anyone
+    their place.
     """
     abbreviation = "BTB-L2"
     module_name  = "Berean Transliterated Bible - Level 2"
-    css          = _MYSWORD_LEMMA_DETAIL_CSS
+    css          = _MYSWORD_LEMMA_CSS
 
     @staticmethod
-    def _ro_content(word_xlit: str, lemma_xlit: str) -> str:
+    def _primary_content(sw, word_xlit: str) -> str:
         return word_xlit
 
+    @staticmethod
+    def _secondary_content(sw, word_xlit: str, primary: str) -> str:
+        strongs = sw.stem.strongs
+        if strongs in LEMMA_SUPPRESSED_STRONGS:
+            return ' '
+        lemma_xlit = sw.stem.lemma_translit or word_xlit
+        return lemma_xlit if lemma_xlit != primary else ' '
 
-_MYSWORD_TRANSLINEAR_CSS = _INTRALINEAR_CSS + \
-    f'.hb ruby ro {{font-size:1.2em;}} .ilb ruby {{color:{COLOR_UNLINKED};}} ruby rt a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
 
-_MYSWORD_TRANSLINEAR_RULES = ''
+class MySwordStackedFormatter(_MySwordBTBFormatter):
+    """BTB-L3: the original script, primary and linked -- the heaviest of
+    the three tiers, and the most literal mapping of "tap what you're
+    reading" onto the Strong's link. The word's own transliteration is
+    always the secondary line, as a pronunciation aid -- unlike L2's lemma,
+    it never coincides with the primary line's content, so there's no
+    "matches, omit it" case here."""
+    abbreviation = "BTB-L3"
+    module_name  = "Berean Transliterated Bible - Level 3"
+    css          = _MYSWORD_TRANSLINEAR_CSS
 
-class MySwordStackedFormatter(_MySwordXrefMixin, VerseFormatter):
-    """BTB-L3: full-word transliteration over the original script -- the
-    heaviest of the three tiers. Unchanged in substance from before this
-    redesign (previously BSXB); now stands alone with its own render_verse
-    rather than inheriting it from the (now lemma-focused) L1 formatter."""
-    abbreviation   = "BTB-L3"
-    module_name    = "Berean Transliterated Bible - Level 3"
-    file_extension = ".bbl.mybible"
-    css            = _MYSWORD_TRANSLINEAR_CSS
-    verse_rules    = _MYSWORD_TRANSLINEAR_RULES
+    @staticmethod
+    def _primary_content(sw, word_xlit: str) -> str:
+        return sw.text
 
-    def render_verse(self, tokens, header=None, note_id_map=None,
-                     xrefs=None, xref_placement=0) -> str:
-        note_id_map = note_id_map or {}
-        xrefs = xrefs or []
-        parts = []
-        in_red = False
-        if header:
-            parts.append(self.render_header(header))
-        if xref_placement == 1:
-            parts.append(self.render_crossref(xrefs))
-
-        for i, token in enumerate(tokens):
-            next_token = tokens[i + 1] if i + 1 < len(tokens) else None
-
-            if token.is_red and not in_red:
-                parts.append(self.red_letter_tags[0])
-                in_red = True
-
-            if token.is_plain_text or not token.source_words:
-                parts.append(self.transform_english(token.english, token.par_class))
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f"<RF q=N{seq}>{note['text']}<Rf> ")
-            else:
-                core, trail = _split_trailing_punct(token.english)
-                parts.append(self.transform_english(core, token.par_class))
-                parts.append(' ')
-                lemmas = []
-                for sw in token.source_words:
-                    xlit = self.transliterate(sw.text, sw.lang, sw.is_proper, provided=sw.stem.translit)
-                    strongs = sw.stem.strongs
-                    lang = 'gk' if sw.lang == 'G' else 'hb'
-                    if strongs:
-                        rt = f'<rt><a href="s{strongs}">{xlit}</a></rt>'
-                    else:
-                        rt = f'<rt>{xlit}</rt>'
-                    lemmas.append(
-                        f'<span class="ilb {lang}"><ruby>{rt}<ro>{sw.text}</ro></ruby></span>'
-                    )
-                parts.append(' '.join(lemmas))
-                parts.append(trail)
-                for note in token.notes:
-                    seq = note_id_map.get(note['noteId'], note['noteId'])
-                    parts.append(f"<RF q=N{seq}>{note['text']}<Rf> ")
-
-            if in_red and (next_token is None or not next_token.is_red):
-                parts.append(self.red_letter_tags[1])
-                in_red = False
-
-            if not token.skip_space_after and next_token is not None:
-                parts.append(' ')
-
-        if xref_placement == 2:
-            parts.append(self.render_crossref(xrefs))
-
-        return ''.join(parts)
-
-    def preview_transform(self, scripture: str) -> str:
-        return self._apply_rules(scripture, self.verse_rules)
+    @staticmethod
+    def _secondary_content(sw, word_xlit: str, primary: str) -> str:
+        return word_xlit
