@@ -1,0 +1,326 @@
+"""
+heb_devotional/esword_book.py
+
+Generates an e-Sword generic "Book"-type module from
+heb_devotional.reading_plan's output -- an alternative to esword.py's
+Daily Devotional (.devi). Same underlying content, different container:
+cross-row linking between .devi's Devotional rows (or between MySword
+journal rows) turned out not to be reliably supported by e-Sword's own
+generic-book viewer, so this format sidesteps the problem instead of
+depending on it -- one Reference row per Gregorian month covered by the
+cycle, with a Sunday-first calendar at the top of that row's own Content
+and each day's reading in its own subsection further down the SAME row,
+linked by ordinary same-document '#anchor' pairs (which only ever need to
+resolve within one row's own HTML, unlike a cross-row link). Navigating
+from month to month is left entirely to e-Sword's own built-in
+chapter-list/prev-next-chapter UI, ordered strictly by the `Chapter`
+string itself (confirmed against real e-Sword Book modules, which number
+their chapters "0000. Preface", "0001. Aaron", "0002. Aaron's Rod", ...
+for exactly this reason) -- see generate_book()'s docstring for why each
+Chapter value is built the way it is.
+
+Book schema and file extension (.refi) both confirmed against a real
+e-Sword module:
+    CREATE TABLE Details (Title NVARCHAR(100), Abbreviation NVARCHAR(50),
+                           Information TEXT, Version INT)
+    CREATE TABLE Reference (Chapter NVARCHAR(100), Content TEXT)
+    CREATE INDEX ChapterIndex ON Reference (Chapter)
+"""
+
+import calendar
+import json
+import os
+import sqlite3
+from datetime import date
+from pathlib import Path
+
+from .reading_plan import (
+    load_reading_plan, find_cycle_window, fetch_hebcal, process_hebcal_data,
+    derive_week_saturdays, derive_holiday_dates, build_day_entries,
+    _book_name_to_abbrev,
+)
+from .esword import _ref_tags
+from .mysword import _annotation_class, _day_class, _hebrew_dom, _add_lead_in_days
+
+
+_CSS = (
+    '<style>'
+    # scroll-snap-type has to land on whatever element actually owns the
+    # scrollbar in e-Sword's Content viewer -- unknown and untestable from
+    # here (no public docs on what e-Sword wraps Content in, could be
+    # html/body directly or some fixed-height div of its own), so this is
+    # set on both html and body as a best-effort double cast; harmless
+    # where it lands on the wrong element (just inert), and each
+    # .day-section's own scroll-snap-align is what actually matters once
+    # *some* ancestor's scroll-snap-type takes effect. Confirmed on-device
+    # to work for manual (wheel/trackpad) scrolling. No scroll-behavior:
+    # smooth -- tried it, but it made anchor-link jumps (calendar<->day)
+    # glide instead of jump, which read as more distracting than helpful.
+    'html, body {scroll-snap-type:y mandatory;} '
+    '.head-info {min-width:100%; background-color:#F2F7F8; padding:4px; margin:4px 0;} '
+    '.head-info * {display:block; width:100%; text-align:center;} '
+    '.cal {width:100%; table-layout:fixed; border-collapse:collapse; text-align:center;} '
+    '.cal th, .cal td {border:1px solid #ccc; padding:4px; position:relative;} '
+    '.cal td.pad {border:none;} '
+    '.hday {position:absolute; top:1px; right:2px; font-size:0.6em; opacity:0.6; line-height:1;} '
+    '.topcal {font-size:0.85em;} '
+    # width:100%/display:block: e-Sword's tablet layout can otherwise size
+    # a block to its (narrow) content width and lay two of them out side
+    # by side instead of stacking -- confirmed on-device for esword.py's
+    # .devi (see CHANGELOG's "MJAA reading-plan devotions showing two days
+    # side by side on e-Sword tablets"). Matters even more here: the whole
+    # scroll-snap-align:start effect above depends on every .day-section
+    # stacking full-width -- two laid out side by side would put half the
+    # screen on today and half on tomorrow, breaking the snap entirely.
+    '.day-section {min-height:100vh; width:100%; display:block; box-sizing:border-box; '
+    'padding-top:8px; scroll-snap-align:start;} '
+    '.yom-tov {background-color:#FFEB3B; padding:4px;} '
+    '.major-holiday {background-color:#FFF9B0; padding:4px;} '
+    '.minor-holiday {background-color:#FFE5B4; padding:4px;} '
+    '.fast-day {background-color:#C8A27A; padding:4px;}'
+    '</style>'
+)
+
+
+def render_calendar(year, month, day_entries, annotations, hdates):
+    """Sunday-first calendar table. A day with an entry links down to its
+    own '#d<day>' section (see render_day_section()); a day with no entry
+    (the reading plan's uncovered stretches -- see esword.py's docstring
+    on the 51-week template vs. a leap year's ~55 weeks) is plain text,
+    same as mysword.render_month_page()'s unlinked cells. Annotation
+    styling (_day_class) and the Hebrew day-of-month corner label
+    (_hebrew_dom) are reused as-is from mysword.py rather than
+    reimplemented. The id="cal" anchor target lives on render_month_chapter()'s
+    wrapping div, not this table -- see that function's docstring."""
+    parts = ['<table class="cal"><tr>']
+    parts += [f'<th>{d}</th>' for d in ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat')]
+    parts.append('</tr>')
+
+    cal = calendar.Calendar(firstweekday=6)  # weeks start Sunday
+    for week in cal.monthdayscalendar(year, month):
+        parts.append('<tr>')
+        for day in week:
+            if day == 0:
+                parts.append('<td class="pad"></td>')
+                continue
+            dt = date(year, month, day)
+            cls = _day_class(dt, annotations)
+            cls_attr = f' class="{cls}"' if cls else ''
+            hday = _hebrew_dom(hdates.get(dt))
+            hday_html = f'<span class="hday">{hday}</span>' if hday else ''
+            if dt in day_entries:
+                parts.append(f'<td{cls_attr}>{hday_html}<a href="#d{day}">{day}</a></td>')
+            else:
+                parts.append(f'<td{cls_attr}>{hday_html}{day}</td>')
+        parts.append('</tr>')
+    parts.append('</table>')
+    return "".join(parts)
+
+
+def render_day_section(dt, sections, annotations_for_day, book_lookup, verses_conn,
+                        unresolved, missing_bounds, parashah_translations, hdate_str):
+    """One day's content, wrapped in id="d<day>" so the calendar (and this
+    section's own back-link) can jump to/from it by same-document anchor.
+    `sections` is day_entries[dt] -- already scoped to this one real date,
+    so unlike esword.render_devotion_html() (which merges colliding
+    Month/Day slots across leap-year Gregorian years) there's never more
+    than one date's material here; every Reference row is its own real
+    Gregorian month, so that collision can't happen in this format.
+
+    The wrapping div also carries class="day-section" (min-height:100vh,
+    see _CSS) so consecutive days don't visually run together on a long
+    scroll -- each day reads as close to its own full screen instead.
+
+    Unlike esword.py's .devi (keyed by real Month/Day, so e-Sword's own
+    Devotional picker chrome already shows the Gregorian date) or MySword's
+    journal (each row's own `date` column shown above content by the app),
+    a Book chapter is one whole month with no per-subsection date metadata
+    e-Sword knows about -- so the Gregorian date has to be spelled out in
+    the day's own heading here, not just implied by weekday/Hebrew date."""
+    parts = [f'<div id="d{dt.day}" class="day-section">']
+    parts.append('<p><a class="topcal" href="#cal">&uarr; Calendar</a></p>')
+
+    greg_date = dt.strftime('%A - %d %B %Y')
+    parts.append(f'<div class="head-info"><h2>{greg_date}</h2>')
+    if hdate_str:
+        parts.append(f'<p>{hdate_str}</p>')
+    parts.append('</div>')
+
+    for heading, parashah_name, refs in sections:
+        parts.append(f'<h2>{heading}</h2>')
+        translation = parashah_translations.get(parashah_name) if parashah_name else None
+        if translation:
+            parts.append(f'<p><i>{translation}</i></p>')
+        tags = _ref_tags(refs, book_lookup, verses_conn, unresolved, missing_bounds)
+        if tags:
+            parts.append("<ol>" + "".join(f"<li>{tag}</li>" for tag in tags) + "</ol>")
+
+    if annotations_for_day:
+        parts.append('<div class="observances">')
+        for ann in annotations_for_day:
+            cls = _annotation_class(ann)
+            label = ann["title"]
+            if ann["yomtov"]:
+                label += " (Yom Tov — no work)"
+            parts.append(f'<p class="{cls}">{label}')
+            if ann["memo"]:
+                parts.append(f"<br><i>{ann['memo']}</i>")
+            parts.append("</p>")
+        parts.append("</div>")
+
+    parts.append('</div>')
+    return "".join(parts)
+
+
+def render_month_chapter(year, month, day_entries, annotations, hdates, book_lookup,
+                          verses_conn, unresolved, missing_bounds, parashah_translations):
+    """One Reference row's full Content: CSS (no CustomCSS column in this
+    schema, so -- same reasoning as esword.py's .devi -- it's repeated
+    inline per row instead of declared once), an <h2>-plus-calendar block
+    wrapped in the same id="cal"/class="day-section" div every day section
+    below uses (see render_day_section()) -- so the calendar reads as its
+    own full-screen "page" too, consistent with every day that follows it,
+    rather than being a short table jammed above the first day. `<h2>`
+    (not `<h3>` -- e-Sword renders `<h3>` unbolded, confirmed on-device)
+    names the month because `Chapter` itself is a sortable "YYYY.MM" key,
+    not a readable label -- see generate_book()'s docstring."""
+    month_title = date(year, month, 1).strftime('%B %Y')
+    parts = [
+        _CSS,
+        f'<div id="cal" class="day-section"><h2>{month_title}</h2>',
+        render_calendar(year, month, day_entries, annotations, hdates),
+        '</div>',
+    ]
+    month_dates = sorted(dt for dt in day_entries if dt.year == year and dt.month == month)
+    for dt in month_dates:
+        parts.append(render_day_section(
+            dt, day_entries[dt], annotations.get(dt, []), book_lookup, verses_conn,
+            unresolved, missing_bounds, parashah_translations, hdates.get(dt),
+        ))
+    return "".join(parts)
+
+
+def generate_book(reading_plan_path, hebrew_year, output_path,
+                   title, abbreviation, information, first_week_name="Bereshit",
+                   table_db=None, parashah_translations_path=None):
+    """
+    Mirrors esword.generate_devi()'s inputs -- see that docstring for
+    table_db/parashah_translations_path. Fetch window and lead-in days
+    mirror mysword.generate_journal() instead (start="rosh_hashanah" +
+    _add_lead_in_days()) so the Fall holidays (Rosh Hashanah, Yom Kippur,
+    Sukkot), which precede the reading plan's own Bereshit week, still get
+    a calendar month and a day section rather than being invisible.
+
+    One Reference row per Gregorian month the cycle touches. `Chapter` is
+    built as "<year>.<month>" (e.g. "2026.10"), a bare sortable key rather
+    than a readable label: e-Sword's own chapter-list/prev-next navigation
+    orders strictly by the `Chapter` string (confirmed against real e-Sword
+    Book modules, which number their own chapters "0000. Preface", "0001.
+    Aaron", ... for this reason), and a Simchat-Torah-to-Simchat-Torah
+    cycle spans a Gregorian year boundary -- plain month names ("September"
+    < "October" alphabetically) would sort wrong for reading Sept THEN Oct
+    of a LATER cycle year. The zero-padded "YYYY.MM" key sorts correctly as
+    plain text, and rows are also inserted in chronological order
+    regardless. The human-readable "<Month Name> <year>" this replaces now
+    lives inside Content itself, as an <h3> (see render_month_chapter()).
+    """
+    weeks = load_reading_plan(reading_plan_path)
+    num_weeks = len(weeks)
+    h_labels = {wk["H"]["label"] for wk in weeks.values() if wk["H"]}
+
+    rosh_hashanah, cycle_start, cycle_end = find_cycle_window(hebrew_year, start="rosh_hashanah")
+    hebcal_json = fetch_hebcal(rosh_hashanah, cycle_end, hebrew_year)
+
+    week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
+    holiday_date = derive_holiday_dates(hebcal_json, h_labels, min_date=cycle_start)
+
+    annotations, hdates = process_hebcal_data(hebcal_json)
+    day_entries = build_day_entries(weeks, week_saturday, holiday_date)
+    _add_lead_in_days(day_entries, rosh_hashanah)
+    book_lookup = _book_name_to_abbrev()
+    unresolved_refs = []
+    missing_bounds = []
+
+    parashah_translations_path = Path(parashah_translations_path) if parashah_translations_path \
+        else Path(__file__).parent.parent / "data" / "parashah_translations.json"
+    with open(parashah_translations_path, encoding="utf-8") as f:
+        parashah_translations = json.load(f)
+    missing_translations = sorted({wk["name"] for wk in weeks.values()} - set(parashah_translations))
+    if missing_translations:
+        print(f"WARNING: {len(missing_translations)} week name(s) have no entry in "
+              f"{parashah_translations_path.name}: {missing_translations}")
+
+    table_db = Path(table_db) if table_db else Path(__file__).parent.parent / "data" / "bsb_tables.db"
+    verses_conn = sqlite3.connect(table_db) if table_db.exists() else None
+    if verses_conn is None:
+        print(f"WARNING: {table_db} not found -- bare 'book chapter' references will be "
+              f"left without a verse range, which e-Sword's <ref> tag doesn't resolve. "
+              f"Build it with utils/import_bsb_table.py first.")
+
+    if os.path.exists(output_path):
+        os.remove(output_path)
+    conn = sqlite3.connect(output_path)
+    cur = conn.cursor()
+    cur.execute('CREATE TABLE Details (Title NVARCHAR(100), Abbreviation NVARCHAR(50), Information TEXT, Version INT)')
+    cur.execute('CREATE TABLE Reference (Chapter NVARCHAR(100), Content TEXT)')
+    cur.execute('CREATE INDEX ChapterIndex ON Reference (Chapter)')
+
+    cur.execute(
+        "INSERT INTO Details (Title, Abbreviation, Information, Version) VALUES (?,?,?,?)",
+        (title, abbreviation, information, 4),
+    )
+
+    month_keys = sorted({(dt.year, dt.month) for dt in day_entries})
+    for y, m in month_keys:
+        content = render_month_chapter(y, m, day_entries, annotations, hdates, book_lookup,
+                                        verses_conn, unresolved_refs, missing_bounds,
+                                        parashah_translations)
+        chapter_key = f"{y:04d}.{m:02d}"
+        cur.execute("INSERT INTO Reference (Chapter, Content) VALUES (?,?)", (chapter_key, content))
+
+    conn.commit()
+    conn.close()
+    if verses_conn is not None:
+        verses_conn.close()
+
+    missing_hdate = [dt for dt in day_entries if dt not in hdates]
+    if missing_hdate:
+        print(f"WARNING: {len(missing_hdate)} day(s) had no hdate from Hebcal "
+              f"(check the derived cycle window covers the full range): {sorted(missing_hdate)[:5]}...")
+
+    if unresolved_refs:
+        print(f"WARNING: {len(unresolved_refs)} reference(s) could not be resolved to a "
+              f"book abbreviation and were left as raw text (broken <ref> links): {unresolved_refs}")
+
+    if missing_bounds:
+        print(f"WARNING: {len(missing_bounds)} reference(s) had no verse count available "
+              f"and were left chapter-only, which e-Sword's <ref> tag won't resolve: {missing_bounds}")
+
+    return len(day_entries)
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate the MJAA e-Sword Book-format devotional module.")
+    parser.add_argument("hebrew_year", type=int, nargs="?", default=5786,
+                         help="Hebrew year the cycle's Bereshit falls in (default: 5786)")
+    hebrew_year = parser.parse_args().hebrew_year
+
+    base_dir = Path(__file__).parent.parent
+    output_path = base_dir / "output" / f"mjaa-{hebrew_year}.refi"
+    count = generate_book(
+        reading_plan_path=base_dir / "data" / "parshat.json",
+        hebrew_year=hebrew_year,
+        output_path=output_path,
+        title=f"MJAA Messianic Reading Plan {hebrew_year}",
+        abbreviation=f"MJAA-{hebrew_year}",
+        information=(
+            "<p>Messianic Jewish Alliance of America \"Read the Bible in a Year\" plan, "
+            f"{hebrew_year} cycle. Weekly Torah/Haftarah portions plus daily OT/NT readings, "
+            "keyed to Simchat Torah through Simchat Torah. Each chapter is one Gregorian month, "
+            "with a calendar of that month at the top and each day's reading linked below it. "
+            "Also annotates fasts, Rosh Chodesh, special Shabbatot, and Yom Tov status from "
+            "Hebcal, and shows the Hebrew date.</p>"
+        ),
+    )
+    print(f"Wrote {count} day(s) to output/{output_path.name}")

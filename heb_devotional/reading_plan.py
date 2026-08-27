@@ -2,10 +2,11 @@
 heb_devotional/reading_plan.py
 
 Shared input-side logic for the Hebrew-calendar devotional generators
-(heb_devotional/esword.py, heb_devotional/mysword.py). Everything here is
-output-format-agnostic: it turns an intermediate reading-plan JSON
-(parshat.json shape: list of {week_no, week, type: D|W|H, refs: [...],
-label?}) plus a live Hebcal fetch into
+(heb_devotional/esword.py, heb_devotional/esword_book.py,
+heb_devotional/mysword.py). Everything here is output-format-agnostic: it
+turns an intermediate reading-plan JSON (parshat.json shape: list of
+{week_no, week, type: D|W|H, refs: [...], label?}) plus a live Hebcal
+fetch into
   - {date: [(heading, parashah_name, refs), ...]} (build_day_entries) --
     every reading assigned to its real calendar date
   - {date: hdate_string} / {date: [annotation, ...]} (process_hebcal_data)
@@ -13,6 +14,14 @@ label?}) plus a live Hebcal fetch into
     (book, chapter, verse range) parsing, shared so both output formats
     produce identical, already-verified reference resolution rather than
     each reimplementing "book chapter" verse-range filling independently.
+
+Run (each takes the target Hebrew year as an optional first CLI argument,
+default 5786):
+    python -m heb_devotional.esword [hebrew_year]        # e-Sword Devotional (.devi)
+    python -m heb_devotional.esword_book [hebrew_year]   # e-Sword Book (.refi)
+    python -m heb_devotional.mysword [hebrew_year]       # MySword Journal (.bok.mybible)
+See docs/DEVELOPMENT.md's Devotional Modules section for more detail on
+each format.
 
 Requires: pip install requests
 
