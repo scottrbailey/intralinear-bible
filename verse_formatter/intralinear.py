@@ -33,7 +33,7 @@ from .base import (
 from textwrap import dedent
 
 COLOR_TRANSLIT = '#475eaf'
-COLOR_ANCIENT = '#479faf'
+COLOR_ANCIENT = '#2f747a'
 COLOR_UNLINKED = '#666666'
 
 # Strong's numbers whose lemma citation form is too far from -- and too
