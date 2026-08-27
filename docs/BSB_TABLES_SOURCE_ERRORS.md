@@ -76,6 +76,23 @@ next verse) has `z` in the Language column instead of being empty like its
 neighboring filler rows. Harmless — it's a content-free row either way — but
 noted for completeness.
 
+## 5. Compound place name split into two tokens, both carrying the full lemma (unconfirmed against raw rows)
+
+**1 Samuel 1:1** — "Ramathaim-zophim" renders as two separate source-word
+annotations instead of one: the first (attached to "Ramathaim-zophim"
+itself) pairs the compound name's full two-word lemma transliteration with
+its own inflected form (`ha-` prefixed), and a second, unattached one
+reappears later in the verse pairing that *same* full two-word lemma with
+just the second half's own form. Observed via `BTB-L2`'s rendered output,
+not the raw TSV rows directly (`bsb_tables.tsv`/`.db` aren't available in
+this session to inspect column-by-column) — consistent with the source
+tokenizing the compound name as two Hebrew words that both got pointed at
+the same (compound) Strong's/lemma entry, rather than each word getting its
+own. Unlike items 1-4 above, this hasn't been directly confirmed against
+the source cells; flagging it here as a lead in case someone with the raw
+file wants to check the two Hebrew tokens for 1 Samuel 1:1 and firm this up
+into a confirmed entry (or rule it out).
+
 ---
 
 *Compiled while building an import pipeline for `intralinear-bible`
