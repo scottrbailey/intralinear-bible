@@ -8,7 +8,7 @@ ruby/lemma block per token instead of one for the whole compound -- the
 pattern behind 1 Sam 1:1's "Ramathaim-zophim" showing two separate blocks
 (see docs/BSB_TABLES_SOURCE_ERRORS.md item 5).
 
-Two independent scans, since they can catch different things:
+Three scans, since they can catch different things:
 
   1. parent_id groups -- the exact mechanism import_bsb_table.py already
      uses for the 'vvv' ("continuation_before") marker: a token with no
@@ -19,9 +19,17 @@ Two independent scans, since they can catch different things:
      still calls _to_source_word() once per member row and appends all of
      them to the same AlignedToken.source_words, so the *annotation*
      (lemma/translit/Strong's link) still repeats once per member. A group
-     of 2+ members that all share one Strong's number is the precise,
-     structural signature of that: one compound entry, artificially split
-     across as many annotation blocks as it has member tokens.
+     of 2+ members that all share one Strong's number is the structural
+     signature of that -- but NOT a confirmed hit on its own: it also
+     matches Hebrew's infinitive-absolute-for-emphasis construction
+     (e.g. מוֹת תָּמוּת, "dying you shall die" -> "you will surely die")
+     and other same-word-repeated idioms ("between you and me", "years"
+     for a distributive "year by year"), where the two source tokens are
+     genuinely independent occurrences of the same word that each deserve
+     their own annotation -- collapsing those would be wrong, not a fix.
+     This raw scan over-counts heavily for that reason (confirmed: the
+     large majority of a real run's hits were this kind of verb/idiom
+     repetition, not compound names).
 
   2. Hyphenated glosses with a matching-Strong's neighbor -- a broader
      heuristic that doesn't depend on parent_id at all, since a compound
@@ -33,6 +41,15 @@ Two independent scans, since they can catch different things:
      (a hyphenated single-word translation like "self-controlled" whose
      neighbor happens to share a Strong's number by coincidence) -- read
      its output as leads to check individually, not confirmed hits.
+
+  3. parent_id groups restricted to members that are ALL tagged as proper
+     nouns (parsing_short/parsing_full containing "proper", matching the
+     "N-proper-fs"/"Noun - proper - feminine singular" tagging on both of
+     1 Sam 1:1's Ramathaim-zophim tokens) -- excludes verb-emphasis and
+     other same-word idioms structurally (they're never proper-noun
+     tagged), rather than by guessing at English surface patterns like
+     scan 2's hyphen check. This is the scan whose count should actually
+     drive the fix's scope.
 
 Usage:
     python utils/scan_compound_strongs.py [path/to/bsb_tables.db]
@@ -60,6 +77,36 @@ def scan_parent_groups(conn: sqlite3.Connection) -> list[tuple]:
     hits = []
     for owner, members in groups.items():
         if len(members) < 2:
+            continue
+        strongs_set = {m['strongs'] for m in members}
+        if len(strongs_set) == 1:
+            owner_row = next((m for m in members if m['bsb_sort'] == owner), members[-1])
+            hits.append((owner_row['verse_id'], owner_row['english'],
+                         strongs_set.pop(), len(members)))
+    return hits
+
+
+def scan_parent_groups_proper_nouns(conn: sqlite3.Connection) -> list[tuple]:
+    cur = conn.execute("""
+        SELECT bsb_sort, verse_id, strongs, english, parsing_short, parsing_full,
+               COALESCE(parent_id, bsb_sort) AS owner
+        FROM tokens
+        WHERE strongs IS NOT NULL
+        ORDER BY bsb_sort
+    """)
+    groups: dict[int, list] = {}
+    for row in cur:
+        groups.setdefault(row['owner'], []).append(row)
+
+    def is_proper(row) -> bool:
+        return 'proper' in (row['parsing_short'] or '').lower() or \
+               'proper' in (row['parsing_full'] or '').lower()
+
+    hits = []
+    for owner, members in groups.items():
+        if len(members) < 2:
+            continue
+        if not all(is_proper(m) for m in members):
             continue
         strongs_set = {m['strongs'] for m in members}
         if len(strongs_set) == 1:
@@ -99,17 +146,23 @@ def main():
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
 
-    print("=== parent_id groups sharing one Strong's number ===")
+    print("=== [1] parent_id groups sharing one Strong's number (over-counts -- see docstring) ===")
     hits = scan_parent_groups(conn)
     for verse_id, english, strongs, count in hits:
         print(f"  {verse_id}  {english!r}  strongs={strongs}  ({count} tokens)")
     print(f"  {len(hits)} total\n")
 
-    print("=== hyphenated glosses with a matching-Strong's neighbor (leads, not confirmed hits) ===")
+    print("=== [2] hyphenated glosses with a matching-Strong's neighbor (leads, not confirmed hits) ===")
     hits2 = scan_hyphenated_neighbors(conn)
     for verse_id, english, strongs in hits2:
         print(f"  {verse_id}  {english!r}  strongs={strongs}")
-    print(f"  {len(hits2)} total")
+    print(f"  {len(hits2)} total\n")
+
+    print("=== [3] parent_id groups where every member is tagged a proper noun (the scan that matters) ===")
+    hits3 = scan_parent_groups_proper_nouns(conn)
+    for verse_id, english, strongs, count in hits3:
+        print(f"  {verse_id}  {english!r}  strongs={strongs}  ({count} tokens)")
+    print(f"  {len(hits3)} total")
 
     conn.close()
 
