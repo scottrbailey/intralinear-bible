@@ -61,7 +61,7 @@ _INTRALINEAR_CSS = dedent(f'''\
     .pshdg, .inscrip, .selah {{font-style:italic;}}
     .ilb {{display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}}
     .ilb ruby {{display:inline-flex; flex-direction:column;}}
-    ruby ro {{display:block; min-height:1em; color:{COLOR_ANCIENT}; text-align:center;}}
+    ruby ro {{display:block; min-height:1em; font-size:1.1em; color:{COLOR_ANCIENT}; text-align:center;}}
     ruby rt {{display:block; font-size:1.1em;}} ruby rt.unlinked {{color: {COLOR_UNLINKED};}}
 ''')
 # .hb ruby ro's larger font-size (helps Hebrew's small vowel points stay
