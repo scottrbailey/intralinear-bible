@@ -87,8 +87,20 @@ def scan_parent_groups(conn: sqlite3.Connection) -> list[tuple]:
 
 
 def scan_parent_groups_proper_nouns(conn: sqlite3.Connection) -> list[tuple]:
+    """Same as scan_parent_groups, restricted to all-proper-noun-tagged
+    groups, plus a `distinct_script` flag: True means every member's own
+    source_text differs from the others (Ramathaim =/= Zophim -- a genuine
+    two-part compound), False means at least two members share the exact
+    same source_text (the name is simply mentioned twice in the same
+    stretch of text and merged into one English clause -- the same
+    not-actually-a-bug pattern as the verb-emphasis idioms scan 1 catches,
+    just landing on a repeated proper noun instead of a repeated verb).
+    Read distinct_script=False hits as leads to verify by hand, not as
+    confirmed instances of the compound-name bug.
+    """
     cur = conn.execute("""
-        SELECT bsb_sort, verse_id, strongs, english, parsing_short, parsing_full,
+        SELECT bsb_sort, verse_id, strongs, english, source_text,
+               parsing_short, parsing_full,
                COALESCE(parent_id, bsb_sort) AS owner
         FROM tokens
         WHERE strongs IS NOT NULL
@@ -111,8 +123,9 @@ def scan_parent_groups_proper_nouns(conn: sqlite3.Connection) -> list[tuple]:
         strongs_set = {m['strongs'] for m in members}
         if len(strongs_set) == 1:
             owner_row = next((m for m in members if m['bsb_sort'] == owner), members[-1])
+            distinct_script = len({m['source_text'] for m in members}) == len(members)
             hits.append((owner_row['verse_id'], owner_row['english'],
-                         strongs_set.pop(), len(members)))
+                         strongs_set.pop(), len(members), distinct_script))
     return hits
 
 
@@ -160,9 +173,12 @@ def main():
 
     print("=== [3] parent_id groups where every member is tagged a proper noun (the scan that matters) ===")
     hits3 = scan_parent_groups_proper_nouns(conn)
-    for verse_id, english, strongs, count in hits3:
-        print(f"  {verse_id}  {english!r}  strongs={strongs}  ({count} tokens)")
-    print(f"  {len(hits3)} total")
+    confirmed = [h for h in hits3 if h[4]]
+    suspect   = [h for h in hits3 if not h[4]]
+    for verse_id, english, strongs, count, distinct_script in hits3:
+        flag = "" if distinct_script else "  <-- SAME source_text repeated, likely not a real compound"
+        print(f"  {verse_id}  {english!r}  strongs={strongs}  ({count} tokens){flag}")
+    print(f"  {len(hits3)} total ({len(confirmed)} distinct-script, {len(suspect)} flagged for manual check)")
 
     conn.close()
 
