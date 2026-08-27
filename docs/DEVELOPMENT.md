@@ -10,15 +10,46 @@ transliteration linked to Strong's concordance.
 
 ## Output Targets
 
-| Format   | Mode                 | Abbreviation | File                 |
-|----------|----------------------|--------------|----------------------|
-| e-Sword  | Intralinear          | `BSTB`       | `BSTB.bbli`          |
-| e-Sword  | Intralinear stacked  | `BSXB`       | `BSXB.bbli`          |
-| e-Sword  | Reverse interlinear  | `BSRB`       | `BSRB.bbli`          |
-| MySword  | Intralinear          | `BSTB`       | `BSTB.bbl.mybible`   |
-| MySword  | Intralinear stacked  | `BSXB`       | `BSXB.bbl.mybible`   |
-| MySword  | Reverse interlinear  | `BSRB`       | `BSRB.bbl.mybible`   |
-| OSIS XML | Intralinear          | `BSBi`       | `BSBi.osis.xml`      |
+| Format   | Mode                     | Abbreviation | File                    |
+|----------|--------------------------|--------------|-------------------------|
+| e-Sword  | Intralinear, level 1     | `BTB-L1`     | `BTB-L1.bbli`           |
+| e-Sword  | Intralinear, level 2     | `BTB-L2`     | `BTB-L2.bbli`           |
+| e-Sword  | Intralinear, level 3     | `BTB-L3`     | `BTB-L3.bbli`           |
+| e-Sword  | Reverse interlinear      | `BSRB`       | `BSRB.bbli`             |
+| MySword  | Intralinear, level 1     | `BTB-L1`     | `BTB-L1.bbl.mybible`    |
+| MySword  | Intralinear, level 2     | `BTB-L2`     | `BTB-L2.bbl.mybible`    |
+| MySword  | Intralinear, level 3     | `BTB-L3`     | `BTB-L3.bbl.mybible`    |
+| MySword  | Reverse interlinear      | `BSRB`       | `BSRB.bbl.mybible`      |
+| OSIS XML | Intralinear              | `BSBi`       | `BSBi.osis.xml`         |
+
+### The BTB-L1/L2/L3 tiers
+
+"Berean Transliterated Bible" ships as three separate modules per platform
+rather than one, each a step deeper into the source language for readers who
+don't read Hebrew/Greek script but still want to recognize word stems and
+look up Strong's entries:
+
+- **L1** — lemma transliteration only (e.g. `reshit`, not `H7225`), linking
+  straight to the Strong's dictionary entry. Meant to get you to the lexicon
+  as directly as possible; no stress marking.
+- **L2** — lemma transliteration over the word's own full-word
+  transliteration, with the second line shown only when it actually differs
+  from the lemma — so a heavily inflected or prefixed word shows both forms,
+  while an unmarked/uninflected one doesn't repeat itself.
+- **L3** — full-word transliteration over the original Hebrew/Greek script.
+  The heaviest tier, predates the lemma feature, unchanged in substance
+  (previously shipped as `BSXB`).
+
+A handful of extremely common Greek function words with suppletive paradigms
+— every inflected form collapsed under one Strong's number, e.g. `ho`/`he`/
+`to` all under G3588's article entry — would otherwise show a jarring,
+uninformative lemma mismatch on L1/L2 (`ho` stacked over `ton` on every
+occurrence). `LEMMA_SUPPRESSED_STRONGS` in `verse_formatter/intralinear.py`
+hard-codes the confirmed offenders (currently G3588 "the", G1473 "I", G4771
+"you") to fall back to the word's own transliteration instead of the lemma.
+
+`main.py --mode intralinear` builds all three tiers together; `--mode L1`/
+`L2`/`L3` builds one alone (see Run, below).
 
 ---
 
@@ -64,10 +95,11 @@ pip install -r requirements.txt
 ### Run
 
 ```bash
-python main.py                              # e-Sword intralinear, config.yaml
-python main.py --format mysword             # MySword intralinear + stacked
+python main.py                              # e-Sword BTB-L1/L2/L3, config.yaml
+python main.py --format mysword             # MySword BTB-L1/L2/L3
+python main.py --format mysword --mode L2   # MySword BTB-L2 only
 python main.py --format all                 # every output target in one pass
-python main.py --format esword --mode inter # e-Sword reverse interlinear
+python main.py --format esword --mode rev   # e-Sword reverse interlinear
 python main.py my_config.yaml --format osis
 python main.py --composer alignment         # force the live join even if table_db exists
 ```
@@ -80,7 +112,7 @@ Output files are written to the directory set in `config.yaml → output.dir`.
 
 ```yaml
 # Module identity
-version:     "1.0.1"
+version:     "1.1.5"
 translation: "BSB"
 
 # Composer: table_db is used automatically when that file exists on disk;
@@ -139,8 +171,9 @@ intralinear-bible/
 │   ├── base.py                 # VerseFormatter ABC; Reference dataclass, parse_reference(),
 │   │                            #   parse_headers() (format-agnostic helpers both Composers'
 │   │                            #   output flows through); e-Sword/MySword xref+red-letter mixins
-│   ├── intralinear.py          # BSTB/BSXB: ESwordIntralinearFormatter, ESwordStackedFormatter,
-│   │                            #   MySwordIntralinearFormatter, MySwordStackedFormatter
+│   ├── intralinear.py          # BTB-L1/L2/L3: ESwordLemmaFormatter, ESwordLemmaDetailFormatter,
+│   │                            #   ESwordStackedFormatter, MySwordLemmaFormatter,
+│   │                            #   MySwordLemmaDetailFormatter, MySwordStackedFormatter
 │   ├── reverse_interlinear.py  # BSRB: ESwordReverseInterlinearFormatter,
 │   │                            #   MySwordReverseInterlinearFormatter
 │   └── __init__.py             # re-exports the package's public API
@@ -153,6 +186,9 @@ intralinear-bible/
 ├── config.yaml          # default pipeline configuration
 ├── utils/
 │   ├── import_bsb_table.py   # one-time: bsb_tables.tsv -> data/bsb_tables.db
+│   ├── import_lemma_table.py # one-time: HebrewStrong.xml/strongsgreek.xml (+ bsb_tables.db
+│   │                          #   fallback for coverage holes) -> strongs_lemma table, for
+│   │                          #   BTB-L1/L2's lemma transliteration
 │   ├── build_books_table.py  # one-time: biblelib -> data/books.db
 │   └── extract_bsb_xrefs.py  # one-time: BSB USX -> data/bsb_xrefs.json (AlignmentComposer path)
 ├── heb_devotional/       # separate pipeline — see Devotional Modules below
@@ -164,7 +200,12 @@ intralinear-bible/
     ├── bsb_annotations.json    # section headers and translator footnotes (AlignmentComposer path)
     ├── bsb_xrefs.json          # BSB parallel-passage cross-references (AlignmentComposer path)
     ├── bsb_tables.tsv          # gitignored — full BSB interlinear export, see Building From Source
-    ├── bsb_tables.db           # gitignored — built from bsb_tables.tsv by import_bsb_table.py
+    ├── bsb_tables.db           # gitignored — built from bsb_tables.tsv by import_bsb_table.py;
+    │                           #   also holds the strongs_lemma table (import_lemma_table.py)
+    ├── HebrewStrong.xml        # Strong's Hebrew dictionary (openscriptures/HebrewLexicon) —
+    │                           #   primary source for strongs_lemma
+    ├── strongsgreek.xml        # Strong's Greek dictionary (morphgnt/strongs-dictionary-xml) —
+    │                           #   primary source for strongs_lemma
     ├── parshat.json            # MJAA Hebrew-calendar reading plan (heb_devotional/ input)
     └── parashah_translations.json  # English translation of each parashah name
 ```
@@ -202,9 +243,14 @@ never know or care which implementation produced the stream:
   (`data/bsb_tables.db`, built once by `utils/import_bsb_table.py` from
   `bsb_tables.tsv`) instead — no macula/Alignments repos needed, and it's
   the faster path, so `main.py` prefers it automatically whenever that
-  database exists (see Configuration). Both composers store `header` and
-  `xrefs` in different raw shapes (see below) — `VerseFormatter` is what
-  normalizes that difference, not the composers themselves.
+  database exists (see Configuration). Also the only composer that
+  populates `SourceToken.lemma_translit` (from the `strongs_lemma` table,
+  built by `utils/import_lemma_table.py`) — the BTB-L1/L2 lemma
+  transliteration; `AlignmentComposer` leaves it at its default empty
+  string, so those tiers built from that path fall back to the word's own
+  transliteration everywhere. Both composers store `header` and `xrefs` in
+  different raw shapes (see below) — `VerseFormatter` is what normalizes
+  that difference, not the composers themselves.
 
 Multiple writers consume the same stream, so `--format all` reads the
 verse data exactly once regardless of how many output targets are active.
@@ -405,6 +451,8 @@ needs no such lookup.
 
 - **Berean Standard Bible** © 2022 Bible Hub — [bereanbible.com](https://bereanbible.com) — CC BY-SA 4.0
 - **BSB Interlinear Tables** (`bsb_tables.tsv`, `TableComposer` data source — Option A above) © Bible Hub — [berean.bible/downloads.htm](https://berean.bible/downloads.htm) — CC BY-SA 4.0
+- **Strong's Hebrew Dictionary** (`data/HebrewStrong.xml`, BTB-L1/L2 lemma transliteration) — [openscriptures/HebrewLexicon](https://github.com/openscriptures/HebrewLexicon) — Public Domain
+- **Strong's Greek Dictionary** (`data/strongsgreek.xml`, BTB-L1/L2 lemma transliteration) — [morphgnt/strongs-dictionary-xml](https://github.com/morphgnt/strongs-dictionary-xml) — Public Domain
 - **Macula Hebrew** (`AlignmentComposer` data source — Option B above) © Clear Bible / unfoldingWord — [github.com/Clear-Bible/macula-hebrew](https://github.com/Clear-Bible/macula-hebrew) — CC BY 4.0
 - **Macula Greek** (`AlignmentComposer` data source — Option B above) © Clear Bible / unfoldingWord — [github.com/Clear-Bible/macula-greek](https://github.com/Clear-Bible/macula-greek) — CC BY 4.0
 - **Clear Bible Alignments** (`AlignmentComposer` data source — Option B above) © Clear Bible — [github.com/Clear-Bible/Alignments](https://github.com/Clear-Bible/Alignments) — CC BY 4.0

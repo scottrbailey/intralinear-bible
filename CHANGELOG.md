@@ -1,5 +1,75 @@
 # Changelog
 
+## [1.1.5] - 2026-08-27
+
+### Added
+- **BTB-L1/L2/L3 — three-tier beginner intralinear modules**, replacing the
+  old two-module `BSTB`/`BSXB` pair for both e-Sword and MySword:
+  - **BTB-L1** ("Berean Transliterated Bible - Level 1"): lemma
+    transliteration only (e.g. `reshit` instead of `H7225`), linking
+    straight to the Strong's dictionary entry — for readers who just want
+    the fastest path to the lexicon.
+  - **BTB-L2** ("...Level 2"): lemma transliteration over the word's own
+    full-word transliteration, with the second line shown only when it
+    actually adds information beyond the lemma.
+  - **BTB-L3** ("...Level 3"): full-word transliteration over the original
+    script — unchanged in substance from the retired `BSXB`, now standing
+    alone with its own `render_verse()` instead of inheriting one shared
+    with the lemma tiers.
+  `main.py --mode intralinear` builds all three tiers together; `--mode
+  L1`/`L2`/`L3` builds one alone. `--mode stacked` is retired. MySword's
+  formatters were built first since its real inline `<a href="s...">`
+  dictionary links made it the simpler platform to validate the redesign
+  against; e-Sword has no way to make an inline link directly, so its
+  `rt`/`ro` ruby markup is instead paired with a hidden `<num>` tag,
+  CSS-positioned over the visible line, that e-Sword auto-links to the
+  Strong's entry.
+- **Strong's lemma transliteration pipeline** powering BTB-L1/L2:
+  `utils/import_lemma_table.py` parses `data/HebrewStrong.xml`
+  ([openscriptures/HebrewLexicon](https://github.com/openscriptures/HebrewLexicon))
+  and `data/strongsgreek.xml`
+  ([morphgnt/strongs-dictionary-xml](https://github.com/morphgnt/strongs-dictionary-xml))
+  into a new `strongs_lemma` table in `data/bsb_tables.db`, falling back to
+  `bsb_tables.db`'s own unprefixed/unsuffixed occurrences to fill any
+  remaining coverage holes. `models.SourceToken.lemma_translit` and
+  `TableComposer`'s new `_load_lemma_lookup()` thread the lemma's
+  transliteration through to the formatters (`AlignmentComposer` doesn't
+  populate this field, so that path's L1/L2 output falls back to each
+  word's own transliteration).
+- **`LEMMA_SUPPRESSED_STRONGS`** (`verse_formatter/intralinear.py`):
+  hard-coded exclusion list for the handful of extremely common Greek
+  function words whose suppletive paradigms collapse every inflected form
+  under one Strong's number (G3588 `ho`/`he`/`to` "the", G1473 `ego`/`mou`
+  "I", G4771 `sy`/`sou` "you") — showing a mismatched lemma over the actual
+  word on every single occurrence was more noise than help, so these fall
+  back to the word's own transliteration on L1/L2 instead.
+
+### Changed
+- `ruby ro`'s font-size now matches `ruby rt`'s (1.1em) in the shared base
+  CSS across all six BTB-L1/L2/L3 formatters — previously `ro` had no
+  font-size rule of its own and rendered ~10% smaller than `rt` everywhere
+  except Hebrew L3, which already boosts `ro` to 1.2em for vowel-point
+  legibility (still wins on selector specificity).
+
+### Fixed
+- **MJAA reading-plan devotions showing two days side by side on e-Sword
+  tablets** (`heb_devotional/esword.py`): `render_devotion_html()` now
+  wraps each day's content in `<div class="devotion-day">` with
+  `width:100%; display:block; box-sizing:border-box`, so e-Sword's tablet
+  layout can no longer lay two days out in the same row.
+- A round of BTB-L1/L2 layout bugs surfaced by real e-Sword/MySword
+  testing: L1's full transliterated word (hidden but still in the flex
+  box) was widening the ruby box and leaving large horizontal gaps — fixed
+  by always rendering `ro`'s content as a single space on L1 rather than
+  the real transliteration; L2's `ro` collapsing to a truly empty string
+  whenever the lemma and word transliterations matched was riding the `rt`
+  line onto the baseline instead of raising it — fixed by falling back to
+  a single space there too; a `min-height:1em` on the shared `ruby ro`
+  rule fixes the same baseline-riding behavior recurring on L1 even with a
+  space-only `ro`; L3's Hebrew-only `font-size:1.2em` boost on `ro` had
+  been living in the shared base CSS and leaking into L1/L2 — moved to
+  live only in the CSS blocks whose `ro` still holds the original script.
+
 ## [1.1.4] - 2026-08-07
 
 ### Added
