@@ -1,5 +1,195 @@
 # Changelog
 
+## [1.1.5] - 2026-08-27
+
+### Added
+- **`_letters_only()`** (`verse_formatter/intralinear.py`): BTB-L2's
+  secondary-line comparison (is the lemma transliteration genuinely
+  different from the word's own, or is there nothing new to show) now
+  compares bare letters only, NFKD-normalized, instead of exact strings —
+  a trailing bound-form hyphen ("al" vs. "al-"), a stress mark landing on
+  a different syllable, or a syllable separator in a different spot no
+  longer trigger a helper line with nothing real to add. NFKD specifically
+  (not NFD): NFD alone leaves Hebrew's vocal-shva marker (`ᵉ`, MODIFIER
+  LETTER SMALL E) untouched, since its mapping to plain `e` is a
+  *compatibility* decomposition, not a *canonical* one — confirmed
+  `unicodedata.normalize('NFKD', 'bᵉer') == 'beer'` where NFD leaves it as
+  `ᵉ` (then silently dropped by the letters-only filter, same as
+  punctuation, rather than counted as the `e` it represents). NFKD is a
+  strict superset of NFD, so nothing already working (stress-mark
+  stripping) is lost.
+
+- **Compound-headword lemma suppression** (`table_composer.py`'s
+  `_find_compound_strongs()`): fixes 1 Sam 1:1's "Ramathaim-zophim"
+  showing the identical full compound name as the lemma line on both of
+  its source tokens — on BTB-L1 that reads as "the same word listed
+  twice" (lemma is the only visible line there); on BTB-L2 it reads as a
+  mismatch against each token's own, genuinely different, real form.
+  Detected automatically each build (one pass over `tokens`, grouped the
+  same way `import_bsb_table.py`'s own `vvv`/`. . .` continuation markers
+  link them) rather than hand-maintained: a group of 2+ tokens sharing one
+  Strong's number is flagged only when `strongs_lemma`'s own dictionary
+  transliteration for that number is itself multi-word/hyphenated *and*
+  doesn't match any member's own transliteration — the signature of a
+  genuinely fused two-root compound headword (Bethel, Beersheba,
+  Ben-hadad, Kiriath-jearim, Melchizedek, ...). Flagged Strong's numbers
+  are simply dropped from the runtime lemma lookup, so every existing
+  `lemma_translit or word_xlit` fallback already in
+  `verse_formatter/intralinear.py` shows each token's own real form
+  automatically — no rendering-code changes needed. Real data found
+  ~150-200 distinct Strong's numbers behind 588 occurrences, confirming
+  this needed to be computed from the data rather than hand-picked the
+  way the unrelated `LEMMA_SUPPRESSED_STRONGS` list is.
+
+  This went through several ruled-out approaches worth noting since each
+  looked plausible at first: merging such tokens into one combined
+  annotation block (ruled out by direct comparison against the real BIB+
+  app — Gen 36:8's "Esau...Esau" merges to one block, but Num 33:9's
+  "Elim...Elim" — same Strong's number, same structural shape — renders
+  as two, so block count isn't the right lever, and BIB+'s finer
+  per-word English-gloss splits for idioms like "you will surely die"
+  rely on alignment data `bsb_tables.tsv` doesn't preserve at all);
+  filtering by proper-noun tagging or by distinct source_text (both
+  broken by the Esau/Elim counterexample — proper-noun tagging doesn't
+  track the real distinction, and cantillation legitimately varies by
+  syntactic position regardless of whether a word is repeated). See
+  `utils/scan_compound_strongs.py`'s module docstring for the full
+  investigation trail.
+- **`--test` flag** (`main.py`): restricts a build to Genesis chapter 1
+  (known trouble spots from earlier layout testing) and Matthew chapters
+  1-5 (5 opens the Sermon on the Mount, exercising the words-of-Christ
+  red-letter feature) only, for fast layout/CSS iteration without a
+  full-Bible build. Overrides `config.yaml`'s new `books`/`chapters` keys
+  in memory only — the file itself is untouched. `chapters` (optional,
+  alongside the existing `books` filter) is a `{book: chapter}` dict
+  capping each selected book to chapters 1 through that number — a book
+  with no entry shows all of its chapters — since different books
+  legitimately need different chapters for different reasons, and
+  e-Sword's own chapter picker won't let you navigate into a book at all
+  if chapter 1 is missing (confirmed on-device — Matthew 5 alone, with no
+  1-4, was unreachable). Both `TableComposer` and `AlignmentComposer`
+  honor it (`table_composer.py`'s SQL gains a per-book
+  `(book = ? AND chapter <= ?)` condition; `composer.py`'s
+  `_iter_target_verses()` compares it directly against `verse_id`'s fixed
+  `BBCCCVVV` chapter digits, per book number).
+- **BTB-L1/L2/L3 — three-tier beginner intralinear modules**, replacing the
+  old two-module `BSTB`/`BSXB` pair for both e-Sword and MySword. Every
+  tier shares one shape: `ro` is always the primary line — the one a
+  reader actually tracks, always populated, always the Strong's link,
+  higher contrast — and `rt` is always a lower-contrast secondary helper
+  line below it, sometimes omitted when it has nothing to add. Only what
+  fills each role changes per tier:
+  - **BTB-L1** ("Berean Transliterated Bible - Level 1"): primary = lemma
+    transliteration only (e.g. `reshit` instead of `H7225`); no secondary
+    line at all. For readers who just want the fastest path to the
+    lexicon entry, not pronunciation help.
+  - **BTB-L2** ("...Level 2"): primary = the word's own full
+    transliteration, always shown, so the line a continuous reader
+    actually follows is never in question; the lemma becomes a secondary,
+    occasional helper line below, shown only when it differs from the
+    primary.
+  - **BTB-L3** ("...Level 3"): primary = the original script; secondary =
+    the word's own transliteration, always shown (script and
+    transliteration never coincide, so there's no "matches, omit it" case
+    here). The heaviest tier, unchanged in substance from the retired
+    `BSXB`.
+
+  Tapping the primary line always opens the Strong's dictionary entry, at
+  every tier — the lemma at L1, the inflected word you're reading at L2,
+  the actual Hebrew/Greek word at L3 — rather than a separate reference
+  form sitting apart from what's actually being read. All three tiers per
+  platform now share one `render_verse()` (`_ESwordBTBFormatter` /
+  `_MySwordBTBFormatter`), with each tier supplying only its own
+  `_primary_content()`/`_secondary_content()`.
+
+  `main.py --mode intralinear` builds all three tiers together; `--mode
+  L1`/`L2`/`L3` builds one alone. `--mode stacked` is retired. MySword's
+  formatters were built first since its real inline `<a href="s...">`
+  dictionary links made it the simpler platform to validate the redesign
+  against; e-Sword has no way to make an inline link directly, so its
+  primary line is instead paired with a hidden `<num>` tag, CSS-positioned
+  over the visible line, that e-Sword auto-links to the Strong's entry.
+- **Strong's lemma transliteration pipeline** powering BTB-L1/L2:
+  `utils/import_lemma_table.py` parses `data/HebrewStrong.xml`
+  ([openscriptures/HebrewLexicon](https://github.com/openscriptures/HebrewLexicon))
+  and `data/strongsgreek.xml`
+  ([morphgnt/strongs-dictionary-xml](https://github.com/morphgnt/strongs-dictionary-xml))
+  into a new `strongs_lemma` table in `data/bsb_tables.db`, falling back to
+  `bsb_tables.db`'s own unprefixed/unsuffixed occurrences to fill any
+  remaining coverage holes. `models.SourceToken.lemma_translit` and
+  `TableComposer`'s new `_load_lemma_lookup()` thread the lemma's
+  transliteration through to the formatters (`AlignmentComposer` doesn't
+  populate this field, so that path's L1/L2 output falls back to each
+  word's own transliteration).
+- **`LEMMA_SUPPRESSED_STRONGS`** (`verse_formatter/intralinear.py`):
+  hard-coded exclusion list for the handful of extremely common Greek
+  function words whose suppletive paradigms collapse every inflected form
+  under one Strong's number (G3588 `ho`/`he`/`to` "the", G1473 `ego`/`mou`
+  "I", G4771 `sy`/`sou` "you") — showing a mismatched lemma against the
+  actual word was more noise than help, so these fall back to the word's
+  own transliteration wherever the lemma would otherwise appear (L1's
+  primary line, L2's secondary line).
+
+### Changed
+- `ro`/`rt`'s colors and roles are now fixed by tag identity rather than
+  by tier: `ro` (primary) is always `COLOR_TRANSLIT` (`#475eaf`, link-blue,
+  overridable to `COLOR_UNLINKED` `#666666` via a `class="unlinked"` when
+  there's no Strong's number), `rt` (secondary) is always `COLOR_ANCIENT`
+  (darkened this version from `#479faf` to `#2f747a` for better contrast —
+  ~3.1:1 against white before, ~5.4:1 after, at nearly the same hue).
+  Since the mapping no longer varies by tier, both colors now live once in
+  the shared base CSS instead of being redeclared per formatter.
+- **Constants and class names in `verse_formatter/intralinear.py` renamed
+  to describe the current primary/secondary design instead of the retired
+  `BSXB`-era "stacked"/"translinear" naming**: `COLOR_TRANSLIT` →
+  `COLOR_PRIMARY`, `COLOR_ANCIENT` → `COLOR_HELPER`, `_ESWORD_STACKED_CSS` →
+  `_ESWORD_SCRIPT_CSS`, `_MYSWORD_TRANSLINEAR_CSS` → `_MYSWORD_SCRIPT_CSS`,
+  `ESwordStackedFormatter` → `ESwordScriptFormatter`,
+  `MySwordStackedFormatter` → `MySwordScriptFormatter` (matching L3's own
+  primary content — the original script — the same way `Lemma`/
+  `LemmaDetail` are named after L1/L2's). Pure rename, no behavior change;
+  updated everywhere the old names were imported or referenced
+  (`verse_formatter/__init__.py`, `main.py`, `docs/DEVELOPMENT.md`).
+
+### Fixed
+- **MJAA reading-plan devotions showing two days side by side on e-Sword
+  tablets** (`heb_devotional/esword.py`): `render_devotion_html()` now
+  wraps each day's content in `<div class="devotion-day">` with
+  `width:100%; display:block; box-sizing:border-box`, so e-Sword's tablet
+  layout can no longer lay two days out in the same row.
+- **Reading-rhythm break on BTB-L2**, found through real on-device use:
+  an earlier version kept the lemma as the always-visible primary line and
+  suppressed the word's-own-transliteration secondary line whenever it
+  matched the lemma. For anyone using the secondary line as their actual
+  reading line (common in Greek, where lemma and inflected form coincide
+  often), its intermittent disappearance broke reading rhythm and invited
+  "is this word missing from the source?" questions. Promoting the word's
+  own transliteration to the always-shown primary line (this version)
+  means the line people actually read is never in question, and the lemma
+  is free to be genuinely optional underneath it without costing anyone
+  their place.
+- A related round of layout bugs surfaced by the same on-device testing:
+  a secondary line reduced to a bare `''` (rather than a space) for the
+  "nothing to add" case collapses to no meaningful height, so `.ilb`'s
+  vertical-align:middle centers that one word's shorter box differently
+  than its two-line neighbors, riding its primary line down to the
+  English baseline alone — fixed by always emitting a space instead, plus
+  a `min-height:1em` on the (possibly-space-only) secondary line's CSS
+  rule. L3's Hebrew-only `font-size:1.2em` boost on the original-script
+  line stays scoped to L3's own CSS block rather than the shared base, so
+  it never leaks into L1/L2's transliteration-only primary line.
+- **BTB-L1 riding the English baseline instead of its intended raised,
+  superscript-like position**, on both platforms — a regression introduced
+  by the `ro`/`rt` role swap above and caught in the same on-device round:
+  L1 initially omitted `<rt>` entirely rather than emitting it empty,
+  since L1 genuinely has no secondary *content*. But the raised appearance
+  was never about position, only about box height — a second line's worth
+  of reserved height (even invisible) is what shifts `ro`'s vertical
+  midpoint up under `.ilb`'s vertical-align:middle. Dropping `<rt>`
+  entirely dropped that reserved height too, so `ro` centered like any
+  other one-line box: at the baseline. Fixed by having L1's
+  `_secondary_content()` return `' '` unconditionally rather than `None`.
+
 ## [1.1.4] - 2026-08-07
 
 ### Added

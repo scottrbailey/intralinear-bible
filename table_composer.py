@@ -86,14 +86,105 @@ _PASEQ = '׀'  # HEBREW PUNCTUATION PASEQ — looks like an ASCII '|' but is a
 # with no known fix, not something worth destroying the underlying data over.
 
 
-def _to_source_word(row: sqlite3.Row) -> SourceWord:
+def _load_lemma_lookup(conn: sqlite3.Connection) -> dict:
+    """{'H7225': 'reshit', 'G26': 'agape', ...} from strongs_lemma (see
+    utils/import_lemma_table.py) -- keyed to match _prefixed_strongs()'s own
+    output exactly (prefix + bare digits, no leading zeros, Aramaic already
+    folded to 'H'), so a token's own .strongs value is a direct lookup key
+    with no reformatting needed. Empty dict (not an error) if strongs_lemma
+    doesn't exist yet -- an older bsb_tables.db built before that table was
+    added, or one nobody's run utils/import_lemma_table.py against -- so
+    every token's lemma_translit just stays '' rather than the whole
+    pipeline failing over one optional table.
+
+    Compound-headword Strong's numbers (see _find_compound_strongs()) are
+    dropped from the returned dict entirely, so every consumer's existing
+    `sw.stem.lemma_translit or word_xlit` fallback naturally shows each
+    token's own real form instead -- no changes needed anywhere else.
+    """
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='strongs_lemma'"
+    ).fetchone():
+        return {}
+    lookup = {f"{lang}{strongs}": xlit
+              for strongs, lang, xlit in conn.execute(
+                  "SELECT strongs, lang, transliteration FROM strongs_lemma")}
+    for key in _find_compound_strongs(conn, lookup):
+        lookup.pop(key, None)
+    return lookup
+
+
+def _find_compound_strongs(conn: sqlite3.Connection, lemma_lookup: dict) -> set:
+    """Strong's numbers (in _load_lemma_lookup's own 'H7436' key format)
+    whose strongs_lemma dictionary transliteration is itself a
+    multi-word/hyphenated compound headword that matches neither member's
+    own transliteration in any real occurrence -- the pattern behind 1 Sam
+    1:1's "Ramathaim-zophim" showing the same full compound name as the
+    lemma line on both of its source tokens (see
+    docs/BSB_TABLES_SOURCE_ERRORS.md item 5, and
+    utils/scan_compound_strongs.py, which investigated and validated this
+    exact signature offline against 588 real occurrences).
+
+    Confirmed against the real BIB+ app that ordinary inflected-vs-lemma
+    divergence -- the same word repeated (Gen 36:8's "Esau ... Esau"), or
+    one name in two different grammatical forms (Num 33:9's "Elim ...
+    Elim") -- is NOT this pattern and must not be suppressed:
+    both of those have single-word lemmas, so the "multi-word/hyphenated"
+    condition below already excludes them. Only a dictionary headword
+    that's structurally a fused two-root compound (Bethel, Beersheba,
+    Ben-hadad, Kiriath-jearim, Melchizedek, ...) matches.
+
+    Groups are found the same way import_bsb_table.py's own 'vvv'/'. . .'
+    continuation markers link them: COALESCE(parent_id, bsb_sort) as the
+    owning group key. Computed once per build (one pass over `tokens`,
+    same order of cost as loading `verses`) rather than hand-maintained --
+    real data turned up on the order of 150-200 distinct Strong's numbers
+    behind those 588 occurrences, far too many to keep as a literal list
+    the way LEMMA_SUPPRESSED_STRONGS does for its 3 hand-picked entries
+    (a different, unrelated phenomenon -- a lemma that's a real single
+    word but unhelpful for a few extremely common Greek function words,
+    not a compound headword).
+    """
+    cur = conn.execute("""
+        SELECT bsb_sort, strongs, translit, language,
+               COALESCE(parent_id, bsb_sort) AS owner
+        FROM tokens
+        WHERE strongs IS NOT NULL
+        ORDER BY bsb_sort
+    """)
+    groups: dict = {}
+    for row in cur:
+        groups.setdefault(row['owner'], []).append(row)
+
+    suppressed = set()
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        keys = {_prefixed_strongs(m['strongs'], m['language']) for m in members}
+        if len(keys) != 1:
+            continue
+        key = next(iter(keys))
+        if not key:
+            continue
+        lemma = lemma_lookup.get(key)
+        if not lemma or (' ' not in lemma and '-' not in lemma):
+            continue
+        member_translits = {m['translit'] for m in members if m['translit']}
+        if lemma in member_translits:
+            continue
+        suppressed.add(key)
+    return suppressed
+
+
+def _to_source_word(row: sqlite3.Row, lemma_lookup: dict) -> SourceWord:
     parsing_full = row['parsing_full'] or ''
     is_proper    = 'proper' in parsing_full.lower()
     source_text  = row['source_text'].replace(_PASEQ, '')
+    strongs      = _prefixed_strongs(row['strongs'], row['language'])
     token = SourceToken(
         id=str(row['bsb_sort']),
         text=source_text,
-        strongs=_prefixed_strongs(row['strongs'], row['language']),
+        strongs=strongs,
         gloss=row['english'] or '',
         token_class=row['parsing_short'] or '',
         pos='',
@@ -102,6 +193,7 @@ def _to_source_word(row: sqlite3.Row) -> SourceWord:
         lang=row['language'],
         after=' ',
         translit=row['translit'] or '',
+        lemma_translit=lemma_lookup.get(strongs, ''),
     )
     return SourceWord(
         tokens=[token], stem=token, text=source_text,
@@ -166,15 +258,17 @@ class TableComposer(Composer):
 
     def __init__(self, db_path: Path, config: dict = None,
                  direction: MappingDirection = MappingDirection.TARGET_TO_SOURCE):
-        self.db_path        = Path(db_path)
-        self.config         = config or {}
-        self.direction       = direction
-        self._books_filter  = self.config.get('books')
+        self.db_path          = Path(db_path)
+        self.config           = config or {}
+        self.direction        = direction
+        self._books_filter    = self.config.get('books')
+        self._chapters_filter = self.config.get('chapters')  # optional {book: chapter}
 
     def iter_verses(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
+        lemma_lookup = _load_lemma_lookup(conn)
 
         # verses is small (~31K rows) — load it whole rather than querying
         # per-verse, since heading/book/chapter/verse are facts about the
@@ -183,12 +277,34 @@ class TableComposer(Composer):
         cur.execute("SELECT verse_id, book, chapter, verse, heading, crossref FROM verses")
         verse_info = {r['verse_id']: r for r in cur}
 
-        where, params = "", ()
+        conditions, params = [], []
         if self._books_filter:
-            placeholders = ','.join('?' for _ in self._books_filter)
-            where  = (f"WHERE verse_id IN (SELECT verse_id FROM verses "
-                      f"WHERE book IN ({placeholders}))")
-            params = tuple(self._books_filter)
+            if self._chapters_filter:
+                # Per-book chapter cap (e.g. {'Gen': 1, 'Matt': 5}) -- chapters
+                # 1 through N inclusive, not just chapter N, since e-Sword's
+                # own chapter picker won't let you navigate into a book at
+                # all if chapter 1 is missing (confirmed on-device). A book
+                # with no entry here shows all of its chapters.
+                book_conds = []
+                for book in self._books_filter:
+                    chapter = self._chapters_filter.get(book)
+                    if chapter:
+                        book_conds.append("(book = ? AND chapter <= ?)")
+                        params.extend([book, chapter])
+                    else:
+                        book_conds.append("(book = ?)")
+                        params.append(book)
+                conditions.append(f"({' OR '.join(book_conds)})")
+            else:
+                placeholders = ','.join('?' for _ in self._books_filter)
+                conditions.append(f"book IN ({placeholders})")
+                params.extend(self._books_filter)
+
+        where = ""
+        if conditions:
+            where = (f"WHERE verse_id IN (SELECT verse_id FROM verses "
+                     f"WHERE {' AND '.join(conditions)})")
+        params = tuple(params)
 
         if self.direction == MappingDirection.SOURCE_TO_TARGET:
             # verse_id is an explicit sort key here (unlike the bsb_sort path
@@ -201,11 +317,13 @@ class TableComposer(Composer):
             for row in cur:
                 if row['verse_id'] != current_verse_id:
                     if verse_rows:
-                        yield self._build_verse_source_order(verse_info[current_verse_id], verse_rows)
+                        yield self._build_verse_source_order(
+                            verse_info[current_verse_id], verse_rows, lemma_lookup)
                     current_verse_id, verse_rows = row['verse_id'], []
                 verse_rows.append(row)
             if verse_rows:
-                yield self._build_verse_source_order(verse_info[current_verse_id], verse_rows)
+                yield self._build_verse_source_order(
+                    verse_info[current_verse_id], verse_rows, lemma_lookup)
             conn.close()
             return
 
@@ -229,7 +347,7 @@ class TableComposer(Composer):
                 if verse_rows:
                     verse, current_par_class, current_is_red = self._build_verse(
                         verse_info[current_verse_id], verse_rows,
-                        current_par_class, current_is_red,
+                        current_par_class, current_is_red, lemma_lookup,
                     )
                     yield verse
                 current_verse_id, verse_rows = row['verse_id'], []
@@ -237,14 +355,14 @@ class TableComposer(Composer):
         if verse_rows:
             verse, current_par_class, current_is_red = self._build_verse(
                 verse_info[current_verse_id], verse_rows,
-                current_par_class, current_is_red,
+                current_par_class, current_is_red, lemma_lookup,
             )
             yield verse
 
         conn.close()
 
     @staticmethod
-    def _build_verse(verse_info, rows, current_par_class, current_is_red):
+    def _build_verse(verse_info, rows, current_par_class, current_is_red, lemma_lookup):
         osis_ref = f"{verse_info['book']}.{verse_info['chapter']}.{verse_info['verse']}"
         header   = verse_info['heading']
         xrefs    = {'1': verse_info['crossref']} if verse_info['crossref'] else {}
@@ -293,7 +411,7 @@ class TableComposer(Composer):
             english   = _assemble_group_text(members, owner_row)
             notes     = [{'noteId': f"F{r['bsb_sort']}", 'text': r['footnote']}
                          for r in members if r['footnote']]
-            source_words = [_to_source_word(r) for r in members]
+            source_words = [_to_source_word(r, lemma_lookup) for r in members]
 
             has_word  = any(c.isalnum() for c in english)
             has_trail = any(r['end_quote'] or r['punctuation'] for r in members)
@@ -343,7 +461,7 @@ class TableComposer(Composer):
         return (osis_ref, tokens, header, xrefs), current_par_class, current_is_red
 
     @staticmethod
-    def _build_verse_source_order(verse_info, rows) -> tuple:
+    def _build_verse_source_order(verse_info, rows, lemma_lookup) -> tuple:
         """Forward-interlinear build: one AlignedToken per source token, in
         the source language's own reading order (source_sort) rather than
         grouped by English alignment (see _build_verse). Deliberately not a
@@ -387,7 +505,7 @@ class TableComposer(Composer):
             tokens.append(AlignedToken(
                 english=english,
                 skip_space_after=False,
-                source_words=[_to_source_word(row)],
+                source_words=[_to_source_word(row, lemma_lookup)],
                 notes=notes,
             ))
 

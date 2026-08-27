@@ -9,7 +9,9 @@ Usage:
                 osis       OSIS XML
                 all        build every output target in one pass
 
-    --mode      intralinear   English + source annotation above  [default]
+    --mode      intralinear   BTB-L1/L2/L3 (beginner tiers), all three
+                              together                              [default]
+                L1/L2/L3      one BTB tier alone
                 interlinear   forward interlinear: source words in their own
                               reading order, English glossed below. ROUGH
                               DRAFT -- layout/CSS not settled, table composer
@@ -17,8 +19,7 @@ Usage:
                               isn't implemented yet)
                 reverse       reverse interlinear: English-primary columns,
                               source words below
-                stacked       e-Sword only: intralinear with source-language
-                              script shown instead of hidden
+                Ignored when --format=all (fixed target-to-source set).
 
     --composer  alignment  live join across macula-hebrew/macula-greek/
                            Alignments
@@ -32,12 +33,23 @@ Usage:
     --zip       Also zip this run's output file(s) into one archive
                 (output/<translation>_<format>.zip) alongside the originals.
 
+    --test      Quick-render mode: restrict to Genesis chapter 1 (known
+                trouble spots from earlier testing) and Matthew chapters 1-5
+                (5 opens the Sermon on the Mount, exercising the
+                words-of-Christ red-letter feature; 1-4 included because
+                e-Sword's own chapter picker won't let you navigate into a
+                book at all if chapter 1 is missing), overriding
+                config.yaml's "books"/"chapters" keys in memory (the file
+                itself is untouched). For fast iteration on layout/CSS
+                changes without a full-Bible build.
+
 Examples:
     python main.py
     python main.py config_nt.yaml --format mysword
     python main.py --format all
     python main.py --composer table
     python main.py --format mysword --zip
+    python main.py --format mysword --mode L2 --test
 """
 
 import argparse
@@ -51,12 +63,14 @@ from models import MappingDirection
 from composer import AlignmentComposer
 from table_composer import TableComposer
 from verse_formatter import (
-    ESwordIntralinearFormatter,
+    ESwordLemmaFormatter,
+    ESwordLemmaDetailFormatter,
     ESwordReverseInterlinearFormatter,
     ESwordForwardInterlinearFormatter,
-    MySwordIntralinearFormatter,
-    MySwordStackedFormatter,
-    MySwordReverseInterlinearFormatter, ESwordStackedFormatter,
+    MySwordLemmaFormatter,
+    MySwordLemmaDetailFormatter,
+    MySwordScriptFormatter,
+    MySwordReverseInterlinearFormatter, ESwordScriptFormatter,
     MySwordForwardInterlinearFormatter,
 )
 from esword_writer import ESwordWriter
@@ -122,9 +136,11 @@ def parse_args():
     )
     parser.add_argument(
         "--mode", dest="render_mode",
-        choices=["intralinear", "interlinear", "reverse", "stacked", "intra", "inter", "rev"],
+        choices=["intralinear", "interlinear", "reverse", "L1", "L2", "L3", "intra", "inter", "rev"],
         default="intralinear",
-        help="Render mode (default: intralinear); ignored when --format=all",
+        help="Render mode (default: intralinear, which builds all three BTB "
+             "tiers together); L1/L2/L3 build a single tier alone; ignored "
+             "when --format=all",
     )
     parser.add_argument(
         "--composer", dest="composer", choices=["alignment", "table"], default=None,
@@ -135,6 +151,16 @@ def parse_args():
     parser.add_argument(
         "--zip", action="store_true",
         help="Also zip this run's output file(s) into one archive in the output directory",
+    )
+    parser.add_argument(
+        "--test", action="store_true",
+        help="Quick-render mode: restrict to Genesis chapter 1 and Matthew "
+             "chapters 1-5 (5 opens the Sermon on the Mount for red-letter "
+             "testing; 1-4 included since e-Sword's chapter picker needs "
+             "chapter 1 present to navigate into a book at all), overriding "
+             "config.yaml's 'books'/'chapters' keys in memory (the file "
+             "itself is untouched). For fast iteration on layout/CSS changes "
+             "without a full-Bible build.",
     )
     args = parser.parse_args()
 
@@ -163,19 +189,27 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'all':
         return [
-            esword(ESwordIntralinearFormatter),
+            esword(ESwordLemmaFormatter),
+            esword(ESwordLemmaDetailFormatter),
+            esword(ESwordScriptFormatter),
             esword(ESwordReverseInterlinearFormatter),
-            mysword(MySwordIntralinearFormatter),
-            mysword(MySwordStackedFormatter),
+            mysword(MySwordLemmaFormatter),
+            mysword(MySwordLemmaDetailFormatter),
+            mysword(MySwordScriptFormatter),
             mysword(MySwordReverseInterlinearFormatter),
             OSISWriter(transliterate=transliterate),
         ]
 
     if output_format == 'esword':
         if render_mode == 'intralinear':
-            return [esword(ESwordIntralinearFormatter), esword(ESwordStackedFormatter)]
-        elif render_mode == 'stacked':
-            profile_cls = ESwordStackedFormatter
+            return [esword(ESwordLemmaFormatter), esword(ESwordLemmaDetailFormatter),
+                    esword(ESwordScriptFormatter)]
+        elif render_mode == 'L1':
+            return [esword(ESwordLemmaFormatter)]
+        elif render_mode == 'L2':
+            return [esword(ESwordLemmaDetailFormatter)]
+        elif render_mode == 'L3':
+            return [esword(ESwordScriptFormatter)]
         elif render_mode == 'interlinear':
             profile_cls = ESwordForwardInterlinearFormatter
         else:  # reverse
@@ -184,15 +218,21 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'mysword':
         if render_mode == 'intralinear':
-            return [mysword(MySwordIntralinearFormatter), mysword(MySwordStackedFormatter)]
+            return [mysword(MySwordLemmaFormatter), mysword(MySwordLemmaDetailFormatter),
+                    mysword(MySwordScriptFormatter)]
+        elif render_mode == 'L1':
+            return [mysword(MySwordLemmaFormatter)]
+        elif render_mode == 'L2':
+            return [mysword(MySwordLemmaDetailFormatter)]
+        elif render_mode == 'L3':
+            return [mysword(MySwordScriptFormatter)]
         elif render_mode == 'interlinear':
             # rtl_ot: forward interlinear reorders Hebrew into its own
             # (right-to-left) word order, unlike intralinear/reverse
             # interlinear where English stays the primary, left-to-right
             # reading order regardless of source language.
             return [mysword(MySwordForwardInterlinearFormatter, rtl_ot=True)]
-        else:  # reverse (and 'stacked' -- MySword has no separate stacked
-               # writer path today, same pre-existing gap as before this change)
+        else:  # reverse
             return [mysword(MySwordReverseInterlinearFormatter)]
 
     # osis
@@ -222,6 +262,11 @@ def zip_outputs(paths: list, zip_path: Path) -> None:
 def main():
     args   = parse_args()
     config = load_config(args.config, composer_override=args.composer)
+
+    if args.test:
+        config['books']    = ['Gen', 'Matt']
+        config['chapters'] = {'Gen': 1, 'Matt': 5}
+        print("--test: restricting to Genesis 1 and Matthew 1-5")
 
     print(f"Config: {args.config}")
     print(f"Translation: {config['translation']} v{config['version']}")

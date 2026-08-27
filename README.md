@@ -45,3 +45,5 @@ This work is licensed under [CC BY-SA 4.0](http://creativecommons.org/licenses/b
 - **Macula Hebrew** © Clear Bible / unfoldingWord — [github.com/Clear-Bible/macula-hebrew](https://github.com/Clear-Bible/macula-hebrew) — CC BY 4.0
 - **Macula Greek** © Clear Bible / unfoldingWord — [github.com/Clear-Bible/macula-greek](https://github.com/Clear-Bible/macula-greek) — CC BY 4.0
 - **Clear Bible Alignments** © Clear Bible — [github.com/Clear-Bible/Alignments](https://github.com/Clear-Bible/Alignments) — CC BY 4.0
+- **Strong's Hebrew Dictionary** (`HebrewStrong.xml`) — [github.com/openscriptures/HebrewLexicon](https://github.com/openscriptures/HebrewLexicon) — Public Domain
+- **Strong's Greek Dictionary** (`strongsgreek.xml`) — [github.com/morphgnt/strongs-dictionary-xml](https://github.com/morphgnt/strongs-dictionary-xml) — Public Domain

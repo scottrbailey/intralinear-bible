@@ -1,6 +1,6 @@
-# BSB Intralinear Bible — Installation Guide
+# Berean Transliterated Bible — Installation Guide
 
-The Berean Standard Transliterated Bible combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's lexicon. 
+The Berean Transliterated Bible combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's lexicon. 
 The module also includes translator notes, cross-references, and words of Christ in red (can be toggled off in the application).
 It is available for two Bible apps:
 
@@ -9,15 +9,29 @@ It is available for two Bible apps:
 
 ---
 
-### Choosing Between Transliterated, Translinear and Interlinear
+### Choosing Between Transliteration Levels
 
-**Berean Standard Transliterated Bible (`BSTB`)** — transliteration appears as a superscript after the English word. Tapping the transliterations will open the dictionary entry in whichever lexicon module you have configured.
+Each word in the BTB series pairs the English translation with a line (or two) drawn from one of three kinds of source text:
 
-<img src="assets/bstb_nt_mysword.jpg" width="360" alt="BSTB on MySword"/>
+1. **The original text** — the actual Hebrew, Aramaic, or Greek script as it appears in the source codices.
+2. **A simple transliteration** — a non-academic rendering of that same source text, showing how the word actually appearing in that verse is pronounced.
+3. **A transliteration of the lemma** — the word's dictionary form. The lemma doesn't necessarily match what's actually in the source text: Hebrew especially is heavily inflected with prefixes and suffixes that can make a word look very different from its dictionary form.
 
-**Berean Standard Translinear Bible  (`BSXB`)** — transliteration and original Hebrew, Aramaic or Greek are stacked vertically beside the English word. The transliterations are links to the lexicon.
+In any transliteration, a raised accent mark (´) shows which syllable to stress — e.g. "be·re·shít" is stressed on the last syllable.
 
-<img src="assets/bsxb_ot_mysword.jpg" width="360" alt="BSXB on MySword"/>
+Each level below uses one of these three as its _primary line_ — shown in blue, in the superscript position above the English word, and linked to the lexicon. Some levels also show a _helper line_, one step simpler than the primary line, in the subscript position beneath it.
+
+**Berean Transliterated Bible - Level 1 (`BTB-L1`)** — the beginner-level module. The primary line is the transliteration of the lemma (the dictionary form of a word). This especially helps if you're just getting started with Hebrew, where prefixes, suffixes, and vowel changes can make a word look very different from the form you'd find in a dictionary. There is no helper line.
+
+<img src="assets/BTB_L1_OT.jpg" width="480" alt="BTB_L1 on MySword"/>
+
+**Berean Transliterated Bible - Level 2 (`BTB-L2`)** — the intermediate-level module. The primary line is the transliteration of the source text. The helper line is the transliteration of the lemma. When the word is already in its dictionary form (the two transliterations match), the helper line is left blank rather than repeating the same text.
+
+<img src="assets/BTB_L2_OT.jpg" width="480" alt="BTB_L2 on MySword"/>
+
+**Berean Transliterated Bible - Level 3 (`BTB-L3`)** — the advanced-level module. The primary line is the original source text. The helper line is the transliteration of that text.
+
+<img src="assets/BTB_L3_OT.jpg" width="480" alt="BTB_L3 on MySword"/>
 
 **Berean Standard Reverse Interlinear Bible  (`BSRB`)** - full reverse (English -> Hebrew and Greek) interlinear with original Hebrew, Aramaic and Greek, academic transliteration, Strong's numbers and morphology codes. Tapping the Strong's number will open the word
 in the lexicon. Tapping the morphology code will open the definition in the _Robinson's Morphology Analysis Codes_ dictionary if the RMAC module is installed. 
@@ -38,11 +52,12 @@ The application is free, but requires a $25 "donation" to unlock some configurat
 3. Open MySword and complete any first-run setup. Tap on "Download Modules" and choose from hundreds of Bible translations, commentaries, books and devotionals.
 4. Install at least one Hebrew and Greek lexicon.  See [Lexicon](#lexicondictionary-suggestions) section below for suggestions.
 
-### Step 2 — Download the BSTB/BSXB Module
+### Step 2 — Download the Bible Module
 
 1. On your device, open this link to download the module:
-   - **[BSTB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.bbl.zip)** Berean Standard Transliterated Bible 
-   - **[BSXB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.bbl.zip)** Berean Standard Translinear Bible or  
+   - **[BTB-L1.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L1.bbl.zip)** Berean Transliterated Bible - Level 1 
+   - **[BTB-L2.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L2.bbl.zip)** Berean Transliterated Bible - Level 2 
+   - **[BTB-L3.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L3.bbl.zip)** Berean Transliterated Bible - Level 3
    - **[BSRB.bbl.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.bbl.zip)** Berean Standard Reverse Interlinear Bible
 2. When prompted, save the file to your device's **Downloads** folder.
 
@@ -50,12 +65,13 @@ The application is free, but requires a $25 "donation" to unlock some configurat
 
 1. Open a file manager app on your device (e.g. **Files by Google**).
 2. Move to `Internal Storage` > `mysword` folder (not the `mysword/bibles` folder).  
-3. There is no need to unzip, MySword will do this for you automatically when you restart.
+3. There is no need to unzip, MySword will do this for you automatically.
 4. Restart the MySword app
 
 ---
 
 ## e-Sword (Android and iOS)
+
 e-Sword is one of the original free Bible study tools with an ecosystem of thousands of downloadable modules and versions targeting Windows, macOS, Android and iOS phones and tablets.
 If you want to use the transliterated Bible on iOS, this is your only choice.
 
@@ -74,8 +90,9 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 ### Step 2 — Download the Module
 
 1. On your device, open this link to download the module:
-   - **[BSTB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSTB.zip)** -  Berean Standard Transliterated Bible 
-   - **[BSXB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSXB.zip)** - Berean Standard Translinear Bible
+   - **[BTB-L1.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L1.zip)** Berean Transliterated Bible - Level 1
+   - **[BTB-L2.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L2.zip)** Berean Transliterated Bible - Level 2
+   - **[BTB-L3.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BTB-L3.zip)** Berean Transliterated Bible - Level 3
    - **[BSRB.zip](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/BSRB.zip)** - Berean Standard Reverse Interlinear Bible + RMAC (morphology) dictionary
 
 2. Save the file to your device's **Downloads** folder.
@@ -83,16 +100,16 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 ### Step 3 — Install the Module 
 
 1. Open a file manager app on your device.
-2. Navigate to your **Downloads** folder and extract the `BSTB.zip`, `BSXB.zip` `BSRB.zip` file.
-3. You should see a file named `BSTB.bbli`, `BSXB.bbli`, or `BSRB.bbli` (and `rmac.dcti` RMAC dictionary)
-4. Open e-Sword and tap General > Import. Navigate to your Downloads folder, select the unzipped file and click `Open` to import the module.
+2. Navigate to your **Downloads** folder and extract the `BTB-L1.zip`, `BTB-L2.zip`, `BTB-L3.zip`, `BSRB.zip` file.
+3. You should see a file named `BTB-L1.bbli`, `BTB-L2.bbli`, `BTB-L3.bbli`, or `BSRB.bbli` (and `rmac.dcti` RMAC dictionary)
+4. Open e-Sword and tap General > Import. Navigate to your Downloads folder, select the unzipped file and click `Open` to import the module. When selecting files to import, you can long press to select and install multiple modules at a time.
 
 ---
 
 ## Features
 
-- **Transliteration** — Hebrew and Greek words are shown in Latin script so you can pronounce them without knowing the original alphabets. As the target audience for the Transliterated/Translinear Bible is not seminarians and Bible academics, a simple transliteration scheme with syllable separators and stress markers was chosen. If you want academic or phonetic transliterations, you can select a different transliteration scheme in the config.yaml file.
-- **Hebrew and Greek** — The Translinear version has the original Hebrew, Aramaic and Greek text below the transliteration.  
+- **Transliteration** — Hebrew and Greek words are shown in Latin script so you can pronounce them without knowing the original alphabets. As the target audience for the Transliterated Bible is not seminarians and Bible academics, a simple transliteration scheme with syllable separators and stress markers was chosen. If you want academic or phonetic transliterations, you can select a different transliteration scheme in the config.yaml file.
+- **Hebrew and Greek** — The BSB-L3 version has the original Hebrew, Aramaic and Greek text over the transliteration.  
 - **Strong's Links** — Tap any transliteration to open the corresponding Strong's lexicon entry explaining the word's meaning and usage.
 - **Translator Notes** — Footnotes from the BSB translation team are included and accessible by tapping the note markers.
 - **Cross-References** — The BSB translator cross-references are included.
@@ -110,13 +127,13 @@ Most lexicons are for a single language. But both applications offer a combined 
 ### AHLB - Ancient Hebrew Lexicon of the Bible
 If you want a much richer understanding of the Hebrew language, we highly recommend the [Ancient Hebrew Lexicon of the Bible](https://www.ancient-hebrew.org/ahlb/). It shows the ancient Hebrew pictographs (Paleo Hebrew script) and explains how those pictures form concrete root words and how additional words are built off of that root that share a common theme.
 
-To get the most out of the AHLB, you will need to read the introduction. On e-Sword, the AHLB introduction is available as a "Reference" book once you install the Lexicon. On MySword, the introduction is in the lexicon under the entries "01" through "16", so you will have to search for "01".
+To get the most out of the AHLB, you will need to read the introduction. On e-Sword, the AHLB introduction is available as a "Reference" book once you install the Lexicon. On MySword, the introduction is in the lexicon under the entries "01" through "16", linked at the bottom of every entry.
 Installing the AHLB lexicon on e-Sword will make the book's introduction available under the "Reference" section. 
 There is also a short YouTube [introduction video](https://www.youtube.com/watch?v=wc1pV8E3L_Q) if you can't find the intro in your Bible app.
 
 ---
 
-## Weekly Torah Portions - Bible in a Year 
+## Weekly Torah Portions - Bible in a Hebrew Year 
 A daily devotional based on the [Messianic Jewish Association of America's](https://mjaa.org/bible-in-a-year/) Bible reading plan.
 - Friday/Saturday weekly Torah/Haftarah readings
 - Sunday/Thursday Bible in a (Hebrew) year readings

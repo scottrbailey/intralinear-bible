@@ -8,8 +8,9 @@ Organized by what you're actually editing at once, not by platform:
   base.py                -- VerseFormatter ABC, shared cross-ref/header/text
                              helpers, e-Sword/MySword xref+red-letter mixins.
                              Rarely touched.
-  intralinear.py          -- BSTB/BSXB: e-Sword and MySword formatters + CSS,
-                             side by side (edited together to keep them matched).
+  intralinear.py          -- BTB-L1/L2/L3: e-Sword and MySword formatters +
+                             CSS, side by side (edited together to keep them
+                             matched).
   reverse_interlinear.py  -- BSRB: e-Sword and MySword formatters + CSS,
                              same reasoning.
   forward_interlinear.py  -- ROUGH DRAFT, layout/CSS not settled yet (see
@@ -30,10 +31,12 @@ from .base import (
     ABBREV_TO_BOOK_NUM,
 )
 from .intralinear import (
-    ESwordIntralinearFormatter,
-    ESwordStackedFormatter,
-    MySwordIntralinearFormatter,
-    MySwordStackedFormatter,
+    ESwordLemmaFormatter,
+    ESwordLemmaDetailFormatter,
+    ESwordScriptFormatter,
+    MySwordLemmaFormatter,
+    MySwordLemmaDetailFormatter,
+    MySwordScriptFormatter,
 )
 from .reverse_interlinear import (
     ESwordReverseInterlinearFormatter,
@@ -51,10 +54,12 @@ __all__ = [
     'parse_headers',
     'MODULE_DESCRIPTION',
     'ABBREV_TO_BOOK_NUM',
-    'ESwordIntralinearFormatter',
-    'ESwordStackedFormatter',
-    'MySwordIntralinearFormatter',
-    'MySwordStackedFormatter',
+    'ESwordLemmaFormatter',
+    'ESwordLemmaDetailFormatter',
+    'ESwordScriptFormatter',
+    'MySwordLemmaFormatter',
+    'MySwordLemmaDetailFormatter',
+    'MySwordScriptFormatter',
     'ESwordReverseInterlinearFormatter',
     'MySwordReverseInterlinearFormatter',
     'ESwordForwardInterlinearFormatter',
