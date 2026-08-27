@@ -57,8 +57,8 @@ from .base import (
 )
 from textwrap import dedent
 
-COLOR_TRANSLIT = '#475eaf'   # primary line: always linked, always this color
-COLOR_ANCIENT = '#2f747a'    # secondary line: helper text, lower contrast
+COLOR_PRIMARY = '#475eaf'   # primary line: always linked, always this color
+COLOR_HELPER = '#2f747a'    # secondary line: helper text, lower contrast
 COLOR_UNLINKED = '#666666'   # primary line when there's no Strong's number to link
 
 _NON_LETTER_RE = re.compile(r'[^a-zA-Z]')
@@ -129,9 +129,9 @@ _INTRALINEAR_CSS = dedent(f'''\
     .pshdg, .inscrip, .selah {{font-style:italic;}}
     .ilb {{display:inline-block; vertical-align:middle; padding:4px 0; position:relative; font-size:0.8em; line-height:1;}}
     .ilb ruby {{display:inline-flex; flex-direction:column;}}
-    ruby ro {{display:block; min-height:1em; font-size:1.1em; color:{COLOR_TRANSLIT}; text-align:center;}}
+    ruby ro {{display:block; min-height:1em; font-size:1.1em; color:{COLOR_PRIMARY}; text-align:center;}}
     ruby ro.unlinked {{color: {COLOR_UNLINKED};}}
-    ruby rt {{display:block; min-height:1em; font-size:1.1em; color:{COLOR_ANCIENT}; text-align:center;}}
+    ruby rt {{display:block; min-height:1em; font-size:1.1em; color:{COLOR_HELPER}; text-align:center;}}
 ''')
 # .hb ruby ro's larger font-size (helps Hebrew's small vowel points stay
 # legible) used to live in the shared block above -- fine back when every
@@ -155,7 +155,7 @@ _INTRALINEAR_CSS = dedent(f'''\
 _ESWORD_LEMMA_CSS = (_INTRALINEAR_CSS +
     '.ilb ruby ~ * {position:absolute; z-index:9999; top:0.5em; left:0; right:0; text-align:center; opacity:0;}'
 )
-_ESWORD_STACKED_CSS = _ESWORD_LEMMA_CSS + f'\n.hb ruby ro {{font-size:1.2em;}}'
+_ESWORD_SCRIPT_CSS = _ESWORD_LEMMA_CSS + f'\n.hb ruby ro {{font-size:1.2em;}}'
 
 
 class _ESwordBTBFormatter(_ESwordXrefMixin, VerseFormatter):
@@ -310,7 +310,7 @@ class ESwordLemmaDetailFormatter(_ESwordBTBFormatter):
         return lemma_xlit if _letters_only(lemma_xlit) != _letters_only(primary) else ' '
 
 
-class ESwordStackedFormatter(_ESwordBTBFormatter):
+class ESwordScriptFormatter(_ESwordBTBFormatter):
     """BTB-L3: the original script, primary and linked -- the heaviest of
     the three tiers, and the most literal mapping of "tap what you're
     reading" onto the Strong's link. The word's own transliteration is
@@ -319,7 +319,7 @@ class ESwordStackedFormatter(_ESwordBTBFormatter):
     "matches, omit it" case here."""
     abbreviation = "BTB-L3"
     module_name  = "Berean Transliterated Bible - Level 3"
-    css          = _ESWORD_STACKED_CSS
+    css          = _ESWORD_SCRIPT_CSS
 
     @staticmethod
     def _primary_content(sw, word_xlit: str) -> str:
@@ -347,8 +347,8 @@ class ESwordStackedFormatter(_ESwordBTBFormatter):
 # gray-by-default mechanism.
 
 _MYSWORD_LEMMA_CSS = _INTRALINEAR_CSS + \
-    f'ruby ro a {{text-decoration: none; color:{COLOR_TRANSLIT};}}'
-_MYSWORD_TRANSLINEAR_CSS = _MYSWORD_LEMMA_CSS + f'\n.hb ruby ro {{font-size:1.2em;}}'
+    f'ruby ro a {{text-decoration: none; color:{COLOR_PRIMARY};}}'
+_MYSWORD_SCRIPT_CSS = _MYSWORD_LEMMA_CSS + f'\n.hb ruby ro {{font-size:1.2em;}}'
 
 _MYSWORD_BTB_RULES = ''
 
@@ -503,7 +503,7 @@ class MySwordLemmaDetailFormatter(_MySwordBTBFormatter):
         return lemma_xlit if _letters_only(lemma_xlit) != _letters_only(primary) else ' '
 
 
-class MySwordStackedFormatter(_MySwordBTBFormatter):
+class MySwordScriptFormatter(_MySwordBTBFormatter):
     """BTB-L3: the original script, primary and linked -- the heaviest of
     the three tiers, and the most literal mapping of "tap what you're
     reading" onto the Strong's link. The word's own transliteration is
@@ -512,7 +512,7 @@ class MySwordStackedFormatter(_MySwordBTBFormatter):
     "matches, omit it" case here."""
     abbreviation = "BTB-L3"
     module_name  = "Berean Transliterated Bible - Level 3"
-    css          = _MYSWORD_TRANSLINEAR_CSS
+    css          = _MYSWORD_SCRIPT_CSS
 
     @staticmethod
     def _primary_content(sw, word_xlit: str) -> str:

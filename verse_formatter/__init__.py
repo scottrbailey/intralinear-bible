@@ -33,10 +33,10 @@ from .base import (
 from .intralinear import (
     ESwordLemmaFormatter,
     ESwordLemmaDetailFormatter,
-    ESwordStackedFormatter,
+    ESwordScriptFormatter,
     MySwordLemmaFormatter,
     MySwordLemmaDetailFormatter,
-    MySwordStackedFormatter,
+    MySwordScriptFormatter,
 )
 from .reverse_interlinear import (
     ESwordReverseInterlinearFormatter,
@@ -56,10 +56,10 @@ __all__ = [
     'ABBREV_TO_BOOK_NUM',
     'ESwordLemmaFormatter',
     'ESwordLemmaDetailFormatter',
-    'ESwordStackedFormatter',
+    'ESwordScriptFormatter',
     'MySwordLemmaFormatter',
     'MySwordLemmaDetailFormatter',
-    'MySwordStackedFormatter',
+    'MySwordScriptFormatter',
     'ESwordReverseInterlinearFormatter',
     'MySwordReverseInterlinearFormatter',
     'ESwordForwardInterlinearFormatter',

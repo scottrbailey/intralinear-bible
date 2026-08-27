@@ -211,8 +211,8 @@ intralinear-bible/
 │   │                            #   parse_headers() (format-agnostic helpers both Composers'
 │   │                            #   output flows through); e-Sword/MySword xref+red-letter mixins
 │   ├── intralinear.py          # BTB-L1/L2/L3: ESwordLemmaFormatter, ESwordLemmaDetailFormatter,
-│   │                            #   ESwordStackedFormatter, MySwordLemmaFormatter,
-│   │                            #   MySwordLemmaDetailFormatter, MySwordStackedFormatter
+│   │                            #   ESwordScriptFormatter, MySwordLemmaFormatter,
+│   │                            #   MySwordLemmaDetailFormatter, MySwordScriptFormatter
 │   ├── reverse_interlinear.py  # BSRB: ESwordReverseInterlinearFormatter,
 │   │                            #   MySwordReverseInterlinearFormatter
 │   └── __init__.py             # re-exports the package's public API

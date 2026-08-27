@@ -69,8 +69,8 @@ from verse_formatter import (
     ESwordForwardInterlinearFormatter,
     MySwordLemmaFormatter,
     MySwordLemmaDetailFormatter,
-    MySwordStackedFormatter,
-    MySwordReverseInterlinearFormatter, ESwordStackedFormatter,
+    MySwordScriptFormatter,
+    MySwordReverseInterlinearFormatter, ESwordScriptFormatter,
     MySwordForwardInterlinearFormatter,
 )
 from esword_writer import ESwordWriter
@@ -191,11 +191,11 @@ def build_writers(output_format: str, render_mode: str,
         return [
             esword(ESwordLemmaFormatter),
             esword(ESwordLemmaDetailFormatter),
-            esword(ESwordStackedFormatter),
+            esword(ESwordScriptFormatter),
             esword(ESwordReverseInterlinearFormatter),
             mysword(MySwordLemmaFormatter),
             mysword(MySwordLemmaDetailFormatter),
-            mysword(MySwordStackedFormatter),
+            mysword(MySwordScriptFormatter),
             mysword(MySwordReverseInterlinearFormatter),
             OSISWriter(transliterate=transliterate),
         ]
@@ -203,13 +203,13 @@ def build_writers(output_format: str, render_mode: str,
     if output_format == 'esword':
         if render_mode == 'intralinear':
             return [esword(ESwordLemmaFormatter), esword(ESwordLemmaDetailFormatter),
-                    esword(ESwordStackedFormatter)]
+                    esword(ESwordScriptFormatter)]
         elif render_mode == 'L1':
             return [esword(ESwordLemmaFormatter)]
         elif render_mode == 'L2':
             return [esword(ESwordLemmaDetailFormatter)]
         elif render_mode == 'L3':
-            return [esword(ESwordStackedFormatter)]
+            return [esword(ESwordScriptFormatter)]
         elif render_mode == 'interlinear':
             profile_cls = ESwordForwardInterlinearFormatter
         else:  # reverse
@@ -219,13 +219,13 @@ def build_writers(output_format: str, render_mode: str,
     if output_format == 'mysword':
         if render_mode == 'intralinear':
             return [mysword(MySwordLemmaFormatter), mysword(MySwordLemmaDetailFormatter),
-                    mysword(MySwordStackedFormatter)]
+                    mysword(MySwordScriptFormatter)]
         elif render_mode == 'L1':
             return [mysword(MySwordLemmaFormatter)]
         elif render_mode == 'L2':
             return [mysword(MySwordLemmaDetailFormatter)]
         elif render_mode == 'L3':
-            return [mysword(MySwordStackedFormatter)]
+            return [mysword(MySwordScriptFormatter)]
         elif render_mode == 'interlinear':
             # rtl_ot: forward interlinear reorders Hebrew into its own
             # (right-to-left) word order, unlike intralinear/reverse

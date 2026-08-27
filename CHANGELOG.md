@@ -139,6 +139,17 @@
   ~3.1:1 against white before, ~5.4:1 after, at nearly the same hue).
   Since the mapping no longer varies by tier, both colors now live once in
   the shared base CSS instead of being redeclared per formatter.
+- **Constants and class names in `verse_formatter/intralinear.py` renamed
+  to describe the current primary/secondary design instead of the retired
+  `BSXB`-era "stacked"/"translinear" naming**: `COLOR_TRANSLIT` →
+  `COLOR_PRIMARY`, `COLOR_ANCIENT` → `COLOR_HELPER`, `_ESWORD_STACKED_CSS` →
+  `_ESWORD_SCRIPT_CSS`, `_MYSWORD_TRANSLINEAR_CSS` → `_MYSWORD_SCRIPT_CSS`,
+  `ESwordStackedFormatter` → `ESwordScriptFormatter`,
+  `MySwordStackedFormatter` → `MySwordScriptFormatter` (matching L3's own
+  primary content — the original script — the same way `Lemma`/
+  `LemmaDetail` are named after L1/L2's). Pure rename, no behavior change;
+  updated everywhere the old names were imported or referenced
+  (`verse_formatter/__init__.py`, `main.py`, `docs/DEVELOPMENT.md`).
 
 ### Fixed
 - **MJAA reading-plan devotions showing two days side by side on e-Sword
