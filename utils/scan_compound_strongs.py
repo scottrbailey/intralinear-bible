@@ -1,55 +1,79 @@
 """
 utils/scan_compound_strongs.py
 
-Diagnostic (not part of the build pipeline): scans bsb_tables.db's tokens
-table for cases where multiple source tokens are meant to display as one
-compound English word but Strong's-number annotation still renders one
-ruby/lemma block per token instead of one for the whole compound -- the
-pattern behind 1 Sam 1:1's "Ramathaim-zophim" showing two separate blocks
-(see docs/BSB_TABLES_SOURCE_ERRORS.md item 5).
+Diagnostic (not part of the build pipeline): investigates 1 Sam 1:1's
+"Ramathaim-zophim" rendering two separate, identically-labeled lemma
+blocks in BTB-L2 (see docs/BSB_TABLES_SOURCE_ERRORS.md item 5).
 
-Three scans, since they can catch different things:
+This investigation went through several wrong turns worth keeping on
+record, since each one ruled out a plausible-looking fix:
 
-  1. parent_id groups -- the exact mechanism import_bsb_table.py already
-     uses for the 'vvv' ("continuation_before") marker: a token with no
-     English gloss of its own defers to the next real-gloss token, and
-     that owner's bsb_sort becomes every deferred token's parent_id.
-     table_composer.py's _build_verse() already groups by this owner for
-     the *English text* (so "Ramathaim-zophim" isn't duplicated) -- but it
-     still calls _to_source_word() once per member row and appends all of
-     them to the same AlignedToken.source_words, so the *annotation*
-     (lemma/translit/Strong's link) still repeats once per member. A group
-     of 2+ members that all share one Strong's number is the structural
-     signature of that -- but NOT a confirmed hit on its own: it also
-     matches Hebrew's infinitive-absolute-for-emphasis construction
-     (e.g. מוֹת תָּמוּת, "dying you shall die" -> "you will surely die")
-     and other same-word-repeated idioms ("between you and me", "years"
-     for a distributive "year by year"), where the two source tokens are
-     genuinely independent occurrences of the same word that each deserve
-     their own annotation -- collapsing those would be wrong, not a fix.
-     This raw scan over-counts heavily for that reason (confirmed: the
-     large majority of a real run's hits were this kind of verb/idiom
-     repetition, not compound names).
+  1. parent_id groups (scan 1) -- the mechanism import_bsb_table.py
+     already builds from the 'vvv'/". . ." continuation markers: a token
+     whose English gloss is covered by a neighbor gets that neighbor's
+     bsb_sort as parent_id. A group of 2+ members sharing one Strong's
+     number looked at first like the signature of the bug -- but it
+     drastically over-counts: it also matches Hebrew's
+     infinitive-absolute-for-emphasis construction (e.g. מוֹת תָּמוּת,
+     "dying you shall die" -> "you will surely die") and other
+     same-word-repeated idioms, where both source tokens are genuinely
+     independent occurrences each deserving their own annotation.
 
-  2. Hyphenated glosses with a matching-Strong's neighbor -- a broader
-     heuristic that doesn't depend on parent_id at all, since a compound
-     name might reach a hyphenated English rendering by some other route
-     than the vvv mechanism. Flags an owner row whose own English gloss
-     contains a hyphen when the immediately adjacent row (previous or
-     next bsb_sort, same verse) shares its Strong's number. Broader nets
-     both true positives the first scan might miss and false positives
-     (a hyphenated single-word translation like "self-controlled" whose
-     neighbor happens to share a Strong's number by coincidence) -- read
-     its output as leads to check individually, not confirmed hits.
+  2. Hyphenated glosses with a matching-Strong's neighbor (scan 2) -- an
+     attempt to narrow scan 1 using English surface form. Confirmed
+     unreliable: real compounds are inconsistently hyphenated in English
+     (Ben-hadad vs. Mephibosheth, Chedorlaomer -- both genuine two-root
+     compounds, neither hyphenated), so this both missed real cases and
+     added noise of its own.
 
-  3. parent_id groups restricted to members that are ALL tagged as proper
-     nouns (parsing_short/parsing_full containing "proper", matching the
-     "N-proper-fs"/"Noun - proper - feminine singular" tagging on both of
-     1 Sam 1:1's Ramathaim-zophim tokens) -- excludes verb-emphasis and
-     other same-word idioms structurally (they're never proper-noun
-     tagged), rather than by guessing at English surface patterns like
-     scan 2's hyphen check. This is the scan whose count should actually
-     drive the fix's scope.
+  3. parent_id groups restricted to members ALL tagged proper noun (scan
+     3) -- ruled out by direct comparison against the real BIB+ app:
+     Genesis 36:8's "Esau ... Esau" (same word, same Strong's, two
+     tokens, both proper-noun tagged) renders as ONE combined block in
+     BIB+, but Numbers 33:9's "Elim ... Elim" (also same Strong's, also
+     both proper-noun tagged, but two genuinely different inflected
+     forms) renders as TWO separate blocks. Proper-noun tagging doesn't
+     track the real distinction; "distinct source_text" doesn't either
+     (cantillation differs by syntactic position regardless of whether a
+     word is repeated or not, so it produced false structural
+     "differences" for Esau/Esau).
+
+     The deeper realization from Esau/Elim: a token's own inflected form
+     differing from its lemma is *normal* for every inflected word in the
+     Bible -- Elim's two tokens showing different transliterations is not
+     a bug, it's just two real inflected forms of one name, and BIB+
+     correctly keeps their two blocks. "How many blocks should this
+     render as" turned out to be the wrong question -- it also depends on
+     information (which part of a merged English gloss belongs to which
+     source word) that bsb_tables.tsv doesn't preserve at all, so
+     replicating BIB+'s finer per-word splits isn't achievable from this
+     data source regardless.
+
+  4. What's actually anomalous, and the one this file's scan settled on:
+     not "two tokens share a Strong's number" (normal for any repeated or
+     multi-form word) but "the Strong's number's own dictionary lemma
+     (strongs_lemma.transliteration) is itself a multi-word/hyphenated
+     compound that doesn't match *either* token's own individual form."
+     That only happens when the dictionary headword genuinely covers two
+     fused roots (Ramathaim-zophim's lemma is the whole compound name,
+     matching neither "Ramathaim" nor "Zophim" alone) -- never for an
+     ordinary single-root word like Elim or Esau, however it's inflected
+     or however many times it's repeated. Confirmed narrower than scans
+     1-3 on both counts they got wrong: it doesn't fire for Esau (lemma
+     is a single word, matches both tokens) or Elim (lemma is a single
+     word, not multi-word/hyphenated at all).
+
+     Fix implication, once this scan's count is confirmed against the
+     real data: rather than changing how many annotation blocks render
+     (which scan 3's Esau/Elim counterexample ruled out), suppress
+     `lemma_translit` specifically for tokens hit by this scan -- the
+     same fallback-to-word's-own-form mechanism LEMMA_SUPPRESSED_STRONGS
+     already uses in verse_formatter/intralinear.py, just populated from
+     this analysis instead of hand-picked. Scoped to L1's primary line
+     and L2's secondary line (the only two consumers of lemma_translit;
+     L3 never reads it) -- matches the observation that this only ever
+     surfaced as a visible problem once L2 started showing the
+     transliteration and the lemma side by side.
 
 Usage:
     python utils/scan_compound_strongs.py [path/to/bsb_tables.db]
@@ -150,6 +174,56 @@ def scan_hyphenated_neighbors(conn: sqlite3.Connection) -> list[tuple]:
     return hits
 
 
+def scan_compound_lemma_mismatch(conn: sqlite3.Connection) -> list[tuple]:
+    """The scan that matters -- see module docstring, item 4. Flags a
+    parent_id group (2+ members, one shared Strong's number) only when
+    strongs_lemma's own dictionary transliteration for that Strong's
+    number is multi-word/hyphenated AND doesn't exactly equal any single
+    member's own translit. Ordinary inflected-vs-lemma divergence (Elim,
+    Esau, and every regularly inflected word in the Bible) never
+    satisfies the "lemma itself is multi-word" half of that test, so it
+    doesn't fire for them -- only for Strong's entries whose dictionary
+    headword is itself a fused two-root compound.
+    """
+    cur = conn.execute("""
+        SELECT bsb_sort, verse_id, strongs, english, translit, language,
+               COALESCE(parent_id, bsb_sort) AS owner
+        FROM tokens
+        WHERE strongs IS NOT NULL
+        ORDER BY bsb_sort
+    """)
+    groups: dict[int, list] = {}
+    for row in cur:
+        groups.setdefault(row['owner'], []).append(row)
+
+    lemma_by_key = {
+        (r['lang'], r['strongs']): r['transliteration']
+        for r in conn.execute("SELECT strongs, lang, transliteration FROM strongs_lemma")
+    }
+
+    def lemma_for(row) -> str | None:
+        lang = 'H' if row['language'] in ('H', 'A') else row['language']
+        return lemma_by_key.get((lang, row['strongs']))
+
+    hits = []
+    for owner, members in groups.items():
+        if len(members) < 2:
+            continue
+        strongs_set = {m['strongs'] for m in members}
+        if len(strongs_set) != 1:
+            continue
+        lemma = lemma_for(members[0])
+        if not lemma or (' ' not in lemma and '-' not in lemma):
+            continue  # lemma isn't a multi-word/hyphenated compound -- ordinary divergence
+        member_translits = {m['translit'] for m in members if m['translit']}
+        if lemma in member_translits:
+            continue  # lemma exactly matches one member's own form -- not the bug
+        owner_row = next((m for m in members if m['bsb_sort'] == owner), members[-1])
+        hits.append((owner_row['verse_id'], owner_row['english'],
+                     strongs_set.pop(), lemma, len(members)))
+    return hits
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                       formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -159,26 +233,23 @@ def main():
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
 
-    print("=== [1] parent_id groups sharing one Strong's number (over-counts -- see docstring) ===")
+    print("=== [1] parent_id groups sharing one Strong's number (superseded -- see docstring item 1) ===")
     hits = scan_parent_groups(conn)
-    for verse_id, english, strongs, count in hits:
-        print(f"  {verse_id}  {english!r}  strongs={strongs}  ({count} tokens)")
-    print(f"  {len(hits)} total\n")
+    print(f"  {len(hits)} total (list suppressed -- heavy false-positive rate, see item 1)\n")
 
-    print("=== [2] hyphenated glosses with a matching-Strong's neighbor (leads, not confirmed hits) ===")
+    print("=== [2] hyphenated glosses with a matching-Strong's neighbor (superseded -- see docstring item 2) ===")
     hits2 = scan_hyphenated_neighbors(conn)
-    for verse_id, english, strongs in hits2:
-        print(f"  {verse_id}  {english!r}  strongs={strongs}")
-    print(f"  {len(hits2)} total\n")
+    print(f"  {len(hits2)} total (list suppressed -- heavy false-positive rate, see item 2)\n")
 
-    print("=== [3] parent_id groups where every member is tagged a proper noun (the scan that matters) ===")
+    print("=== [3] parent_id groups, all members proper-noun tagged (superseded -- see docstring item 3) ===")
     hits3 = scan_parent_groups_proper_nouns(conn)
-    confirmed = [h for h in hits3 if h[4]]
-    suspect   = [h for h in hits3 if not h[4]]
-    for verse_id, english, strongs, count, distinct_script in hits3:
-        flag = "" if distinct_script else "  <-- SAME source_text repeated, likely not a real compound"
-        print(f"  {verse_id}  {english!r}  strongs={strongs}  ({count} tokens){flag}")
-    print(f"  {len(hits3)} total ({len(confirmed)} distinct-script, {len(suspect)} flagged for manual check)")
+    print(f"  {len(hits3)} total (list suppressed -- ruled out by the Esau/Elim BIB+ comparison, see item 3)\n")
+
+    print("=== [4] compound-lemma mismatch against strongs_lemma (the scan that matters -- see docstring item 4) ===")
+    hits4 = scan_compound_lemma_mismatch(conn)
+    for verse_id, english, strongs, lemma, count in hits4:
+        print(f"  {verse_id}  {english!r}  strongs={strongs}  lemma={lemma!r}  ({count} tokens)")
+    print(f"  {len(hits4)} total")
 
     conn.close()
 
