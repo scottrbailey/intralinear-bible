@@ -1,8 +1,8 @@
 # Intralinear Bible Pipeline Configuration
-# Run: python main.py [--format esword|mysword|osis] [--mode intralinear|stacked|interlinear]
+# Run: python main.py [--format esword|mysword|osis] [--mode intralinear|interlinear|reverse|L1|L2|L3]
 
 # ── Module identity ──────────────────────────────────────────
-version: "1.1.4"
+version: "1.1.5"
 translation: "BSB"
 description: "Berean Standard Bible"
 
@@ -64,3 +64,11 @@ output:
 # ── Book filter ──────────────────────────────────────────────
 # null for full Bible, or a list of OSIS book IDs e.g. [Gen, Exod, Matt]
 books: null #[Gen, Matt]
+# Optional: cap each book to chapters 1 through N, e.g. {Gen: 1, Matt: 5}
+# renders all of Genesis 1 and Matthew 1-5. Always starts at chapter 1 --
+# e-Sword's own chapter picker won't let you navigate into a book at all
+# if chapter 1 is missing. A book listed above with no entry here shows
+# all of its chapters. null for no restriction at all. main.py's --test
+# flag sets both books and chapters in memory without touching this file
+# -- see main.py --help.
+chapters: null

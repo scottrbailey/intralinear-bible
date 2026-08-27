@@ -76,6 +76,22 @@ next verse) has `z` in the Language column instead of being empty like its
 neighboring filler rows. Harmless — it's a content-free row either way — but
 noted for completeness.
 
+## Resolved lead: 1 Samuel 1:1's "Ramathaim-zophim" (not a source error)
+
+An earlier revision of this doc flagged "Ramathaim-zophim" rendering as
+two separate, identically-labeled lemma annotations as a possible
+`bsb_tables.tsv` data issue. Investigated further and ruled out: the
+`vvv`/`. . .` continuation markers `import_bsb_table.py` already parses
+are working exactly as intended — two Hebrew tokens correctly sharing one
+compound Strong's number, exactly like "Bethel," "Ben-hadad," and ~150-200
+other genuine compound names throughout the Bible. The actual bug was on
+the rendering side: `table_composer.py` was showing that shared compound
+lemma on every member token, rather than falling back to each token's own
+real form the way it already does everywhere else. Fixed in `1.1.5` (see
+CHANGELOG.md and `utils/scan_compound_strongs.py`'s module docstring for
+the full investigation trail, including the wrong turns that ruled out
+simpler-looking fixes).
+
 ---
 
 *Compiled while building an import pipeline for `intralinear-bible`
