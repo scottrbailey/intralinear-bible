@@ -210,13 +210,16 @@ class TableComposer(Composer):
         conditions, params = [], []
         if self._books_filter:
             if self._chapters_filter:
-                # Per-book chapter restriction (e.g. {'Gen': 1, 'Matt': 5}) --
-                # a book with no entry here shows all of its chapters.
+                # Per-book chapter cap (e.g. {'Gen': 1, 'Matt': 5}) -- chapters
+                # 1 through N inclusive, not just chapter N, since e-Sword's
+                # own chapter picker won't let you navigate into a book at
+                # all if chapter 1 is missing (confirmed on-device). A book
+                # with no entry here shows all of its chapters.
                 book_conds = []
                 for book in self._books_filter:
                     chapter = self._chapters_filter.get(book)
                     if chapter:
-                        book_conds.append("(book = ? AND chapter = ?)")
+                        book_conds.append("(book = ? AND chapter <= ?)")
                         params.extend([book, chapter])
                     else:
                         book_conds.append("(book = ?)")

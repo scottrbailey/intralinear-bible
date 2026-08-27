@@ -33,12 +33,15 @@ Usage:
     --zip       Also zip this run's output file(s) into one archive
                 (output/<translation>_<format>.zip) alongside the originals.
 
-    --test      Quick-render mode: restrict to Genesis 1 (known trouble spots
-                from earlier testing) and Matthew 5 (opens the Sermon on the
-                Mount, exercising the words-of-Christ red-letter feature),
-                overriding config.yaml's "books"/"chapters" keys in memory
-                (the file itself is untouched). For fast iteration on
-                layout/CSS changes without a full-Bible build.
+    --test      Quick-render mode: restrict to Genesis chapter 1 (known
+                trouble spots from earlier testing) and Matthew chapters 1-5
+                (5 opens the Sermon on the Mount, exercising the
+                words-of-Christ red-letter feature; 1-4 included because
+                e-Sword's own chapter picker won't let you navigate into a
+                book at all if chapter 1 is missing), overriding
+                config.yaml's "books"/"chapters" keys in memory (the file
+                itself is untouched). For fast iteration on layout/CSS
+                changes without a full-Bible build.
 
 Examples:
     python main.py
@@ -151,9 +154,10 @@ def parse_args():
     )
     parser.add_argument(
         "--test", action="store_true",
-        help="Quick-render mode: restrict to Genesis 1 and Matthew 5 only "
-             "(Matthew 5 opens the Sermon on the Mount, exercising the "
-             "words-of-Christ red-letter feature too), overriding "
+        help="Quick-render mode: restrict to Genesis chapter 1 and Matthew "
+             "chapters 1-5 (5 opens the Sermon on the Mount for red-letter "
+             "testing; 1-4 included since e-Sword's chapter picker needs "
+             "chapter 1 present to navigate into a book at all), overriding "
              "config.yaml's 'books'/'chapters' keys in memory (the file "
              "itself is untouched). For fast iteration on layout/CSS changes "
              "without a full-Bible build.",
@@ -262,7 +266,7 @@ def main():
     if args.test:
         config['books']    = ['Gen', 'Matt']
         config['chapters'] = {'Gen': 1, 'Matt': 5}
-        print("--test: restricting to Genesis 1 and Matthew 5 only")
+        print("--test: restricting to Genesis 1 and Matthew 1-5")
 
     print(f"Config: {args.config}")
     print(f"Translation: {config['translation']} v{config['version']}")

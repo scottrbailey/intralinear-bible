@@ -3,18 +3,21 @@
 ## [1.1.5] - 2026-08-27
 
 ### Added
-- **`--test` flag** (`main.py`): restricts a build to Genesis 1 (known
-  trouble spots from earlier layout testing) and Matthew 5 (opens the
-  Sermon on the Mount, exercising the words-of-Christ red-letter feature)
-  only, for fast layout/CSS iteration without a full-Bible build.
-  Overrides `config.yaml`'s new `books`/`chapters` keys in memory only —
-  the file itself is untouched. `chapters` (optional, alongside the
-  existing `books` filter) is a `{book: chapter}` dict restricting each
-  selected book to one chapter — a book with no entry shows all of its
-  chapters — since different books legitimately need different chapters
-  restricted for different reasons. Both `TableComposer` and
-  `AlignmentComposer` honor it (`table_composer.py`'s SQL gains a
-  per-book `(book = ? AND chapter = ?)` condition; `composer.py`'s
+- **`--test` flag** (`main.py`): restricts a build to Genesis chapter 1
+  (known trouble spots from earlier layout testing) and Matthew chapters
+  1-5 (5 opens the Sermon on the Mount, exercising the words-of-Christ
+  red-letter feature) only, for fast layout/CSS iteration without a
+  full-Bible build. Overrides `config.yaml`'s new `books`/`chapters` keys
+  in memory only — the file itself is untouched. `chapters` (optional,
+  alongside the existing `books` filter) is a `{book: chapter}` dict
+  capping each selected book to chapters 1 through that number — a book
+  with no entry shows all of its chapters — since different books
+  legitimately need different chapters for different reasons, and
+  e-Sword's own chapter picker won't let you navigate into a book at all
+  if chapter 1 is missing (confirmed on-device — Matthew 5 alone, with no
+  1-4, was unreachable). Both `TableComposer` and `AlignmentComposer`
+  honor it (`table_composer.py`'s SQL gains a per-book
+  `(book = ? AND chapter <= ?)` condition; `composer.py`'s
   `_iter_target_verses()` compares it directly against `verse_id`'s fixed
   `BBCCCVVV` chapter digits, per book number).
 - **BTB-L1/L2/L3 — three-tier beginner intralinear modules**, replacing the

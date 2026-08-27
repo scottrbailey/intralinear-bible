@@ -248,16 +248,19 @@ def _iter_target_verses(path: Path, books_filter: list, chapters_filter: dict = 
             else:
                 print(f"  Warning: could not resolve book '{osis_id}'")
 
-    # Optional per-book chapter restriction (e.g. {'Gen': 1, 'Matt': 5}) --
-    # a book with no entry here shows all of its chapters. verse_id is a
-    # fixed BBCCCVVV string, so chapter is characters [2:5].
-    chapter_by_book_num = {}
+    # Optional per-book chapter cap (e.g. {'Gen': 1, 'Matt': 5}) -- chapters
+    # 1 through N inclusive, not just chapter N, since e-Sword's own chapter
+    # picker won't let you navigate into a book at all if chapter 1 is
+    # missing (confirmed on-device). A book with no entry here shows all of
+    # its chapters. verse_id is a fixed BBCCCVVV string, so chapter is
+    # characters [2:5].
+    chapter_cap_by_book_num = {}
     if chapters_filter:
         reverse_map = reverse_map or {v: k for k, v in BOOK_NUM_MAP.items()}
         for osis_id, chapter in chapters_filter.items():
             num = reverse_map.get(osis_id)
             if num:
-                chapter_by_book_num[num] = f'{chapter:03d}'
+                chapter_cap_by_book_num[num] = chapter
 
     current_verse_id = None
     current_tokens   = []
@@ -269,9 +272,9 @@ def _iter_target_verses(path: Path, books_filter: list, chapters_filter: dict = 
             verse_id = token_id[:8]
             book_num = token_id[:2]
 
-            required_chapter = chapter_by_book_num.get(book_num)
+            chapter_cap = chapter_cap_by_book_num.get(book_num)
             skip = (allowed_book_nums and book_num not in allowed_book_nums) or \
-                   (required_chapter and verse_id[2:5] != required_chapter)
+                   (chapter_cap and int(verse_id[2:5]) > chapter_cap)
             if skip:
                 if current_verse_id and current_tokens:
                     yield current_verse_id, current_tokens

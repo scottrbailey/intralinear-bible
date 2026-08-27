@@ -133,7 +133,7 @@ python main.py --format all                 # every output target in one pass
 python main.py --format esword --mode rev   # e-Sword reverse interlinear
 python main.py my_config.yaml --format osis
 python main.py --composer alignment         # force the live join even if table_db exists
-python main.py --format mysword --mode L2 --test   # Genesis 1 + Matthew 5 only, fast iteration
+python main.py --format mysword --mode L2 --test   # Genesis 1 + Matthew 1-5, fast iteration
 ```
 
 Output files are written to the directory set in `config.yaml → output.dir`.
@@ -186,10 +186,12 @@ output:
 
 # Book filter: null = full Bible, or a list of OSIS book IDs
 books: null     # e.g. [Gen, Exod, Matt, John]
-# Optional: restrict to one chapter per book, e.g. {Gen: 1, Matt: 5} -- a
-# book listed above with no entry here shows all of its chapters. null =
-# no restriction. `main.py --test` sets both books and chapters in memory
-# without touching this file.
+# Optional: cap each book to chapters 1 through N, e.g. {Gen: 1, Matt: 5}
+# renders all of Genesis 1 and Matthew 1-5. Always starts at chapter 1 --
+# e-Sword's own chapter picker won't let you navigate into a book at all
+# if chapter 1 is missing. A book listed above with no entry here shows
+# all of its chapters. null = no restriction. `main.py --test` sets both
+# books and chapters in memory without touching this file.
 chapters: null
 ```
 
