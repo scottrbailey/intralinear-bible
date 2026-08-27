@@ -467,7 +467,10 @@ needs no such lookup.
   Each row's own `Content` holds that `<h2>`, then the month's calendar
   (Sunday-first table, `id="cal"`), then every covered day's reading in
   its own `id="d<day>"` subsection (`class="day-section"`, `min-height:
-  100vh` so consecutive days don't visually run together) — calendar cells
+  100vh; width:100%; display:block` so consecutive days don't visually run
+  together — the `width`/`display` are the same fix `esword.py`'s `.devi`
+  needed on-device for e-Sword's tablet layout otherwise sizing a block to
+  its content width and laying two side by side, see CHANGELOG) — calendar cells
   link down to their day (`href="#d<day>"`), each day section links back
   up to the calendar (`href="#cal"`). All of that stays inside one row's
   HTML, so it only ever needs a same-document `#anchor` to resolve, not a

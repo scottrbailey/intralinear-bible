@@ -64,7 +64,16 @@ _CSS = (
     '.cal td.pad {border:none;} '
     '.hday {position:absolute; top:1px; right:2px; font-size:0.6em; opacity:0.6; line-height:1;} '
     '.topcal {font-size:0.85em;} '
-    '.day-section {min-height:100vh; box-sizing:border-box; padding-top:8px; scroll-snap-align:start;} '
+    # width:100%/display:block: e-Sword's tablet layout can otherwise size
+    # a block to its (narrow) content width and lay two of them out side
+    # by side instead of stacking -- confirmed on-device for esword.py's
+    # .devi (see CHANGELOG's "MJAA reading-plan devotions showing two days
+    # side by side on e-Sword tablets"). Matters even more here: the whole
+    # scroll-snap-align:start effect above depends on every .day-section
+    # stacking full-width -- two laid out side by side would put half the
+    # screen on today and half on tomorrow, breaking the snap entirely.
+    '.day-section {min-height:100vh; width:100%; display:block; box-sizing:border-box; '
+    'padding-top:8px; scroll-snap-align:start;} '
     '.yom-tov {background-color:#FFEB3B; padding:4px;} '
     '.major-holiday {background-color:#FFF9B0; padding:4px;} '
     '.minor-holiday {background-color:#FFE5B4; padding:4px;} '
