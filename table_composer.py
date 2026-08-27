@@ -96,14 +96,84 @@ def _load_lemma_lookup(conn: sqlite3.Connection) -> dict:
     added, or one nobody's run utils/import_lemma_table.py against -- so
     every token's lemma_translit just stays '' rather than the whole
     pipeline failing over one optional table.
+
+    Compound-headword Strong's numbers (see _find_compound_strongs()) are
+    dropped from the returned dict entirely, so every consumer's existing
+    `sw.stem.lemma_translit or word_xlit` fallback naturally shows each
+    token's own real form instead -- no changes needed anywhere else.
     """
     if not conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='strongs_lemma'"
     ).fetchone():
         return {}
-    return {f"{lang}{strongs}": xlit
-            for strongs, lang, xlit in conn.execute(
-                "SELECT strongs, lang, transliteration FROM strongs_lemma")}
+    lookup = {f"{lang}{strongs}": xlit
+              for strongs, lang, xlit in conn.execute(
+                  "SELECT strongs, lang, transliteration FROM strongs_lemma")}
+    for key in _find_compound_strongs(conn, lookup):
+        lookup.pop(key, None)
+    return lookup
+
+
+def _find_compound_strongs(conn: sqlite3.Connection, lemma_lookup: dict) -> set:
+    """Strong's numbers (in _load_lemma_lookup's own 'H7436' key format)
+    whose strongs_lemma dictionary transliteration is itself a
+    multi-word/hyphenated compound headword that matches neither member's
+    own transliteration in any real occurrence -- the pattern behind 1 Sam
+    1:1's "Ramathaim-zophim" showing the same full compound name as the
+    lemma line on both of its source tokens (see
+    docs/BSB_TABLES_SOURCE_ERRORS.md item 5, and
+    utils/scan_compound_strongs.py, which investigated and validated this
+    exact signature offline against 588 real occurrences).
+
+    Confirmed against the real BIB+ app that ordinary inflected-vs-lemma
+    divergence -- the same word repeated (Gen 36:8's "Esau ... Esau"), or
+    one name in two different grammatical forms (Num 33:9's "Elim ...
+    Elim") -- is NOT this pattern and must not be suppressed:
+    both of those have single-word lemmas, so the "multi-word/hyphenated"
+    condition below already excludes them. Only a dictionary headword
+    that's structurally a fused two-root compound (Bethel, Beersheba,
+    Ben-hadad, Kiriath-jearim, Melchizedek, ...) matches.
+
+    Groups are found the same way import_bsb_table.py's own 'vvv'/'. . .'
+    continuation markers link them: COALESCE(parent_id, bsb_sort) as the
+    owning group key. Computed once per build (one pass over `tokens`,
+    same order of cost as loading `verses`) rather than hand-maintained --
+    real data turned up on the order of 150-200 distinct Strong's numbers
+    behind those 588 occurrences, far too many to keep as a literal list
+    the way LEMMA_SUPPRESSED_STRONGS does for its 3 hand-picked entries
+    (a different, unrelated phenomenon -- a lemma that's a real single
+    word but unhelpful for a few extremely common Greek function words,
+    not a compound headword).
+    """
+    cur = conn.execute("""
+        SELECT bsb_sort, strongs, translit, language,
+               COALESCE(parent_id, bsb_sort) AS owner
+        FROM tokens
+        WHERE strongs IS NOT NULL
+        ORDER BY bsb_sort
+    """)
+    groups: dict = {}
+    for row in cur:
+        groups.setdefault(row['owner'], []).append(row)
+
+    suppressed = set()
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        keys = {_prefixed_strongs(m['strongs'], m['language']) for m in members}
+        if len(keys) != 1:
+            continue
+        key = next(iter(keys))
+        if not key:
+            continue
+        lemma = lemma_lookup.get(key)
+        if not lemma or (' ' not in lemma and '-' not in lemma):
+            continue
+        member_translits = {m['translit'] for m in members if m['translit']}
+        if lemma in member_translits:
+            continue
+        suppressed.add(key)
+    return suppressed
 
 
 def _to_source_word(row: sqlite3.Row, lemma_lookup: dict) -> SourceWord:

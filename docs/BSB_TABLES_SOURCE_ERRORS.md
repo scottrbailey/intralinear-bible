@@ -76,22 +76,21 @@ next verse) has `z` in the Language column instead of being empty like its
 neighboring filler rows. Harmless — it's a content-free row either way — but
 noted for completeness.
 
-## 5. Compound place name split into two tokens, both carrying the full lemma (unconfirmed against raw rows)
+## Resolved lead: 1 Samuel 1:1's "Ramathaim-zophim" (not a source error)
 
-**1 Samuel 1:1** — "Ramathaim-zophim" renders as two separate source-word
-annotations instead of one: the first (attached to "Ramathaim-zophim"
-itself) pairs the compound name's full two-word lemma transliteration with
-its own inflected form (`ha-` prefixed), and a second, unattached one
-reappears later in the verse pairing that *same* full two-word lemma with
-just the second half's own form. Observed via `BTB-L2`'s rendered output,
-not the raw TSV rows directly (`bsb_tables.tsv`/`.db` aren't available in
-this session to inspect column-by-column) — consistent with the source
-tokenizing the compound name as two Hebrew words that both got pointed at
-the same (compound) Strong's/lemma entry, rather than each word getting its
-own. Unlike items 1-4 above, this hasn't been directly confirmed against
-the source cells; flagging it here as a lead in case someone with the raw
-file wants to check the two Hebrew tokens for 1 Samuel 1:1 and firm this up
-into a confirmed entry (or rule it out).
+An earlier revision of this doc flagged "Ramathaim-zophim" rendering as
+two separate, identically-labeled lemma annotations as a possible
+`bsb_tables.tsv` data issue. Investigated further and ruled out: the
+`vvv`/`. . .` continuation markers `import_bsb_table.py` already parses
+are working exactly as intended — two Hebrew tokens correctly sharing one
+compound Strong's number, exactly like "Bethel," "Ben-hadad," and ~150-200
+other genuine compound names throughout the Bible. The actual bug was on
+the rendering side: `table_composer.py` was showing that shared compound
+lemma on every member token, rather than falling back to each token's own
+real form the way it already does everywhere else. Fixed in `1.1.5` (see
+CHANGELOG.md and `utils/scan_compound_strongs.py`'s module docstring for
+the full investigation trail, including the wrong turns that ruled out
+simpler-looking fixes).
 
 ---
 

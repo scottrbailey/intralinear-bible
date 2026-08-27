@@ -3,6 +3,42 @@
 ## [1.1.5] - 2026-08-27
 
 ### Added
+- **Compound-headword lemma suppression** (`table_composer.py`'s
+  `_find_compound_strongs()`): fixes 1 Sam 1:1's "Ramathaim-zophim"
+  showing the identical full compound name as the lemma line on both of
+  its source tokens — on BTB-L1 that reads as "the same word listed
+  twice" (lemma is the only visible line there); on BTB-L2 it reads as a
+  mismatch against each token's own, genuinely different, real form.
+  Detected automatically each build (one pass over `tokens`, grouped the
+  same way `import_bsb_table.py`'s own `vvv`/`. . .` continuation markers
+  link them) rather than hand-maintained: a group of 2+ tokens sharing one
+  Strong's number is flagged only when `strongs_lemma`'s own dictionary
+  transliteration for that number is itself multi-word/hyphenated *and*
+  doesn't match any member's own transliteration — the signature of a
+  genuinely fused two-root compound headword (Bethel, Beersheba,
+  Ben-hadad, Kiriath-jearim, Melchizedek, ...). Flagged Strong's numbers
+  are simply dropped from the runtime lemma lookup, so every existing
+  `lemma_translit or word_xlit` fallback already in
+  `verse_formatter/intralinear.py` shows each token's own real form
+  automatically — no rendering-code changes needed. Real data found
+  ~150-200 distinct Strong's numbers behind 588 occurrences, confirming
+  this needed to be computed from the data rather than hand-picked the
+  way the unrelated `LEMMA_SUPPRESSED_STRONGS` list is.
+
+  This went through several ruled-out approaches worth noting since each
+  looked plausible at first: merging such tokens into one combined
+  annotation block (ruled out by direct comparison against the real BIB+
+  app — Gen 36:8's "Esau...Esau" merges to one block, but Num 33:9's
+  "Elim...Elim" — same Strong's number, same structural shape — renders
+  as two, so block count isn't the right lever, and BIB+'s finer
+  per-word English-gloss splits for idioms like "you will surely die"
+  rely on alignment data `bsb_tables.tsv` doesn't preserve at all);
+  filtering by proper-noun tagging or by distinct source_text (both
+  broken by the Esau/Elim counterexample — proper-noun tagging doesn't
+  track the real distinction, and cantillation legitimately varies by
+  syntactic position regardless of whether a word is repeated). See
+  `utils/scan_compound_strongs.py`'s module docstring for the full
+  investigation trail.
 - **`--test` flag** (`main.py`): restricts a build to Genesis chapter 1
   (known trouble spots from earlier layout testing) and Matthew chapters
   1-5 (5 opens the Sermon on the Mount, exercising the words-of-Christ
