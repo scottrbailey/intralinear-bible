@@ -1,10 +1,22 @@
-# Berean Standard Transliterated Bible
+# Berean Transliterated Bible
 
 The Bible was written in Hebrew, Aramaic, and Greek. For most of us, that means we're always reading someone else's translation — and translations involve choices. Words that carry layers of meaning get flattened. Nuance gets lost. You find yourself wondering: *what did it actually say?*
 
-The Berean Standard Transliterated Bible is for people who want to get closer to the original text without spending years learning ancient languages. It combines the **Berean Standard Bible** — a modern, accurate English translation — with inline transliteration of every Hebrew and Greek word, linked directly to Strong's concordance so you can explore word meanings in seconds.
+The Berean Transliterated Bible is for people who want to get closer to the original text without spending years learning ancient languages. It combines the **Berean Standard Bible** — a modern, accurate English translation — with inline transliteration of every Hebrew and Greek word, linked directly to Strong's concordance so you can explore word meanings in seconds.
 
-<img src="docs/assets/bsxb_ot2_mysword.jpg" description="MySword BSXB" width="480"/>
+The Berean Transliterated Bible comes in three levels: 
+
+   **BTB-L1** - Beginner level with lemma (dictionary word form) transliterations  
+
+   <img src="docs/assets/BTB_L1_NT.jpg" description="BTB-L1 on MySword" width="360"/>
+  
+  **BTB-L2** - Intermediate level with source transliterations over lemma transliterations 
+
+  <img src="docs/assets/BTB_L2_NT.jpg" description="BTB-L2 on MySword" width="360"/>
+
+  **BTB-L3** - Advanced level with Hebrew/Aramaic/Greek over transliterations 
+
+  <img src="docs/assets/BTB_L3_NT.jpg" description="BTB-L3 on MySword" width="360"/>
 
 ## What You Get
 
