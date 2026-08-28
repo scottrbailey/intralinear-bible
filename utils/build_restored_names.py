@@ -511,11 +511,18 @@ def export_lemma_csv(conn: sqlite3.Connection, out_path: Path) -> None:
     Aaron", ... all separately), which buries the handful of genuinely
     wrong rows under hundreds of correct repeats of the same rule. This is
     strongs_lemma's own grain instead: one row per name, editable in a
-    spreadsheet, and re-loadable with --import-lemma-csv."""
+    spreadsheet, and re-loadable with --import-lemma-csv.
+
+    A row where find_text == replace_text exactly (e.g. Adam, Ram --
+    already spelled the restored way in BSB's own text) is left out: same
+    reasoning as apply_restorations()'s rule set excluding these, and this
+    export is meant to be worked through row by row, so a name with
+    nothing to actually decide about shouldn't be sitting in the list."""
     rows = conn.execute("""
         SELECT strongs, lang, lemma, transliteration, find_text, replace_text
         FROM strongs_lemma
         WHERE replace_text IS NOT NULL
+          AND (find_text IS NULL OR find_text != replace_text)
         ORDER BY lang, CAST(strongs AS INTEGER)
     """).fetchall()
     out_path.parent.mkdir(parents=True, exist_ok=True)
