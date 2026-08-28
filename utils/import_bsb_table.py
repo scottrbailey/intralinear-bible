@@ -131,7 +131,20 @@ _INTERNAL_WHITESPACE_RE = re.compile(r'\s{2,}')
 def _normalize_english(text: str) -> str:
     text = _SPACE_BEFORE_PUNCT_RE.sub(r'\1', text)
     text = _SPACE_AFTER_OPEN_RE.sub(r'\1', text)
-    return _INTERNAL_WHITESPACE_RE.sub(' ', text)
+    text = _INTERNAL_WHITESPACE_RE.sub(' ', text)
+    return _TYPO_FIXES.get(text, text)
+
+
+# One-off exact-string corrections to the BSB version's own wording, found
+# while auditing tokens for the restored-names build (utils/build_restored_names.py):
+# a lone all-caps "THE LORD" (vs. the surrounding text's consistent "the
+# LORD") that reads as a stray shift-key slip rather than deliberate
+# emphasis -- unlike e.g. "TO THE LORD", which recurs and is left alone.
+# Matched by exact post-normalization string, not by bsb_sort, since the
+# rest of the pipeline doesn't otherwise need to know which verse it's in.
+_TYPO_FIXES = {
+    'THE LORD': 'the LORD',
+}
 
 
 # Eleven rows carry the properly-spaced ". . ." continuation marker glued to

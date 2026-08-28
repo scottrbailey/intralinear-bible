@@ -160,6 +160,24 @@ def build_lemma_table(hebrew_lexicon: Path, greek_lexicon: Path, db_path: Path,
         print(f"WARNING: {db_path} does not exist yet -- creating it with only strongs_lemma "
               f"in it. Run utils/import_bsb_table.py first for a complete database.")
     conn = sqlite3.connect(db_path)
+
+    # find_text/replace_text are hand-curated by utils/build_restored_names.py,
+    # not derived from either lexicon -- this function drops and fully rebuilds
+    # strongs_lemma on every run (to pick up a refreshed lexicon file), so
+    # without this save/restore step a rerun would silently wipe out every
+    # curated override. Carried over by (strongs, lang), the table's own key.
+    preserved = {}
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='strongs_lemma'"
+    ).fetchone():
+        preserved = {
+            (r[0], r[1]): (r[2], r[3])
+            for r in conn.execute(
+                "SELECT strongs, lang, find_text, replace_text FROM strongs_lemma "
+                "WHERE find_text IS NOT NULL OR replace_text IS NOT NULL"
+            ).fetchall()
+        }
+
     conn.execute("DROP TABLE IF EXISTS strongs_lemma")
     conn.execute("""
         CREATE TABLE strongs_lemma (
@@ -168,6 +186,8 @@ def build_lemma_table(hebrew_lexicon: Path, greek_lexicon: Path, db_path: Path,
             lemma           TEXT NOT NULL,
             transliteration TEXT NOT NULL,
             source          TEXT NOT NULL DEFAULT 'lexicon' CHECK(source IN ('lexicon','bsb')),
+            find_text       TEXT,   -- restored-names override, see build_restored_names.py
+            replace_text    TEXT,
             PRIMARY KEY (strongs, lang)
         )
     """)
@@ -180,6 +200,25 @@ def build_lemma_table(hebrew_lexicon: Path, greek_lexicon: Path, db_path: Path,
     print(f"Wrote {len(rows):,} strongs_lemma row(s) to {db_path}")
 
     fill_gaps_from_bsb(conn)
+
+    restored = 0
+    orphaned = 0
+    for (strongs, lang), (find_text, replace_text) in preserved.items():
+        cur = conn.execute(
+            "UPDATE strongs_lemma SET find_text = ?, replace_text = ? "
+            "WHERE strongs = ? AND lang = ?",
+            (find_text, replace_text, strongs, lang),
+        )
+        if cur.rowcount:
+            restored += 1
+        else:
+            orphaned += 1
+    conn.commit()
+    if preserved:
+        print(f"Restored {restored:,} curated find_text/replace_text override(s) "
+              f"across the rebuild" + (f"; {orphaned:,} referenced a (strongs, lang) "
+              f"no longer in the rebuilt table -- lexicon file changed?" if orphaned else "."))
+
     conn.close()
 
 

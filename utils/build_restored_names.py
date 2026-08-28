@@ -1,0 +1,389 @@
+"""
+build_restored_names.py
+
+Populates `strongs_lemma.find_text`/`replace_text` for proper nouns (the
+control surface a human reviews and hand-corrects) and, from those,
+`tokens.english_restored` (disposable, regenerated-on-every-run output) --
+see docs/DEVELOPMENT.md's restored-names section for the design behind the
+split. Meant to run after both utils/import_bsb_table.py and
+utils/import_lemma_table.py, since it needs `tokens` for its find_text
+bootstrap and `strongs_lemma` for its transliteration column.
+
+Three passes, each additive (never overwrites a value someone already
+hand-curated into strongs_lemma):
+
+1. replace_text, mechanical -- for every Hebrew/Aramaic Strong's number
+   HebrewStrong.xml itself tags as a proper noun (pos contains "n-pr"),
+   capitalize strongs_lemma's own transliteration and strip this project's
+   configured syllable/stress marks. For Greek Strong's numbers that
+   strongsgreek.xml's own <strongs_derivation> cites as transliterating a
+   Hebrew proper noun (<strongsref language="HEBREW" strongs="…"/> -- e.g.
+   G3475 Mōÿsēs citing H4872), inherit that Hebrew name's replace_text
+   instead of transliterating the Greek independently, so "Moses" reads the
+   same restored way in both Testaments.
+
+2. find_text, bootstrapped -- the most common tokens.english value for that
+   Strong's number, for every name replace_text now covers. This is a
+   first-pass guess, not a citation: review the generated CSV before
+   trusting it, especially for names sparse enough that one odd verse's
+   wording could win the vote.
+
+3. The divine name (H3068) is seeded directly rather than bootstrapped --
+   see _SEED_FIND_REPLACE's comment for why a plain "most common value"
+   vote is the wrong mental model for it specifically.
+
+Then: add tokens.english_restored if missing, apply every strongs_lemma
+find_text/replace_text pair as a per-token substring swap (scoped by that
+token's own strongs, so it can never cross-contaminate a different name),
+strip a leading "the"/"The"/"THE" immediately before the restored name
+(Hebrew proper nouns take no definite article -- "the Yehovah" is never
+correct), and write a review CSV of every distinct old->new change.
+
+Usage:
+    python utils/build_restored_names.py [--db FILE] [--hebrew-lexicon FILE]
+                                          [--greek-lexicon FILE] [--review-csv FILE]
+"""
+
+import argparse
+import csv
+import re
+import sqlite3
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from translit import SCHEMES  # noqa: E402
+from import_lemma_table import _strip_ns, _HEBREW_ID_RE  # noqa: E402
+
+DEFAULT_HEBREW_LEXICON = ROOT / "data" / "HebrewStrong.xml"
+DEFAULT_GREEK_LEXICON  = ROOT / "data" / "strongsgreek.xml"
+DEFAULT_DB             = ROOT / "data" / "bsb_tables.db"
+DEFAULT_REVIEW_CSV     = ROOT / "data" / "restored_names_review.csv"
+CONFIG_PATH            = ROOT / "config.yaml"
+
+_PROPER_NOUN_POS_RE = re.compile(r'\bn-pr\b')
+
+
+def _parse_hebrew_proper_nouns(path: Path) -> set[str]:
+    """{bare Strong's digit string}, for every HebrewStrong.xml entry whose
+    headword <w pos="..."> contains an 'n-pr' component (n-pr-m, n-pr-f,
+    n-pr-loc, or a combined tag like 'n-pr-m n-pr-loc') -- Strong's own
+    proper-noun tagging, not guessed from the gloss text."""
+    root = ET.parse(path).getroot()
+    for elem in root.iter():
+        elem.tag = _strip_ns(elem.tag)
+
+    strongs_ids = set()
+    for entry in root.iter('entry'):
+        m = _HEBREW_ID_RE.match(entry.get('id', ''))
+        if not m:
+            continue
+        w = entry.find('w')
+        pos = (w.get('pos') if w is not None else '') or ''
+        if _PROPER_NOUN_POS_RE.search(pos):
+            strongs_ids.add(m.group(1))
+    return strongs_ids
+
+
+def _parse_greek_hebrew_origin(path: Path) -> dict:
+    """{Greek bare strongs digit string: Hebrew bare strongs digit string},
+    for every strongsgreek.xml entry whose <strongs_derivation> cites a
+    Hebrew Strong's number via <strongsref language="HEBREW" strongs="…"/>
+    -- Strong's own etymology note, not something inferred from spelling.
+    Covers Hebrew-origin common words too (e.g. hallelujah, amen), not just
+    names; the caller filters to Hebrew numbers _parse_hebrew_proper_nouns
+    also tagged as proper nouns."""
+    result = {}
+    for entry in ET.parse(path).getroot().iter('entry'):
+        raw = entry.get('strongs', '')
+        if not raw.isdigit():
+            continue
+        xref = entry.find('.//strongsref[@language="HEBREW"]')
+        xref_strongs = xref.get('strongs') if xref is not None else None
+        if xref_strongs and xref_strongs.isdigit():
+            result[str(int(raw))] = str(int(xref_strongs))
+    return result
+
+
+def _load_syllable_chars() -> tuple[str, str]:
+    """Effective (syllable_sep, stress_marker) for the live pipeline's
+    configured Hebrew scheme -- the same override-over-bundled-default
+    resolution translit.make_transliterator() uses internally (see its own
+    docstring), needed here only so replace_text derivation can strip these
+    back out of strongs_lemma.transliteration."""
+    with open(CONFIG_PATH, encoding='utf-8') as f:
+        cfg = yaml.safe_load(f)
+    xlit_cfg = cfg.get('transliteration', {})
+    bundled = SCHEMES.get(xlit_cfg.get('hebrew', 'brill_simple'), {})
+    sep    = xlit_cfg.get('syllable_sep')
+    sep    = bundled.get('syllable_sep', '') if sep is None else sep
+    stress = xlit_cfg.get('stress_marker')
+    stress = bundled.get('stress_marker', '') if stress is None else stress
+    return sep or '', stress or ''
+
+
+_FIRST_LETTER_RE = re.compile(r'[^\W\d_]', re.UNICODE)
+
+
+def _capitalize_name(transliteration: str, sep: str, stress: str) -> str:
+    """'mo·sheh' -> 'Mosheh': strip this scheme's syllable/stress marks and
+    capitalize the first actual letter -- skipping a leading non-letter
+    glyph (e.g. aleph/ayin's ʼ/ʻ in a scheme that keeps them) since
+    uppercasing a punctuation-like character is a silent no-op."""
+    text = transliteration
+    if sep:
+        text = text.replace(sep, '')
+    if stress:
+        text = text.replace(stress, '')
+    m = _FIRST_LETTER_RE.search(text)
+    if not m:
+        return text
+    i = m.start()
+    return text[:i] + text[i].upper() + text[i + 1:]
+
+
+# A modal tokens.english value is usually the bare name ("Moses"), but not
+# always -- "of Jesus"/"to Jesus" are just as common a shape for a
+# frequently-mentioned person, and blindly using the whole phrase as
+# find_text either eats the preposition on the occurrences that happen to
+# match it or silently fails to match every other preposition's spelling.
+# Pulling out the longest capitalized run instead ("of Jesus" -> "Jesus")
+# sidesteps both: a real regression caught by exactly the review CSV this
+# script exists to produce, on the very first test run against real data.
+_CAPITALIZED_WORD_RE = re.compile(r"[A-Z]+[a-z’']*(?:[-\s][A-Z]+[a-z’']*)*")
+
+
+def _most_common_english(conn: sqlite3.Connection, strongs: str, lang: str):
+    row = conn.execute("""
+        SELECT english, COUNT(*) AS n
+        FROM tokens
+        WHERE strongs = ?
+          AND (language = ? OR (? = 'H' AND language = 'A'))
+          AND english IS NOT NULL
+        GROUP BY english
+        ORDER BY n DESC
+        LIMIT 1
+    """, (strongs, lang, lang)).fetchone()
+    if row is None:
+        return None
+    words = _CAPITALIZED_WORD_RE.findall(row[0])
+    return max(words, key=len) if words else None
+
+
+# The divine name is seeded directly rather than bootstrapped from "most
+# common tokens.english value": that vote picks one *exact* string, but
+# YHWH's BSB rendering has ~250 distinct surface strings ("the LORD", "But
+# the LORD", "LORD's", "O LORD", ...) all sharing one core substring,
+# "LORD" -- exactly what find_text is supposed to capture. A plain
+# substring swap on "LORD" -> "Yehovah" handles all of them in one rule
+# *and* leaves the pronoun-glossed occurrences (He/Him/His) untouched for
+# free, since those strings never contained "LORD" to begin with -- not a
+# special case, just how substring matching already behaves.
+#
+# Deliberately NOT included: the ~9 occurrences where YHWH is glossed bare
+# "GOD" (the "Lord GOD" Adonai+YHWH combination, Adonai's own H136 token
+# supplying "Lord" separately) -- restoring those changes wording the BSB
+# translators chose deliberately, a bigger step than fixing "THE LORD"'s
+# stray capitalization was. Left alone by default; revisit once the review
+# CSV shows how those 9 actually read in context.
+_SEED_FIND_REPLACE = {
+    ('3068', 'H'): ('LORD', 'Yehovah'),
+}
+
+_ARTICLE_RE_CACHE: dict[str, re.Pattern] = {}
+
+
+def _strip_leading_article(text: str, name: str) -> str:
+    """Hebrew proper nouns take no definite article, so a leading
+    'the'/'The'/'THE' immediately before a just-restored name is BSB's own
+    article for the common-noun-shaped title the word no longer is once
+    restored (e.g. 'the LORD' -> 'the Yehovah' is never right) -- stripped
+    for every restored name, not just the divine one, since the same
+    grammar applies to all of them."""
+    pattern = _ARTICLE_RE_CACHE.get(name)
+    if pattern is None:
+        pattern = re.compile(r'\b(?:the|The|THE) ' + re.escape(name) + r'\b')
+        _ARTICLE_RE_CACHE[name] = pattern
+    return pattern.sub(name, text)
+
+
+def populate_strongs_lemma(conn: sqlite3.Connection, hebrew_lexicon: Path,
+                            greek_lexicon: Path) -> None:
+    sep, stress = _load_syllable_chars()
+
+    hebrew_proper = _parse_hebrew_proper_nouns(hebrew_lexicon) if hebrew_lexicon.exists() else set()
+    if not hebrew_proper:
+        print(f"WARNING: no proper nouns found in {hebrew_lexicon} -- skipping Hebrew pass.")
+    greek_hebrew_origin = _parse_greek_hebrew_origin(greek_lexicon) if greek_lexicon.exists() else {}
+
+    filled_replace = 0
+    for strongs in hebrew_proper:
+        row = conn.execute(
+            "SELECT transliteration, replace_text FROM strongs_lemma WHERE strongs = ? AND lang = 'H'",
+            (strongs,)
+        ).fetchone()
+        if row is None or row[1] is not None:
+            continue  # not in strongs_lemma (lexicon-only overlap gap), or already curated
+        conn.execute(
+            "UPDATE strongs_lemma SET replace_text = ? WHERE strongs = ? AND lang = 'H'",
+            (_capitalize_name(row[0], sep, stress), strongs)
+        )
+        filled_replace += 1
+
+    filled_greek = 0
+    for greek_strongs, hebrew_strongs in greek_hebrew_origin.items():
+        if hebrew_strongs not in hebrew_proper:
+            continue  # Hebrew-origin common word, not a name (amen, hallelujah, ...)
+        hebrew_row = conn.execute(
+            "SELECT replace_text FROM strongs_lemma WHERE strongs = ? AND lang = 'H'",
+            (hebrew_strongs,)
+        ).fetchone()
+        if hebrew_row is None or hebrew_row[0] is None:
+            continue
+        greek_row = conn.execute(
+            "SELECT replace_text FROM strongs_lemma WHERE strongs = ? AND lang = 'G'",
+            (greek_strongs,)
+        ).fetchone()
+        if greek_row is None or greek_row[0] is not None:
+            continue  # not in strongs_lemma, or already curated
+        conn.execute(
+            "UPDATE strongs_lemma SET replace_text = ? WHERE strongs = ? AND lang = 'G'",
+            (hebrew_row[0], greek_strongs)
+        )
+        filled_greek += 1
+    conn.commit()
+    print(f"replace_text: derived {filled_replace:,} Hebrew/Aramaic proper noun(s), "
+          f"inherited {filled_greek:,} Greek name(s) of Hebrew origin from their Hebrew form.")
+
+    for (strongs, lang), (find_text, replace_text) in _SEED_FIND_REPLACE.items():
+        conn.execute("""
+            UPDATE strongs_lemma SET
+                replace_text = COALESCE(replace_text, ?),
+                find_text    = COALESCE(find_text, ?)
+            WHERE strongs = ? AND lang = ?
+        """, (replace_text, find_text, strongs, lang))
+    conn.commit()
+
+    filled_find = 0
+    candidates = conn.execute(
+        "SELECT strongs, lang FROM strongs_lemma WHERE replace_text IS NOT NULL AND find_text IS NULL"
+    ).fetchall()
+    for strongs, lang in candidates:
+        guess = _most_common_english(conn, strongs, lang)
+        if guess:
+            conn.execute(
+                "UPDATE strongs_lemma SET find_text = ? WHERE strongs = ? AND lang = ?",
+                (guess, strongs, lang)
+            )
+            filled_find += 1
+    conn.commit()
+    print(f"find_text: bootstrapped {filled_find:,} of {len(candidates):,} name(s) from "
+          f"tokens.english's own most common rendering for that Strong's number -- a first "
+          f"guess, review data/restored_names_review.csv before trusting it.")
+
+
+def add_restored_column(conn: sqlite3.Connection) -> None:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(tokens)")}
+    if 'english_restored' not in cols:
+        conn.execute("ALTER TABLE tokens ADD COLUMN english_restored TEXT")
+        conn.commit()
+
+
+def apply_restorations(conn: sqlite3.Connection) -> None:
+    """Full rebuild each run: clear english_restored, then re-derive it from
+    the current strongs_lemma find_text/replace_text so a hand-edit there is
+    always reflected after a rerun, never stuck from a stale prior pass."""
+    conn.execute("UPDATE tokens SET english_restored = NULL")
+
+    rules_by_strongs: dict[str, list[tuple[str, str, str]]] = {}
+    for strongs, lang, find_text, replace_text in conn.execute("""
+        SELECT strongs, lang, find_text, replace_text FROM strongs_lemma
+        WHERE find_text IS NOT NULL AND replace_text IS NOT NULL
+    """):
+        rules_by_strongs.setdefault(strongs, []).append((lang, find_text, replace_text))
+
+    changes = []
+    total_candidates = 0
+    for bsb_sort, language, strongs, english in conn.execute("""
+        SELECT bsb_sort, language, strongs, english FROM tokens
+        WHERE strongs IS NOT NULL AND english IS NOT NULL
+    """):
+        rules = rules_by_strongs.get(strongs)
+        if not rules:
+            continue
+        lang_key = 'H' if language in ('H', 'A') else 'G'
+        for lang, find_text, replace_text in rules:
+            if lang != lang_key:
+                continue
+            total_candidates += 1
+            if find_text not in english:
+                break  # token exists for this name but this occurrence didn't use find_text's wording
+            new_english = english.replace(find_text, replace_text)
+            new_english = _strip_leading_article(new_english, replace_text)
+            if new_english != english:
+                changes.append((new_english, bsb_sort))
+            break
+
+    conn.executemany("UPDATE tokens SET english_restored = ? WHERE bsb_sort = ?", changes)
+    conn.commit()
+    print(f"english_restored: set on {len(changes):,} of {total_candidates:,} token(s) tagged "
+          f"with a curated Strong's number ({total_candidates - len(changes):,} didn't contain "
+          f"that name's find_text in their own wording -- expected for pronoun-glossed "
+          f"occurrences, worth a look otherwise).")
+
+
+def write_review_csv(conn: sqlite3.Connection, out_path: Path) -> None:
+    rows = conn.execute("""
+        SELECT english, english_restored, COUNT(*) AS cnt
+        FROM tokens
+        WHERE english_restored IS NOT NULL
+        GROUP BY english, english_restored
+        ORDER BY english
+    """).fetchall()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['old_english', 'new_english', 'cnt'])
+        writer.writerows(rows)
+    print(f"Wrote {len(rows):,} distinct old->new english pair(s) to {out_path} for review.")
+
+
+def build_restored_names(db_path: Path, hebrew_lexicon: Path, greek_lexicon: Path,
+                          review_csv: Path) -> None:
+    conn = sqlite3.connect(db_path)
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='strongs_lemma'"
+    ).fetchone():
+        conn.close()
+        raise SystemExit("strongs_lemma not found -- run utils/import_lemma_table.py first.")
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tokens'"
+    ).fetchone():
+        conn.close()
+        raise SystemExit("tokens not found -- run utils/import_bsb_table.py first.")
+
+    populate_strongs_lemma(conn, hebrew_lexicon, greek_lexicon)
+    add_restored_column(conn)
+    apply_restorations(conn)
+    write_review_csv(conn, review_csv)
+    conn.close()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__,
+                                      formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--hebrew-lexicon', type=Path, default=DEFAULT_HEBREW_LEXICON,
+                         help=f"Path to HebrewStrong.xml (default: {DEFAULT_HEBREW_LEXICON})")
+    parser.add_argument('--greek-lexicon', type=Path, default=DEFAULT_GREEK_LEXICON,
+                         help=f"Path to strongsgreek.xml (default: {DEFAULT_GREEK_LEXICON})")
+    parser.add_argument('--db', type=Path, default=DEFAULT_DB,
+                         help=f"bsb_tables.db path (default: {DEFAULT_DB})")
+    parser.add_argument('--review-csv', type=Path, default=DEFAULT_REVIEW_CSV,
+                         help=f"Where to write the review CSV (default: {DEFAULT_REVIEW_CSV})")
+    args = parser.parse_args()
+    build_restored_names(args.db, args.hebrew_lexicon, args.greek_lexicon, args.review_csv)

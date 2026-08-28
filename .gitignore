@@ -26,3 +26,7 @@ my_config*.yaml
 # database built from it by utils/import_bsb_table.py
 data/bsb_tables.tsv
 data/bsb_tables.db
+
+# Generated QA artifact from utils/build_restored_names.py -- regenerated
+# from bsb_tables.db on every run, not a source of truth itself
+data/restored_names_review.csv

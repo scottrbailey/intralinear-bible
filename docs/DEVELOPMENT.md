@@ -228,6 +228,11 @@ intralinear-bible/
 │   ├── import_lemma_table.py # one-time: HebrewStrong.xml/strongsgreek.xml (+ bsb_tables.db
 │   │                          #   fallback for coverage holes) -> strongs_lemma table, for
 │   │                          #   BTB-L1/L2's lemma transliteration
+│   ├── build_restored_names.py # optional: populates strongs_lemma.find_text/replace_text
+│   │                          #   for proper nouns, then tokens.english_restored -- the
+│   │                          #   "restored names" (Moses->Mosheh, LORD->Yehovah, ...)
+│   │                          #   override layer. Run after import_lemma_table.py. Writes
+│   │                          #   data/restored_names_review.csv for QA before trusting it.
 │   ├── build_books_table.py  # one-time: biblelib -> data/books.db
 │   └── extract_bsb_xrefs.py  # one-time: BSB USX -> data/bsb_xrefs.json (AlignmentComposer path)
 ├── heb_devotional/       # separate pipeline — see Devotional Modules below
