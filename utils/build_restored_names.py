@@ -127,24 +127,25 @@ def _load_syllable_chars() -> tuple[str, str]:
     return sep or '', stress or ''
 
 
-_FIRST_LETTER_RE = re.compile(r'[^\W\d_]', re.UNICODE)
-
-
 def _capitalize_name(transliteration: str, sep: str, stress: str) -> str:
-    """'mo·sheh' -> 'Mosheh': strip this scheme's syllable/stress marks and
-    capitalize the first actual letter -- skipping a leading non-letter
-    glyph (e.g. aleph/ayin's ʼ/ʻ in a scheme that keeps them) since
-    uppercasing a punctuation-like character is a silent no-op."""
+    """'mo·sheh' -> 'Mosheh', 'beer sheva' -> 'Beer Sheva': strip this
+    scheme's syllable/stress marks and title-case what's left, so a
+    multi-word name doesn't come out with only its first word capitalized.
+
+    str.title() treats any uncased character as a word break, which is
+    exactly right for a *leading* aleph/ayin glyph (it capitalizes the
+    letter right after it, same as wanted) but would over-capitalize a
+    *mid-word* one under a scheme that keeps aleph/ayin as ʼ/ʻ instead of
+    dropping them (sbl_academic; not brill_simple, this project's current
+    default) -- e.g. 'yisrāʼēl' -> 'YisrāʼĒl'. Revisit if restored names
+    ever moves to one of those schemes.
+    """
     text = transliteration
     if sep:
         text = text.replace(sep, '')
     if stress:
         text = text.replace(stress, '')
-    m = _FIRST_LETTER_RE.search(text)
-    if not m:
-        return text
-    i = m.start()
-    return text[:i] + text[i].upper() + text[i + 1:]
+    return text.title()
 
 
 # A modal tokens.english value is usually the bare name ("Moses"), but not
