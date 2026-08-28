@@ -74,6 +74,38 @@ class TestQamatsQatanLegitimate:
         )
 
 
+class TestQamatsGadolLexiconHeadwords:
+    """Bare (unaccented) lexicon headwords -- HebrewStrong.xml's own citation
+    forms, with no cantillation/meteg to disambiguate via the stress check.
+    A closed monosyllable of this shape is genuinely ambiguous from spelling
+    alone (see TestQamatsQatanLegitimate's "kol", structurally identical to
+    these yet legitimately qatan), so these rely on
+    translit.QAMATS_GADOL_LEXICAL_EXCEPTIONS rather than the general
+    heuristic. Bug found by build_restored_names.py's own review CSV
+    turning "Gad" into "God" -- exhaustively verified against every
+    matching entry in HebrewStrong.xml before fixing (56/56 agreed with
+    their own `pron` attribute that this shape is gadol)."""
+
+    CASES = [
+        # (Hebrew headword exactly as HebrewStrong.xml has it, strongs, expected_substr, label)
+        ("גָּד", "H1410", "gad", "Gad — proper name (the original bug report)"),
+        ("דָּן", "H1835", "dan", "Dan — proper name"),
+        ("דָּן יַעַן", "H1842", "dan", "Dan-jaan — compound, matches on its first word"),
+        ("הָם", "H1990", "ham", "Ham — place name"),
+        ("חָם", "H2526", "cham", "Ham/Cham — person name"),
+        ("יָהּ", "H3050", "yah", "Yah — divine name, short form"),
+        ("עָר", "H6144", "ar", "Ar — place name"),
+        ("רָם", "H7410", "ram", "Ram — proper name"),
+    ]
+
+    @pytest.mark.parametrize("hebrew,strongs,substr,label", CASES)
+    def test_lexicon_exception_is_gadol(self, tl, hebrew, strongs, substr, label):
+        result = tl(hebrew)
+        assert substr in result, (
+            f"{strongs} {label}: expected '{substr}' in output, got {result!r}"
+        )
+
+
 # ── Pe / Samekh paragraph-marker detection ──────────────────────────────────
 
 class TestPeSamekh:

@@ -455,8 +455,62 @@ def is_vocal_sheva(chars: list, i: int) -> bool:
 
 # ================== QAMATS QATAN ==================
 
+# A closed, unaccented monosyllable (consonant[+dagesh]+qamats+bare final
+# consonant, no cantillation/meteg to mark the stress) is genuinely
+# ambiguous from spelling alone -- real Hebrew has both patterns, e.g.
+# \u05DB\u05B8\u05BC\u05DC ("kol", qatan -- see TestQamatsQatanLegitimate in
+# tests/test_translit.py) and \u05D2\u05B8\u05BC\u05D3 ("Gad", gadol) are structurally
+# identical. The existing heuristic below defaults to qatan for this shape
+# (right for common words like "kol"), but that default is wrong for
+# proper nouns of this same shape, which are gadol -- confirmed
+# exhaustively: every n-pr* entry in HebrewStrong.xml matching this exact
+# structure agrees with its own `pron` attribute that it's gadol, zero
+# exceptions found among 56 (H1409 Gad, H1835 Dan, H1842 Dan-jaan, H1990
+# Ham [place], H2526 Ham [person], H3050 Yah, H6144 Ar, H7410 Ram are the
+# ones actually affected -- the rest of the 56 already transliterate
+# correctly by coincidence of the default). Bare (unaccented) spelling,
+# since real running text carries cantillation and is already handled
+# correctly by the stress check further down.
+# NFC-normalized at load time -- hebrew_translit() normalizes its input to
+# NFC before this set is ever compared against it (see its own opening
+# unicodedata.normalize('NFC', text) call), and NFC's canonical-ordering
+# pass reorders dagesh (combining class 21) after qamats (class 18)
+# regardless of which order a given source file originally wrote them in.
+# Typing these literals in HebrewStrong.xml's own (dagesh-then-qamats) byte
+# order silently never matched anything at runtime until this normalization
+# was added -- confirmed the hard way, tracing an actual call.
+QAMATS_GADOL_LEXICAL_EXCEPTIONS = frozenset(
+    unicodedata.normalize('NFC', w) for w in [
+        '\u05D2\u05BC\u05B8\u05D3',              # \u05D2\u05B8\u05BC\u05D3 Gad
+        '\u05D3\u05BC\u05B8\u05DF',              # \u05D3\u05B8\u05BC\u05DF Dan
+        '\u05D4\u05B8\u05DD',                    # \u05D4\u05B8\u05DD Ham (place)
+        '\u05D7\u05B8\u05DD',                    # \u05D7\u05B8\u05DD Ham/Cham (person)
+        '\u05D9\u05B8\u05D4\u05BC',              # \u05D9\u05B8\u05D4\u05BC Yah
+        '\u05E2\u05B8\u05E8',                    # \u05E2\u05B8\u05E8 Ar
+        '\u05E8\u05B8\u05DD',                    # \u05E8\u05B8\u05DD Ram
+    ]
+)
+
+
+def _current_word(chars: list, i: int) -> str:
+    """The whitespace-delimited word containing position i, as a string --
+    used to check QAMATS_GADOL_LEXICAL_EXCEPTIONS against the *whole* word
+    rather than requiring an exact-length match, so a construct/compound
+    like H1842 '\u05D3\u05B8\u05BC\u05DF \u05D9\u05B7\u05E2\u05B7\u05DF' (Dan-jaan) still matches on its first word."""
+    start = i
+    while start > 0 and chars[start - 1] not in (' ', '\t', '\n'):
+        start -= 1
+    end = i
+    while end < len(chars) and chars[end] not in (' ', '\t', '\n'):
+        end += 1
+    return ''.join(chars[start:end])
+
+
 def is_qamats_qatan(chars: list, i: int) -> bool:
     """Determine if qamats at i is qamats qatan (o) rather than gadol (a)."""
+    if _current_word(chars, i) in QAMATS_GADOL_LEXICAL_EXCEPTIONS:
+        return False
+
     SHEWA       = '\u05B0'
     HATAF_QAMATS = '\u05B3'
     FULL_VOWELS = set('\u05B1\u05B2\u05B3\u05B4\u05B5\u05B6\u05B7\u05B8\u05B9\u05BA\u05BB\u05C7')
