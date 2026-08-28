@@ -156,7 +156,18 @@ def _capitalize_name(transliteration: str, sep: str, stress: str) -> str:
 # Pulling out the longest capitalized run instead ("of Jesus" -> "Jesus")
 # sidesteps both: a real regression caught by exactly the review CSV this
 # script exists to produce, on the very first test run against real data.
-_CAPITALIZED_WORD_RE = re.compile(r"[A-Z]+[a-z’']*(?:[-\s][A-Z]+[a-z’']*)*")
+#
+# A hyphen continuation allows a lowercase start ('-jearim'), a space
+# continuation still requires a capital ('Beer Sheva', not swallowing a
+# following ordinary word like 'Jesus said'): BSB's own convention
+# lowercases the second half of a hyphenated compound place name
+# ('Beth-shemesh', 'Kiriath-jearim' -- both single Strong's numbers, single
+# Hebrew headwords, confirmed against HebrewStrong.xml), so without the
+# hyphen exception this only captured 'Kiriath', leaving '-jearim'
+# unmatched and the compound half-restored.
+_CAPITALIZED_WORD_RE = re.compile(
+    r"[A-Z]+[a-z’']*(?:-[a-z’']+)*(?:\s[A-Z]+[a-z’']*(?:-[a-z’']+)*)*"
+)
 
 
 def _most_common_english(conn: sqlite3.Connection, strongs: str, lang: str):
@@ -203,6 +214,25 @@ def _most_common_english(conn: sqlite3.Connection, strongs: str, lang: str):
 _SEED_FIND_REPLACE = {
     ('3068', 'H'): ('LORD', 'Yehovah'),
 }
+
+_FIND_TEXT_RE_CACHE: dict[str, re.Pattern] = {}
+
+
+def _find_text_pattern(find_text: str) -> re.Pattern:
+    """Word-boundary-wrapped, cached per find_text -- a plain substring
+    check/replace would also fire inside a longer word that happens to
+    contain it (e.g. H3478 Israel's find_text 'Israel' matching inside
+    'Israelites', mid-word-mangling it into 'Yisraelites'/'Yisrael
+    (Israel)ites'). \b on a hyphen-joined compound's *first* half (e.g. a
+    stray 'Kiriath' find_text) still matches, since regex treats '-' as a
+    non-word boundary same as a space -- that half is meant to be fixed by
+    widening find_text itself (see _CAPITALIZED_WORD_RE), not by this."""
+    pattern = _FIND_TEXT_RE_CACHE.get(find_text)
+    if pattern is None:
+        pattern = re.compile(r'\b' + re.escape(find_text) + r'\b')
+        _FIND_TEXT_RE_CACHE[find_text] = pattern
+    return pattern
+
 
 _ARTICLE_RE_CACHE: dict[str, re.Pattern] = {}
 
@@ -345,10 +375,11 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
             if lang != lang_key:
                 continue
             total_candidates += 1
-            if find_text not in english:
+            pattern = _find_text_pattern(find_text)
+            if not pattern.search(english):
                 break  # token exists for this name but this occurrence didn't use find_text's wording
             display = f'{replace_text} ({find_text})' if annotate else replace_text
-            new_english = english.replace(find_text, display)
+            new_english = pattern.sub(lambda m: display, english)
             # Still stripped against the bare replace_text -- the pattern's
             # trailing \b matches on the space before "(find_text)" just as
             # well as on a word boundary, and the substitution only touches
