@@ -108,6 +108,19 @@ def _parse_hebrew_lexicon(path: Path) -> dict:
             continue
         w = entry.find('w')
         headword = (w.text or '').strip() if w is not None else ''
+        # A handful of headwords with an unusual two-vowel-on-one-consonant
+        # spelling (H3389 Jerusalem's יְרוּשָׁלִַ͏ם, patach+hiriq both under
+        # the same lamed) carry a U+034F COMBINING GRAPHEME JOINER to pin
+        # the vowel order for renderers that would otherwise reorder them
+        # -- purely typographic, no phonetic content, and nothing downstream
+        # of this dict ever renders the pointed Hebrew for display, only
+        # reads it to derive a transliteration. Stripped here, at the one
+        # place this project pulls a headword out of this specific source
+        # file, rather than taught to translit.py's general-purpose
+        # transliterator (which has no reason to know this XML file's own
+        # typographic conventions) or hand-edited into the vendored XML
+        # itself (would silently diverge from upstream on a re-download).
+        headword = headword.replace('͏', '')
         if headword:
             lemmas[m.group(1)] = headword
     return lemmas
