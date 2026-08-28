@@ -90,23 +90,50 @@ def _parse_hebrew_proper_nouns(path: Path) -> set[str]:
     return strongs_ids
 
 
+def _first_strongsref(entry: ET.Element, language: str) -> str | None:
+    xref = entry.find(f'.//strongsref[@language="{language}"]')
+    strongs = xref.get('strongs') if xref is not None else None
+    return str(int(strongs)) if strongs and strongs.isdigit() else None
+
+
 def _parse_greek_hebrew_origin(path: Path) -> dict:
     """{Greek bare strongs digit string: Hebrew bare strongs digit string},
     for every strongsgreek.xml entry whose <strongs_derivation> cites a
-    Hebrew Strong's number via <strongsref language="HEBREW" strongs="…"/>
-    -- Strong's own etymology note, not something inferred from spelling.
+    Hebrew Strong's number, directly or by chasing a chain of GREEK
+    cross-references -- Strong's own etymology, not something inferred from
+    spelling. G2385 James ("the same as G2384 Grcized") has no direct
+    HEBREW strongsref of its own; G2384 Jacob does (H3290) -- without
+    following that chain James (and 456 other entries like it, most of
+    them one hop, a few up to six) silently got no restored form at all,
+    with nothing in the review CSV to say why, since it's not a "found but
+    didn't match" case, it's a "never even got a rule" case.
+
+    Guards against a cycle with `seen`; caps at 10 hops as a sanity bound
+    (real chains top out at 6) rather than trusting the data to be
+    well-formed.
+
     Covers Hebrew-origin common words too (e.g. hallelujah, amen), not just
     names; the caller filters to Hebrew numbers _parse_hebrew_proper_nouns
     also tagged as proper nouns."""
+    entries = {e.get('strongs'): e for e in ET.parse(path).getroot().iter('entry')
+               if (e.get('strongs') or '').isdigit()}
+
     result = {}
-    for entry in ET.parse(path).getroot().iter('entry'):
-        raw = entry.get('strongs', '')
-        if not raw.isdigit():
-            continue
-        xref = entry.find('.//strongsref[@language="HEBREW"]')
-        xref_strongs = xref.get('strongs') if xref is not None else None
-        if xref_strongs and xref_strongs.isdigit():
-            result[str(int(raw))] = str(int(xref_strongs))
+    for raw, entry in entries.items():
+        greek_strongs = str(int(raw))
+        seen = {raw}
+        current = entry
+        for _ in range(10):
+            hebrew_strongs = _first_strongsref(current, 'HEBREW')
+            if hebrew_strongs:
+                result[greek_strongs] = hebrew_strongs
+                break
+            next_raw_int = _first_strongsref(current, 'GREEK')
+            next_raw = next_raw_int.zfill(5) if next_raw_int else None
+            if not next_raw or next_raw in seen or next_raw not in entries:
+                break
+            seen.add(next_raw)
+            current = entries[next_raw]
     return result
 
 
