@@ -21,6 +21,12 @@ transliteration linked to Strong's concordance.
 | MySword  | Intralinear, level 3     | `BTB-L3`     | `BTB-L3.bbl.mybible`    |
 | MySword  | Reverse interlinear      | `BSRB`       | `BSRB.bbl.mybible`      |
 | OSIS XML | Intralinear              | `BSBi`       | `BSBi.osis.xml`         |
+| e-Sword  | Intralinear, level 1 (Drash) | `DTB-L1` | `DTB-L1.bbli`         |
+| e-Sword  | Intralinear, level 2 (Drash) | `DTB-L2` | `DTB-L2.bbli`         |
+| e-Sword  | Intralinear, level 3 (Drash) | `DTB-L3` | `DTB-L3.bbli`         |
+| MySword  | Intralinear, level 1 (Drash) | `DTB-L1` | `DTB-L1.bbl.mybible`  |
+| MySword  | Intralinear, level 2 (Drash) | `DTB-L2` | `DTB-L2.bbl.mybible`  |
+| MySword  | Intralinear, level 3 (Drash) | `DTB-L3` | `DTB-L3.bbl.mybible`  |
 
 ### The BTB-L1/L2/L3 tiers
 
@@ -28,6 +34,28 @@ transliteration linked to Strong's concordance.
 rather than one, each a step deeper into the source language for readers who
 don't read Hebrew/Greek script but still want to recognize word stems and
 look up Strong's entries.
+
+### DTB — Drash Transliterated Bible (restored names)
+
+Same three tiers, same rendering, but with proper nouns restored toward
+their Hebrew form (Moses -> Mosheh, "the LORD" -> Yehovah, ...) instead of
+the BSB's own wording — see `utils/build_restored_names.py`. Selected with
+`--composer drash` (needs `table_db` to have been built *and* had
+`utils/build_restored_names.py` run against it — `--composer drash` errors
+out otherwise rather than silently building unmodified BSB text under
+Drash branding). Only `--format esword/mysword` with `--mode
+intralinear/L1/L2/L3` support it so far; reverse/forward interlinear and
+OSIS output stay Berean-only for now.
+
+`DrashComposer` (`table_composer.py`) is a thin `TableComposer` subclass —
+identical grouping/rendering, the only difference is preferring
+`tokens.english_restored` over `tokens.english` wherever a token has one.
+The DTB formatter classes (`verse_formatter/intralinear.py`) are equally
+thin subclasses of the BTB ones, overriding only `abbreviation`/
+`module_name` — all the actual rendering logic (and CSS) is inherited
+unchanged. `main.py`'s `build_writers()` is what keeps composer and
+formatter choice paired correctly (a DTB formatter fed by plain
+`TableComposer` would render fine, it just wouldn't be Drash text).
 
 Every tier shares one shape: a **primary** line (`ro` in the markup) that's
 always populated, always the Strong's link, and higher contrast — the line
@@ -203,7 +231,8 @@ chapters: null
 intralinear-bible/
 ├── main.py              # entry point: CLI, config, composer auto-detect, writer factory
 ├── composer.py          # Composer ABC + AlignmentComposer — live source/alignment/target join
-├── table_composer.py    # TableComposer — reads data/bsb_tables.db instead of joining live
+├── table_composer.py    # TableComposer — reads data/bsb_tables.db instead of joining live;
+│                        #   DrashComposer subclass prefers tokens.english_restored (DTB)
 ├── models.py            # data classes: SourceToken, SourceWord, AlignedToken, …
 ├── verse_formatter/     # VerseFormatter ABC + one concrete class per output target × style,
 │                        # organized by mode rather than platform — see Architecture below
@@ -212,7 +241,8 @@ intralinear-bible/
 │   │                            #   output flows through); e-Sword/MySword xref+red-letter mixins
 │   ├── intralinear.py          # BTB-L1/L2/L3: ESwordLemmaFormatter, ESwordLemmaDetailFormatter,
 │   │                            #   ESwordScriptFormatter, MySwordLemmaFormatter,
-│   │                            #   MySwordLemmaDetailFormatter, MySwordScriptFormatter
+│   │                            #   MySwordLemmaDetailFormatter, MySwordScriptFormatter, and
+│   │                            #   their DTB-L1/L2/L3 (Drash) counterparts, same file
 │   ├── reverse_interlinear.py  # BSRB: ESwordReverseInterlinearFormatter,
 │   │                            #   MySwordReverseInterlinearFormatter
 │   └── __init__.py             # re-exports the package's public API

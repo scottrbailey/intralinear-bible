@@ -8,9 +8,10 @@ Organized by what you're actually editing at once, not by platform:
   base.py                -- VerseFormatter ABC, shared cross-ref/header/text
                              helpers, e-Sword/MySword xref+red-letter mixins.
                              Rarely touched.
-  intralinear.py          -- BTB-L1/L2/L3: e-Sword and MySword formatters +
-                             CSS, side by side (edited together to keep them
-                             matched).
+  intralinear.py          -- BTB-L1/L2/L3 and their DTB (Drash Transliterated
+                             Bible, restored-names) counterparts: e-Sword and
+                             MySword formatters + CSS, side by side (edited
+                             together to keep them matched).
   reverse_interlinear.py  -- BSRB: e-Sword and MySword formatters + CSS,
                              same reasoning.
   forward_interlinear.py  -- ROUGH DRAFT, layout/CSS not settled yet (see
@@ -37,6 +38,12 @@ from .intralinear import (
     MySwordLemmaFormatter,
     MySwordLemmaDetailFormatter,
     MySwordScriptFormatter,
+    ESwordDrashLemmaFormatter,
+    ESwordDrashLemmaDetailFormatter,
+    ESwordDrashScriptFormatter,
+    MySwordDrashLemmaFormatter,
+    MySwordDrashLemmaDetailFormatter,
+    MySwordDrashScriptFormatter,
 )
 from .reverse_interlinear import (
     ESwordReverseInterlinearFormatter,
@@ -60,6 +67,12 @@ __all__ = [
     'MySwordLemmaFormatter',
     'MySwordLemmaDetailFormatter',
     'MySwordScriptFormatter',
+    'ESwordDrashLemmaFormatter',
+    'ESwordDrashLemmaDetailFormatter',
+    'ESwordDrashScriptFormatter',
+    'MySwordDrashLemmaFormatter',
+    'MySwordDrashLemmaDetailFormatter',
+    'MySwordDrashScriptFormatter',
     'ESwordReverseInterlinearFormatter',
     'MySwordReverseInterlinearFormatter',
     'ESwordForwardInterlinearFormatter',

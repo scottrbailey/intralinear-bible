@@ -19,6 +19,18 @@ from models import AlignedToken, MappingDirection, SourceToken, SourceWord
 
 _STRONGS_RE = re.compile(r'^0*(\d+)([a-z]*)$')
 
+
+def _english(row: sqlite3.Row, restored: bool) -> str | None:
+    """This row's display English -- tokens.english_restored (the
+    restored-names build's override, see utils/build_restored_names.py)
+    when `restored` is set and this particular row actually has one, plain
+    tokens.english otherwise. Most rows have no override (no proper-noun
+    Strong's number, or an untranslated/continuation row), so this is the
+    common case even under DrashComposer."""
+    if restored and row['english_restored']:
+        return row['english_restored']
+    return row['english']
+
 # Par column marks a new paragraph only on that paragraph's first row (same
 # start-of-run convention as Hdg/Crossref) — e.g. Psalm 3:1's "A Psalm" row
 # carries '<p class=|pshdg|>', but every row after it up through "Absalom"
@@ -176,7 +188,7 @@ def _find_compound_strongs(conn: sqlite3.Connection, lemma_lookup: dict) -> set:
     return suppressed
 
 
-def _to_source_word(row: sqlite3.Row, lemma_lookup: dict) -> SourceWord:
+def _to_source_word(row: sqlite3.Row, lemma_lookup: dict, restored: bool = False) -> SourceWord:
     parsing_full = row['parsing_full'] or ''
     is_proper    = 'proper' in parsing_full.lower()
     source_text  = row['source_text'].replace(_PASEQ, '')
@@ -185,7 +197,7 @@ def _to_source_word(row: sqlite3.Row, lemma_lookup: dict) -> SourceWord:
         id=str(row['bsb_sort']),
         text=source_text,
         strongs=strongs,
-        gloss=row['english'] or '',
+        gloss=_english(row, restored) or '',
         token_class=row['parsing_short'] or '',
         pos='',
         noun_type='proper' if is_proper else '',
@@ -201,7 +213,7 @@ def _to_source_word(row: sqlite3.Row, lemma_lookup: dict) -> SourceWord:
     )
 
 
-def _assemble_group_text(members: list, owner_row) -> str:
+def _assemble_group_text(members: list, owner_row, restored: bool = False) -> str:
     """Build one group's display phrase from its member rows, in bsb_sort order.
 
     Each row can contribute a leading quote (beg_quote), the owner's English
@@ -217,8 +229,8 @@ def _assemble_group_text(members: list, owner_row) -> str:
     for row in members:
         if row['beg_quote']:
             parts.append(row['beg_quote'])
-        if row is owner_row and row['english']:
-            parts.append(row['english'].strip())
+        if row is owner_row and _english(row, restored):
+            parts.append(_english(row, restored).strip())
         if row['punctuation']:
             parts.append(row['punctuation'])
         if row['end_quote']:
@@ -256,6 +268,8 @@ class TableComposer(Composer):
     misplacement) to get a per-source-token, ungrouped display.
     """
 
+    restored_names = False  # DrashComposer flips this on; see that class
+
     def __init__(self, db_path: Path, config: dict = None,
                  direction: MappingDirection = MappingDirection.TARGET_TO_SOURCE):
         self.db_path          = Path(db_path)
@@ -269,6 +283,19 @@ class TableComposer(Composer):
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         lemma_lookup = _load_lemma_lookup(conn)
+
+        if self.restored_names:
+            has_column = conn.execute(
+                "SELECT 1 FROM pragma_table_info('tokens') WHERE name = 'english_restored'"
+            ).fetchone()
+            if not has_column:
+                conn.close()
+                raise RuntimeError(
+                    f"{self.db_path} has no tokens.english_restored column -- run "
+                    f"utils/build_restored_names.py against it first (DrashComposer "
+                    f"needs that column; building without it would silently produce "
+                    f"unmodified BSB text under Drash branding)."
+                )
 
         # verses is small (~31K rows) — load it whole rather than querying
         # per-verse, since heading/book/chapter/verse are facts about the
@@ -318,12 +345,12 @@ class TableComposer(Composer):
                 if row['verse_id'] != current_verse_id:
                     if verse_rows:
                         yield self._build_verse_source_order(
-                            verse_info[current_verse_id], verse_rows, lemma_lookup)
+                            verse_info[current_verse_id], verse_rows, lemma_lookup, self.restored_names)
                     current_verse_id, verse_rows = row['verse_id'], []
                 verse_rows.append(row)
             if verse_rows:
                 yield self._build_verse_source_order(
-                    verse_info[current_verse_id], verse_rows, lemma_lookup)
+                    verse_info[current_verse_id], verse_rows, lemma_lookup, self.restored_names)
             conn.close()
             return
 
@@ -347,7 +374,7 @@ class TableComposer(Composer):
                 if verse_rows:
                     verse, current_par_class, current_is_red = self._build_verse(
                         verse_info[current_verse_id], verse_rows,
-                        current_par_class, current_is_red, lemma_lookup,
+                        current_par_class, current_is_red, lemma_lookup, self.restored_names,
                     )
                     yield verse
                 current_verse_id, verse_rows = row['verse_id'], []
@@ -355,14 +382,14 @@ class TableComposer(Composer):
         if verse_rows:
             verse, current_par_class, current_is_red = self._build_verse(
                 verse_info[current_verse_id], verse_rows,
-                current_par_class, current_is_red, lemma_lookup,
+                current_par_class, current_is_red, lemma_lookup, self.restored_names,
             )
             yield verse
 
         conn.close()
 
     @staticmethod
-    def _build_verse(verse_info, rows, current_par_class, current_is_red, lemma_lookup):
+    def _build_verse(verse_info, rows, current_par_class, current_is_red, lemma_lookup, restored=False):
         osis_ref = f"{verse_info['book']}.{verse_info['chapter']}.{verse_info['verse']}"
         header   = verse_info['heading']
         xrefs    = {'1': verse_info['crossref']} if verse_info['crossref'] else {}
@@ -408,10 +435,10 @@ class TableComposer(Composer):
         for owner in order:
             members   = groups[owner]
             owner_row = next(r for r in members if r['bsb_sort'] == owner)
-            english   = _assemble_group_text(members, owner_row)
+            english   = _assemble_group_text(members, owner_row, restored)
             notes     = [{'noteId': f"F{r['bsb_sort']}", 'text': r['footnote']}
                          for r in members if r['footnote']]
-            source_words = [_to_source_word(r, lemma_lookup) for r in members]
+            source_words = [_to_source_word(r, lemma_lookup, restored) for r in members]
 
             has_word  = any(c.isalnum() for c in english)
             has_trail = any(r['end_quote'] or r['punctuation'] for r in members)
@@ -461,7 +488,7 @@ class TableComposer(Composer):
         return (osis_ref, tokens, header, xrefs), current_par_class, current_is_red
 
     @staticmethod
-    def _build_verse_source_order(verse_info, rows, lemma_lookup) -> tuple:
+    def _build_verse_source_order(verse_info, rows, lemma_lookup, restored=False) -> tuple:
         """Forward-interlinear build: one AlignedToken per source token, in
         the source language's own reading order (source_sort) rather than
         grouped by English alignment (see _build_verse). Deliberately not a
@@ -492,8 +519,8 @@ class TableComposer(Composer):
             parts = []
             if row['beg_quote']:
                 parts.append(row['beg_quote'])
-            if row['english']:
-                parts.append(row['english'].strip())
+            if _english(row, restored):
+                parts.append(_english(row, restored).strip())
             if row['punctuation']:
                 parts.append(row['punctuation'])
             if row['end_quote']:
@@ -505,8 +532,25 @@ class TableComposer(Composer):
             tokens.append(AlignedToken(
                 english=english,
                 skip_space_after=False,
-                source_words=[_to_source_word(row, lemma_lookup)],
+                source_words=[_to_source_word(row, lemma_lookup, restored)],
                 notes=notes,
             ))
 
         return osis_ref, tokens, header, xrefs
+
+
+class DrashComposer(TableComposer):
+    """TableComposer, but preferring tokens.english_restored (the restored-
+    names build, see utils/build_restored_names.py) over tokens.english
+    wherever a given token actually has an override -- feeds the DTB
+    (Drash Transliterated Bible) formatters, same relationship TableComposer
+    has to BTB. Everything else (grouping, par_class/is_red, source words,
+    xrefs, forward-interlinear ordering) is identical to TableComposer;
+    this is a one-flag difference, not a different build.
+
+    Raises RuntimeError from iter_verses() if the database wasn't built
+    with utils/build_restored_names.py -- silently falling back to plain
+    BSB text under Drash branding would misrepresent what the module
+    actually contains, rather than just being a degraded build.
+    """
+    restored_names = True

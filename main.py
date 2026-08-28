@@ -25,6 +25,13 @@ Usage:
                            Alignments
                 table      read table_db (built by utils/import_bsb_table.py)
                            instead
+                drash      table_db, but preferring tokens.english_restored
+                           (utils/build_restored_names.py) over tokens.english
+                           -- DTB (Drash Transliterated Bible) instead of BTB.
+                           Requires table_db to have been built with
+                           build_restored_names.py already run against it.
+                           Only --mode intralinear/L1/L2/L3 support it so far
+                           (--format esword/mysword only, not osis/all).
                 Default: config.yaml's "composer" key if set, otherwise
                 auto-detected from whether table_db exists on disk — so with
                 a database built, no config change is needed at all. Either
@@ -61,7 +68,7 @@ import yaml
 from translit import make_transliterator
 from models import MappingDirection
 from composer import AlignmentComposer
-from table_composer import TableComposer
+from table_composer import TableComposer, DrashComposer
 from verse_formatter import (
     ESwordLemmaFormatter,
     ESwordLemmaDetailFormatter,
@@ -72,6 +79,12 @@ from verse_formatter import (
     MySwordScriptFormatter,
     MySwordReverseInterlinearFormatter, ESwordScriptFormatter,
     MySwordForwardInterlinearFormatter,
+    ESwordDrashLemmaFormatter,
+    ESwordDrashLemmaDetailFormatter,
+    ESwordDrashScriptFormatter,
+    MySwordDrashLemmaFormatter,
+    MySwordDrashLemmaDetailFormatter,
+    MySwordDrashScriptFormatter,
 )
 from esword_writer import ESwordWriter
 from mysword_writer import MySwordWriter
@@ -143,10 +156,12 @@ def parse_args():
              "when --format=all",
     )
     parser.add_argument(
-        "--composer", dest="composer", choices=["alignment", "table"], default=None,
+        "--composer", dest="composer", choices=["alignment", "table", "drash"], default=None,
         help="Data source (default: config.yaml's 'composer' key if set, "
              "otherwise auto-detected from whether table_db exists on disk); "
-             "overrides both if given",
+             "overrides both if given. 'drash' builds DTB instead of BTB -- "
+             "only supported with --format esword/mysword and --mode "
+             "intralinear/L1/L2/L3",
     )
     parser.add_argument(
         "--zip", action="store_true",
@@ -178,8 +193,28 @@ def parse_args():
 # ----------------------------------------------------------------- writer factory
 
 def build_writers(output_format: str, render_mode: str,
-                  transliterate, output_dir: Path, common_kw: dict) -> list:
-    """Return a list of configured writers for the requested format/mode."""
+                  transliterate, output_dir: Path, common_kw: dict,
+                  drash: bool = False) -> list:
+    """Return a list of configured writers for the requested format/mode.
+
+    drash=True swaps the BTB-L1/L2/L3 formatter classes for their DTB
+    (Drash Transliterated Bible) counterparts -- same rendering, different
+    module identity (verse_formatter/intralinear.py). Only meaningful for
+    output_format in ('esword', 'mysword') and render_mode in
+    ('intralinear', 'L1', 'L2', 'L3'); main() validates that combination
+    before calling this, since a DTB module's actual restored-names content
+    comes from pairing it with DrashComposer, not from this flag alone.
+    """
+    l1_cls, l2_cls, l3_cls = (
+        (ESwordDrashLemmaFormatter, ESwordDrashLemmaDetailFormatter, ESwordDrashScriptFormatter)
+        if drash else
+        (ESwordLemmaFormatter, ESwordLemmaDetailFormatter, ESwordScriptFormatter)
+    )
+    my_l1_cls, my_l2_cls, my_l3_cls = (
+        (MySwordDrashLemmaFormatter, MySwordDrashLemmaDetailFormatter, MySwordDrashScriptFormatter)
+        if drash else
+        (MySwordLemmaFormatter, MySwordLemmaDetailFormatter, MySwordScriptFormatter)
+    )
 
     def esword(profile_cls):
         return ESwordWriter(profile_cls(transliterate), **common_kw)
@@ -202,14 +237,13 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'esword':
         if render_mode == 'intralinear':
-            return [esword(ESwordLemmaFormatter), esword(ESwordLemmaDetailFormatter),
-                    esword(ESwordScriptFormatter)]
+            return [esword(l1_cls), esword(l2_cls), esword(l3_cls)]
         elif render_mode == 'L1':
-            return [esword(ESwordLemmaFormatter)]
+            return [esword(l1_cls)]
         elif render_mode == 'L2':
-            return [esword(ESwordLemmaDetailFormatter)]
+            return [esword(l2_cls)]
         elif render_mode == 'L3':
-            return [esword(ESwordScriptFormatter)]
+            return [esword(l3_cls)]
         elif render_mode == 'interlinear':
             profile_cls = ESwordForwardInterlinearFormatter
         else:  # reverse
@@ -218,14 +252,13 @@ def build_writers(output_format: str, render_mode: str,
 
     if output_format == 'mysword':
         if render_mode == 'intralinear':
-            return [mysword(MySwordLemmaFormatter), mysword(MySwordLemmaDetailFormatter),
-                    mysword(MySwordScriptFormatter)]
+            return [mysword(my_l1_cls), mysword(my_l2_cls), mysword(my_l3_cls)]
         elif render_mode == 'L1':
-            return [mysword(MySwordLemmaFormatter)]
+            return [mysword(my_l1_cls)]
         elif render_mode == 'L2':
-            return [mysword(MySwordLemmaDetailFormatter)]
+            return [mysword(my_l2_cls)]
         elif render_mode == 'L3':
-            return [mysword(MySwordScriptFormatter)]
+            return [mysword(my_l3_cls)]
         elif render_mode == 'interlinear':
             # rtl_ot: forward interlinear reorders Hebrew into its own
             # (right-to-left) word order, unlike intralinear/reverse
@@ -268,6 +301,16 @@ def main():
         config['chapters'] = {'Gen': 1, 'Matt': 5}
         print("--test: restricting to Genesis 1 and Matthew 1-5")
 
+    if config['composer'] == 'drash' and (
+        args.output_format not in ('esword', 'mysword')
+        or args.render_mode not in ('intralinear', 'L1', 'L2', 'L3')
+    ):
+        raise SystemExit(
+            "--composer drash only supports --format esword/mysword with "
+            "--mode intralinear/L1/L2/L3 so far -- DTB has no interlinear/"
+            "reverse/osis/all counterpart yet."
+        )
+
     print(f"Config: {args.config}")
     print(f"Translation: {config['translation']} v{config['version']}")
     print(f"Format: {args.output_format}  Mode: {args.render_mode}  Composer: {config['composer']}")
@@ -293,6 +336,7 @@ def main():
     writers = build_writers(
         args.output_format, args.render_mode,
         transliterate, output_dir, common_kw,
+        drash=(config['composer'] == 'drash'),
     )
 
     for writer in writers:
@@ -305,7 +349,9 @@ def main():
                  if args.render_mode == 'interlinear' and args.output_format != 'all'
                  else MappingDirection.TARGET_TO_SOURCE)
 
-    if config["composer"] == "table":
+    if config["composer"] == "drash":
+        composer = DrashComposer(config["table_db"], config=config, direction=direction)
+    elif config["composer"] == "table":
         composer = TableComposer(config["table_db"], config=config, direction=direction)
     else:
         composer = AlignmentComposer(config, direction=direction)

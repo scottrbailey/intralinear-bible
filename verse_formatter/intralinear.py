@@ -521,3 +521,51 @@ class MySwordScriptFormatter(_MySwordBTBFormatter):
     @staticmethod
     def _secondary_content(sw, word_xlit: str, primary: str) -> str:
         return word_xlit
+
+
+# ============================================================ DTB (Drash Transliterated Bible)
+#
+# Same three tiers, same rendering (render_verse()/_primary_content()/
+# _secondary_content()/css all inherited unchanged) -- the only difference
+# from BTB-L1/L2/L3 is metadata. What actually differs is the *content*:
+# these are meant to be paired with DrashComposer (table_composer.py),
+# which feeds tokens.english_restored (utils/build_restored_names.py)
+# instead of tokens.english wherever a token has an override. A DTB
+# formatter fed by plain TableComposer would render fine, it just wouldn't
+# be Drash text -- main.py's build_writers() is what keeps composer and
+# formatter choice paired correctly.
+
+class ESwordDrashLemmaFormatter(ESwordLemmaFormatter):
+    """DTB-L1 -- see ESwordLemmaFormatter."""
+    abbreviation = "DTB-L1"
+    module_name  = "Drash Transliterated Bible - Level 1"
+
+
+class ESwordDrashLemmaDetailFormatter(ESwordLemmaDetailFormatter):
+    """DTB-L2 -- see ESwordLemmaDetailFormatter."""
+    abbreviation = "DTB-L2"
+    module_name  = "Drash Transliterated Bible - Level 2"
+
+
+class ESwordDrashScriptFormatter(ESwordScriptFormatter):
+    """DTB-L3 -- see ESwordScriptFormatter."""
+    abbreviation = "DTB-L3"
+    module_name  = "Drash Transliterated Bible - Level 3"
+
+
+class MySwordDrashLemmaFormatter(MySwordLemmaFormatter):
+    """DTB-L1 -- see MySwordLemmaFormatter."""
+    abbreviation = "DTB-L1"
+    module_name  = "Drash Transliterated Bible - Level 1"
+
+
+class MySwordDrashLemmaDetailFormatter(MySwordLemmaDetailFormatter):
+    """DTB-L2 -- see MySwordLemmaDetailFormatter."""
+    abbreviation = "DTB-L2"
+    module_name  = "Drash Transliterated Bible - Level 2"
+
+
+class MySwordDrashScriptFormatter(MySwordScriptFormatter):
+    """DTB-L3 -- see MySwordScriptFormatter."""
+    abbreviation = "DTB-L3"
+    module_name  = "Drash Transliterated Bible - Level 3"
