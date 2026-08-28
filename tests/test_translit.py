@@ -106,6 +106,29 @@ class TestQamatsGadolLexiconHeadwords:
         )
 
 
+# ── Combining Grapheme Joiner (U+034F) ──────────────────────────────────────
+
+class TestCombiningGraphemeJoiner:
+    """H3389 Jerusalem's headword (יְרוּשָׁלִַ͏ם) carries a CGJ between its
+    two same-consonant vowel points, purely typographic (pins the vowel
+    order for renderers that would otherwise reorder them), no phonetic
+    content. Outside is_combining()'s recognized ranges, so it used to leak
+    through as a literal glyph in the output -- and being "uncased" tricked
+    _capitalize_name()'s str.title() (build_restored_names.py) into
+    capitalizing the letter after it mid-word: 'yerushalaim' ->
+    'Yᵉrushalia͏M'."""
+
+    def test_cgj_stripped_not_rendered(self, tl):
+        result = tl('יְרוּשָׁלִַ͏ם')
+        assert '͏' not in result, f"CGJ leaked into output: {result!r}"
+
+    def test_cgj_does_not_trick_titlecase(self, tl):
+        # Same shape build_restored_names.py's _capitalize_name() hits:
+        # strip syllable markers, then str.title().
+        result = tl('יְרוּשָׁלִַ͏ם').replace('·', '').title()
+        assert 'M' not in result, f"mid-word capital leaked through: {result!r}"
+
+
 # ── Pe / Samekh paragraph-marker detection ──────────────────────────────────
 
 class TestPeSamekh:

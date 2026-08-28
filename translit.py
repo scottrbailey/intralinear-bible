@@ -608,6 +608,20 @@ def hebrew_translit(text: str, scheme_name: str = 'brill_simple',
     text = substitute_divine_name(
         unicodedata.normalize('NFC', text), divine
     )
+    # U+034F COMBINING GRAPHEME JOINER -- a handful of HebrewStrong.xml
+    # headwords with an unusual two-vowel-on-one-consonant spelling (e.g.
+    # H3389 Jerusalem's יְרוּשָׁלִַ͏ם, patach+hiriq both under the same
+    # lamed) carry this to pin the vowel order for renderers that would
+    # otherwise reorder them -- purely typographic, no phonetic content of
+    # its own. Outside both VOWEL_POINTS' and CANTILLATION's ranges, so
+    # is_combining() doesn't recognize it and it fell through untouched:
+    # rendered as a literal glyph in the output, and its "uncased" status
+    # tricked _capitalize_name()'s str.title() (build_restored_names.py)
+    # into capitalizing the letter after it mid-word ("Yerushalaim" ->
+    # "Yᵉrushalia͏M"). Stripped here, before anything else sees it, rather
+    # than taught to is_combining() -- it isn't a vowel/cantillation mark
+    # that belongs to a consonant, it's not part of the word at all.
+    text = text.replace('͏', '')
 
     chars  = list(text)
     # Each unit: (text, has_vowel, has_stress, is_word_break, closes_syllable)
