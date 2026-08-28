@@ -184,17 +184,43 @@ def _capitalize_name(transliteration: str, sep: str, stress: str) -> str:
 # sidesteps both: a real regression caught by exactly the review CSV this
 # script exists to produce, on the very first test run against real data.
 #
-# A hyphen continuation allows a lowercase start ('-jearim'), a space
-# continuation still requires a capital ('Beer Sheva', not swallowing a
-# following ordinary word like 'Jesus said'): BSB's own convention
-# lowercases the second half of a hyphenated compound place name
+# A hyphen continuation allows a lowercase start ('-jearim'): BSB's own
+# convention lowercases the second half of a hyphenated compound place name
 # ('Beth-shemesh', 'Kiriath-jearim' -- both single Strong's numbers, single
 # Hebrew headwords, confirmed against HebrewStrong.xml), so without the
 # hyphen exception this only captured 'Kiriath', leaving '-jearim'
 # unmatched and the compound half-restored.
-_CAPITALIZED_WORD_RE = re.compile(
-    r"[A-Z]+[a-z’']*(?:-[a-z’']+)*(?:\s[A-Z]+[a-z’']*(?:-[a-z’']+)*)*"
-)
+#
+# Deliberately NOT a space continuation ('Beer Sheva' as one match spanning
+# two capitalized words): a rare name's modal value is often its only
+# occurrence, and if that occurrence happens to open a sentence, the
+# capitalized sentence-starter reads identically to a second word of the
+# same name ('And Aaron', 'Although Job') -- confirmed against real output.
+# No case in this corpus's actual English source text needed multi-word
+# space-joining to begin with (a two-word restored *replace_text*, e.g.
+# 'Beer Sheva', comes from _capitalize_name()'s own title-casing of the
+# transliteration, a separate mechanism unaffected by this).
+_CAPITALIZED_WORD_RE = re.compile(r"[A-Z]+[a-z’']*(?:-[a-z’']+)*")
+
+# Closed-class English words that are only capitalized here because BSB
+# happened to open a sentence with them, not because they're the name --
+# excluded outright rather than relying on "longest wins" (that heuristic
+# alone still loses to a short real name, e.g. 'Although' beats 'Job' on
+# raw length). Not exhaustive -- can't be, English's closed classes are
+# large -- but covers what's actually shown up leading a modal value in
+# this corpus; extend if the review CSV turns up another one.
+_SENTENCE_STARTER_STOPWORDS = {
+    'after', 'again', 'also', 'although', 'and', 'anyone', 'as', 'at',
+    'because', 'before', 'belonging', 'but', 'by', 'can', 'concerning',
+    'did', 'does', 'finally', 'for', 'from', 'furthermore', 'he', 'her',
+    'here', 'him', 'his', 'however', 'i', 'if', 'in', 'indeed', 'instead',
+    'is', 'it', 'its', 'let', 'may', 'meanwhile', 'moreover',
+    'nevertheless', 'not', 'now', 'of', 'on', 'or', 'rather', 'she',
+    'since', 'so', 'some', 'still', 'surely', 'that', 'then', 'there',
+    'therefore', 'these', 'they', 'this', 'those', 'though', 'thus', 'to',
+    'unless', 'was', 'we', 'were', 'what', 'when', 'where', 'while', 'who',
+    'will', 'with', 'would', 'yet', 'you',
+}
 
 
 def _most_common_english(conn: sqlite3.Connection, strongs: str, lang: str):
@@ -210,7 +236,8 @@ def _most_common_english(conn: sqlite3.Connection, strongs: str, lang: str):
     """, (strongs, lang, lang)).fetchone()
     if row is None:
         return None
-    words = _CAPITALIZED_WORD_RE.findall(row[0])
+    words = [w for w in _CAPITALIZED_WORD_RE.findall(row[0])
+             if w.split('-', 1)[0].lower() not in _SENTENCE_STARTER_STOPWORDS]
     return max(words, key=len) if words else None
 
 
@@ -441,7 +468,7 @@ def write_review_csv(conn: sqlite3.Connection, out_path: Path) -> None:
 
 
 def build_restored_names(db_path: Path, hebrew_lexicon: Path, greek_lexicon: Path,
-                          review_csv: Path, annotate: bool = False) -> None:
+                          review_csv: Path, annotate: bool = False, reset: bool = False) -> None:
     conn = sqlite3.connect(db_path)
     if not conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='strongs_lemma'"
@@ -453,6 +480,24 @@ def build_restored_names(db_path: Path, hebrew_lexicon: Path, greek_lexicon: Pat
     ).fetchone():
         conn.close()
         raise SystemExit("tokens not found -- run utils/import_bsb_table.py first.")
+
+    if reset:
+        # populate_strongs_lemma()/the mechanical passes only ever fill a row
+        # WHERE find_text/replace_text IS NULL, so they never overwrite a
+        # value that's already there -- deliberate, so a real hand edit
+        # survives a rerun. That same guard means a value auto-bootstrapped
+        # under an *older, buggier* version of this script (e.g. the
+        # hyphenated-compound truncation fixed above) never gets the chance
+        # to be recomputed either, since it's non-null too. --reset clears
+        # every row unconditionally -- including genuine hand edits, if
+        # you've since made any -- so the next pass starts from a clean
+        # slate under the current logic.
+        cleared = conn.execute(
+            "UPDATE strongs_lemma SET find_text = NULL, replace_text = NULL "
+            "WHERE find_text IS NOT NULL OR replace_text IS NOT NULL"
+        ).rowcount
+        conn.commit()
+        print(f"--reset: cleared find_text/replace_text on {cleared:,} strongs_lemma row(s).")
 
     populate_strongs_lemma(conn, hebrew_lexicon, greek_lexicon)
     add_restored_column(conn)
@@ -478,6 +523,12 @@ if __name__ == '__main__':
                               "module to see what got caught vs. missed; not meant for a "
                               "real build (DTB formatters render english_restored as-is, "
                               "no separate strip step).")
+    parser.add_argument('--reset', action='store_true',
+                         help="Clear every strongs_lemma find_text/replace_text before "
+                              "running (including any hand edits) so this run's logic gets "
+                              "a clean slate instead of skipping rows an earlier -- possibly "
+                              "buggier -- run already filled in. Use after a code fix here "
+                              "changes how find_text/replace_text get derived.")
     args = parser.parse_args()
     build_restored_names(args.db, args.hebrew_lexicon, args.greek_lexicon, args.review_csv,
-                          annotate=args.annotate)
+                          annotate=args.annotate, reset=args.reset)
