@@ -162,8 +162,12 @@ _IMPLIED_WORD_RE  = re.compile(r'\{([^{}]*)\}')
 # bracket_replacement needs the opening '[' and closing ']' to still be a
 # balanced pair when it runs), not punctuation to relocate; splitting it off
 # here left transform_english() looking at an unbalanced "[Jesus" with no
-# closing bracket at all, so it silently stopped matching.
-_TRAILING_PUNCT_RE = re.compile(r'([,.;:!?)’”]+)$')
+# closing bracket at all, so it silently stopped matching. ')' excluded for
+# the same reason: real BSB text has no balanced-parenthetical use here, but
+# utils/build_restored_names.py's --annotate debug mode renders 'Mosheh
+# (Moses)', and splitting the ')' off tore the parenthetical in half around
+# the interlinear block ('Mosheh (Moses <ilb>...</ilb>)').
+_TRAILING_PUNCT_RE = re.compile(r'([,.;:!?’”]+)$')
 
 
 def _split_trailing_punct(text: str) -> tuple:
