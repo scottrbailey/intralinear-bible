@@ -467,8 +467,70 @@ def write_review_csv(conn: sqlite3.Connection, out_path: Path) -> None:
     print(f"Wrote {len(rows):,} distinct old->new english pair(s) to {out_path} for review.")
 
 
+def export_lemma_csv(conn: sqlite3.Connection, out_path: Path) -> None:
+    """One row per (strongs, lang) that has a replace_text (i.e. every name
+    this build actually covers, whether find_text is filled in yet or
+    not) -- the review CSV's token-level output has one row per surface
+    string a name happens to appear with ("Aaron", "And Aaron", "But
+    Aaron", ... all separately), which buries the handful of genuinely
+    wrong rows under hundreds of correct repeats of the same rule. This is
+    strongs_lemma's own grain instead: one row per name, editable in a
+    spreadsheet, and re-loadable with --import-lemma-csv."""
+    rows = conn.execute("""
+        SELECT strongs, lang, lemma, transliteration, find_text, replace_text
+        FROM strongs_lemma
+        WHERE replace_text IS NOT NULL
+        ORDER BY lang, CAST(strongs AS INTEGER)
+    """).fetchall()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['strongs', 'lang', 'lemma', 'transliteration', 'find_text', 'replace_text'])
+        writer.writerows(rows)
+    print(f"Wrote {len(rows):,} strongs_lemma row(s) to {out_path} for review/editing "
+          f"(re-load with --import-lemma-csv).")
+
+
+def import_lemma_csv(conn: sqlite3.Connection, in_path: Path) -> None:
+    """Load hand-edited find_text/replace_text back from an export_lemma_csv()
+    file -- unconditionally, unlike the mechanical/bootstrap passes (this
+    *is* the curated override, same authority as a direct hand-edit to the
+    strongs_lemma row; run this before populate_strongs_lemma() so those
+    passes see the imported values as already-curated and skip them).
+    lemma/transliteration columns are read but ignored: they stay
+    lexicon-derived, not overwritten from a spreadsheet edit. A (strongs,
+    lang) the CSV names that isn't actually in strongs_lemma is reported,
+    not silently dropped -- likely a typo or a stale export."""
+    with open(in_path, encoding='utf-8', newline='') as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+    updated = 0
+    missing = []
+    for row in rows:
+        strongs, lang = row['strongs'], row['lang']
+        find_text = row.get('find_text') or None
+        replace_text = row.get('replace_text') or None
+        cur = conn.execute(
+            "UPDATE strongs_lemma SET find_text = ?, replace_text = ? WHERE strongs = ? AND lang = ?",
+            (find_text, replace_text, strongs, lang)
+        )
+        if cur.rowcount:
+            updated += 1
+        else:
+            missing.append((strongs, lang))
+    conn.commit()
+    print(f"Imported {updated:,} of {len(rows):,} row(s) from {in_path}.")
+    if missing:
+        print(f"WARNING: {len(missing):,} row(s) named a (strongs, lang) not in strongs_lemma "
+              f"-- typo, or a stale export from before a lexicon rebuild? {missing[:10]}"
+              f"{' ...' if len(missing) > 10 else ''}")
+
+
 def build_restored_names(db_path: Path, hebrew_lexicon: Path, greek_lexicon: Path,
-                          review_csv: Path, annotate: bool = False, reset: bool = False) -> None:
+                          review_csv: Path, annotate: bool = False, reset: bool = False,
+                          import_lemma_csv_path: Path = None,
+                          export_lemma_csv_path: Path = None) -> None:
     conn = sqlite3.connect(db_path)
     if not conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='strongs_lemma'"
@@ -499,10 +561,17 @@ def build_restored_names(db_path: Path, hebrew_lexicon: Path, greek_lexicon: Pat
         conn.commit()
         print(f"--reset: cleared find_text/replace_text on {cleared:,} strongs_lemma row(s).")
 
+    if import_lemma_csv_path:
+        # Before populate_strongs_lemma(), so its NULL-guarded passes see
+        # these rows as already-curated and never touch them.
+        import_lemma_csv(conn, import_lemma_csv_path)
+
     populate_strongs_lemma(conn, hebrew_lexicon, greek_lexicon)
     add_restored_column(conn)
     apply_restorations(conn, annotate=annotate)
     write_review_csv(conn, review_csv)
+    if export_lemma_csv_path:
+        export_lemma_csv(conn, export_lemma_csv_path)
     conn.close()
 
 
@@ -529,6 +598,18 @@ if __name__ == '__main__':
                               "a clean slate instead of skipping rows an earlier -- possibly "
                               "buggier -- run already filled in. Use after a code fix here "
                               "changes how find_text/replace_text get derived.")
+    parser.add_argument('--export-lemma-csv', type=Path, default=None,
+                         help="Write strongs_lemma's find_text/replace_text (one row per name, "
+                              "not per surface-string variant like --review-csv) to this path "
+                              "for review/editing in a spreadsheet.")
+    parser.add_argument('--import-lemma-csv', type=Path, default=None,
+                         help="Load find_text/replace_text back from a CSV in "
+                              "--export-lemma-csv's shape, unconditionally (this becomes the "
+                              "curated override, same as a direct hand edit) -- applied before "
+                              "this run's own mechanical/bootstrap passes, so they treat the "
+                              "imported rows as already curated and leave them alone.")
     args = parser.parse_args()
     build_restored_names(args.db, args.hebrew_lexicon, args.greek_lexicon, args.review_csv,
-                          annotate=args.annotate, reset=args.reset)
+                          annotate=args.annotate, reset=args.reset,
+                          import_lemma_csv_path=args.import_lemma_csv,
+                          export_lemma_csv_path=args.export_lemma_csv)
