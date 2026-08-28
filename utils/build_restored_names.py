@@ -121,22 +121,6 @@ def _first_strongsref(entry: ET.Element, language: str) -> str | None:
     return str(int(strongs)) if strongs and strongs.isdigit() else None
 
 
-# strongsgreek.xml's own citation errors -- verified against
-# HebrewStrong.xml's actual entries, not this project's own guess (and,
-# for G965, against the very entry's own prose: its <strongs_def> reads
-# "Bethleem (i.e. Beth-lechem)", correctly identifying the place, while
-# its structured <strongsref> cites the wrong Hebrew number regardless).
-# Corrected here rather than in the vendored XML itself, same reasoning
-# as _parse_hebrew_lexicon()'s CGJ strip: hand-editing it would silently
-# diverge from upstream on a re-download.
-_GREEK_HEBREW_ORIGIN_CORRECTIONS = {
-    # G965 Bethlehem cites H1036 (Beth-le-Aphrah, "house of dust" -- a
-    # different place, Micah 1:10) when it means H1035 (Beth-Lechem,
-    # "house of bread", the actual Bethlehem).
-    '965': '1035',
-}
-
-
 def _parse_greek_hebrew_origin(path: Path) -> dict:
     """{Greek bare strongs digit string: Hebrew bare strongs digit string},
     for every strongsgreek.xml entry whose <strongs_derivation> cites a
@@ -167,13 +151,7 @@ def _parse_greek_hebrew_origin(path: Path) -> dict:
         for _ in range(10):
             hebrew_strongs = _first_strongsref(current, 'HEBREW')
             if hebrew_strongs:
-                # Keyed by whichever entry's own citation actually supplied
-                # this (current, not the outer greek_strongs) -- catches a
-                # future entry that chains *through* a known-bad citation
-                # via a GREEK cross-reference, not just a direct hit on it.
-                current_strongs = str(int(current.get('strongs')))
-                result[greek_strongs] = _GREEK_HEBREW_ORIGIN_CORRECTIONS.get(
-                    current_strongs, hebrew_strongs)
+                result[greek_strongs] = hebrew_strongs
                 break
             next_raw_int = _first_strongsref(current, 'GREEK')
             next_raw = next_raw_int.zfill(5) if next_raw_int else None
