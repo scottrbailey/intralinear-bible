@@ -432,13 +432,22 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
     like plausible English words on their own (Yochanan, Mosheh, ...), so
     scanning a compiled module for what got caught vs. missed is otherwise
     slow going. Debugging aid, not meant to ship in a real build -- see
-    --annotate."""
+    --annotate.
+
+    A row where find_text == replace_text exactly (e.g. Adam, whose
+    restored form happens to already be spelled the way BSB spells it) is
+    excluded from the rule set entirely, not just a no-op substitution --
+    matters for --annotate (skips a pointless 'Adam (Adam)') and for any
+    future first-occurrence-per-book gloss built on this same rule set,
+    which would have the identical problem otherwise.
+    """
     conn.execute("UPDATE tokens SET english_restored = NULL")
 
     rules_by_strongs: dict[str, list[tuple[str, str, str]]] = {}
     for strongs, lang, find_text, replace_text in conn.execute("""
         SELECT strongs, lang, find_text, replace_text FROM strongs_lemma
-        WHERE find_text IS NOT NULL AND replace_text IS NOT NULL AND replace_text != ?
+        WHERE find_text IS NOT NULL AND replace_text IS NOT NULL
+          AND replace_text != ? AND find_text != replace_text
     """, (SKIP_SENTINEL,)):
         rules_by_strongs.setdefault(strongs, []).append((lang, find_text, replace_text))
 
