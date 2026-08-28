@@ -192,6 +192,14 @@ def _most_common_english(conn: sqlite3.Connection, strongs: str, lang: str):
 # translators chose deliberately, a bigger step than fixing "THE LORD"'s
 # stray capitalization was. Left alone by default; revisit once the review
 # CSV shows how those 9 actually read in context.
+#
+# Applied unconditionally on every run (not COALESCE'd like everything
+# else) -- this dict *is* the curated override for these entries, the same
+# role strongs_lemma's find_text/replace_text columns play for every other
+# name, so it always wins over whatever the mechanical/bootstrap passes
+# below would otherwise compute. To change the divine name's spelling,
+# edit this constant, not the strongs_lemma row directly -- a hand edit to
+# the row would just get overwritten the next time this script runs.
 _SEED_FIND_REPLACE = {
     ('3068', 'H'): ('LORD', 'Yehovah'),
 }
@@ -222,8 +230,25 @@ def populate_strongs_lemma(conn: sqlite3.Connection, hebrew_lexicon: Path,
         print(f"WARNING: no proper nouns found in {hebrew_lexicon} -- skipping Hebrew pass.")
     greek_hebrew_origin = _parse_greek_hebrew_origin(greek_lexicon) if greek_lexicon.exists() else {}
 
+    # Seeded entries (the divine name) are applied first and always win --
+    # see _SEED_FIND_REPLACE's comment -- and excluded from the mechanical
+    # pass below so it never even computes a value for them: H3068 is
+    # itself tagged n-pr in HebrewStrong.xml, and strongs_lemma.transliteration
+    # for it isn't a normal letter-by-letter transliteration but
+    # translit.py's own bundled divine_name string ('Yᵉ·hó·vah', with a
+    # precomposed accented 'ó' that this function's generic stress-marker
+    # strip can't see) -- feeding that through _capitalize_name would race
+    # the seed below and silently win if applied in the other order.
+    seeded_strongs = {strongs for strongs, _lang in _SEED_FIND_REPLACE}
+    for (strongs, lang), (find_text, replace_text) in _SEED_FIND_REPLACE.items():
+        conn.execute(
+            "UPDATE strongs_lemma SET replace_text = ?, find_text = ? WHERE strongs = ? AND lang = ?",
+            (replace_text, find_text, strongs, lang)
+        )
+    conn.commit()
+
     filled_replace = 0
-    for strongs in hebrew_proper:
+    for strongs in hebrew_proper - seeded_strongs:
         row = conn.execute(
             "SELECT transliteration, replace_text FROM strongs_lemma WHERE strongs = ? AND lang = 'H'",
             (strongs,)
@@ -260,15 +285,6 @@ def populate_strongs_lemma(conn: sqlite3.Connection, hebrew_lexicon: Path,
     conn.commit()
     print(f"replace_text: derived {filled_replace:,} Hebrew/Aramaic proper noun(s), "
           f"inherited {filled_greek:,} Greek name(s) of Hebrew origin from their Hebrew form.")
-
-    for (strongs, lang), (find_text, replace_text) in _SEED_FIND_REPLACE.items():
-        conn.execute("""
-            UPDATE strongs_lemma SET
-                replace_text = COALESCE(replace_text, ?),
-                find_text    = COALESCE(find_text, ?)
-            WHERE strongs = ? AND lang = ?
-        """, (replace_text, find_text, strongs, lang))
-    conn.commit()
 
     filled_find = 0
     candidates = conn.execute(
