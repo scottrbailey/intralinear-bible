@@ -311,10 +311,17 @@ def add_restored_column(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
-def apply_restorations(conn: sqlite3.Connection) -> None:
+def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None:
     """Full rebuild each run: clear english_restored, then re-derive it from
     the current strongs_lemma find_text/replace_text so a hand-edit there is
-    always reflected after a rerun, never stuck from a stale prior pass."""
+    always reflected after a rerun, never stuck from a stale prior pass.
+
+    annotate=True renders 'Yehovah (LORD)' instead of bare 'Yehovah' --
+    restored Hebrew/Greek names are frequently transliterations that read
+    like plausible English words on their own (Yochanan, Mosheh, ...), so
+    scanning a compiled module for what got caught vs. missed is otherwise
+    slow going. Debugging aid, not meant to ship in a real build -- see
+    --annotate."""
     conn.execute("UPDATE tokens SET english_restored = NULL")
 
     rules_by_strongs: dict[str, list[tuple[str, str, str]]] = {}
@@ -340,7 +347,12 @@ def apply_restorations(conn: sqlite3.Connection) -> None:
             total_candidates += 1
             if find_text not in english:
                 break  # token exists for this name but this occurrence didn't use find_text's wording
-            new_english = english.replace(find_text, replace_text)
+            display = f'{replace_text} ({find_text})' if annotate else replace_text
+            new_english = english.replace(find_text, display)
+            # Still stripped against the bare replace_text -- the pattern's
+            # trailing \b matches on the space before "(find_text)" just as
+            # well as on a word boundary, and the substitution only touches
+            # "the <name>", leaving the trailing annotation untouched.
             new_english = _strip_leading_article(new_english, replace_text)
             if new_english != english:
                 changes.append((new_english, bsb_sort))
@@ -371,7 +383,7 @@ def write_review_csv(conn: sqlite3.Connection, out_path: Path) -> None:
 
 
 def build_restored_names(db_path: Path, hebrew_lexicon: Path, greek_lexicon: Path,
-                          review_csv: Path) -> None:
+                          review_csv: Path, annotate: bool = False) -> None:
     conn = sqlite3.connect(db_path)
     if not conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='strongs_lemma'"
@@ -386,7 +398,7 @@ def build_restored_names(db_path: Path, hebrew_lexicon: Path, greek_lexicon: Pat
 
     populate_strongs_lemma(conn, hebrew_lexicon, greek_lexicon)
     add_restored_column(conn)
-    apply_restorations(conn)
+    apply_restorations(conn, annotate=annotate)
     write_review_csv(conn, review_csv)
     conn.close()
 
@@ -402,5 +414,12 @@ if __name__ == '__main__':
                          help=f"bsb_tables.db path (default: {DEFAULT_DB})")
     parser.add_argument('--review-csv', type=Path, default=DEFAULT_REVIEW_CSV,
                          help=f"Where to write the review CSV (default: {DEFAULT_REVIEW_CSV})")
+    parser.add_argument('--annotate', action='store_true',
+                         help="Render 'Yehovah (LORD)' instead of bare 'Yehovah' in "
+                              "english_restored -- debugging aid for scanning a compiled "
+                              "module to see what got caught vs. missed; not meant for a "
+                              "real build (DTB formatters render english_restored as-is, "
+                              "no separate strip step).")
     args = parser.parse_args()
-    build_restored_names(args.db, args.hebrew_lexicon, args.greek_lexicon, args.review_csv)
+    build_restored_names(args.db, args.hebrew_lexicon, args.greek_lexicon, args.review_csv,
+                          annotate=args.annotate)
