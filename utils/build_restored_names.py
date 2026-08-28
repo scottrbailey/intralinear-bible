@@ -32,6 +32,16 @@ hand-curated into strongs_lemma):
    see _SEED_FIND_REPLACE's comment for why a plain "most common value"
    vote is the wrong mental model for it specifically.
 
+To mark a name as deliberately never restored (as opposed to merely not
+looked at yet), set its strongs_lemma.replace_text to SKIP_SENTINEL
+('SKIP') -- find_text can be left blank. A bare NULL can't carry that
+distinction: every pass here is guarded by "only fill/apply if NULL", so
+an untouched row and a considered-and-rejected row look identical and an
+intentional skip would just get re-populated (and re-applied) on the next
+run. SKIP is non-NULL, so it blocks the mechanical/bootstrap passes the
+same way any other curated value would, and is additionally excluded from
+apply_restorations() by name so it's never mistaken for a real rule.
+
 Then: add tokens.english_restored if missing, apply every strongs_lemma
 find_text/replace_text pair as a per-token substring swap (scoped by that
 token's own strongs, so it can never cross-contaminate a different name),
@@ -65,6 +75,21 @@ DEFAULT_GREEK_LEXICON  = ROOT / "data" / "strongsgreek.xml"
 DEFAULT_DB             = ROOT / "data" / "bsb_tables.db"
 DEFAULT_REVIEW_CSV     = ROOT / "data" / "restored_names_review.csv"
 CONFIG_PATH            = ROOT / "config.yaml"
+
+# strongs_lemma.replace_text value marking a name as deliberately never
+# restored -- see this module's own docstring for why NULL can't carry
+# that distinction. Set via --export-lemma-csv/--import-lemma-csv (put
+# SKIP in the replace_text column, find_text can stay blank) or directly
+# in strongs_lemma.
+#
+# Per-row, not per-name: a Greek Strong's number that inherits its
+# replace_text from a Hebrew one (see populate_strongs_lemma()) gets its
+# own independent copy of the value at derivation time, not a live
+# reference -- e.g. Isaiah is both H3470 (Hebrew) and G2268 (Greek,
+# inherited from H3470). SKIPping H3470 alone leaves G2268's
+# already-derived replace_text untouched, so the name still gets restored
+# via the Greek row. Mark every row that shares the name.
+SKIP_SENTINEL = 'SKIP'
 
 _PROPER_NOUN_POS_RE = re.compile(r'\bn-pr\b')
 
@@ -372,7 +397,9 @@ def populate_strongs_lemma(conn: sqlite3.Connection, hebrew_lexicon: Path,
 
     filled_find = 0
     candidates = conn.execute(
-        "SELECT strongs, lang FROM strongs_lemma WHERE replace_text IS NOT NULL AND find_text IS NULL"
+        "SELECT strongs, lang FROM strongs_lemma "
+        "WHERE replace_text IS NOT NULL AND replace_text != ? AND find_text IS NULL",
+        (SKIP_SENTINEL,)
     ).fetchall()
     for strongs, lang in candidates:
         guess = _most_common_english(conn, strongs, lang)
@@ -411,8 +438,8 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
     rules_by_strongs: dict[str, list[tuple[str, str, str]]] = {}
     for strongs, lang, find_text, replace_text in conn.execute("""
         SELECT strongs, lang, find_text, replace_text FROM strongs_lemma
-        WHERE find_text IS NOT NULL AND replace_text IS NOT NULL
-    """):
+        WHERE find_text IS NOT NULL AND replace_text IS NOT NULL AND replace_text != ?
+    """, (SKIP_SENTINEL,)):
         rules_by_strongs.setdefault(strongs, []).append((lang, find_text, replace_text))
 
     changes = []
@@ -601,7 +628,9 @@ if __name__ == '__main__':
     parser.add_argument('--export-lemma-csv', type=Path, default=None,
                          help="Write strongs_lemma's find_text/replace_text (one row per name, "
                               "not per surface-string variant like --review-csv) to this path "
-                              "for review/editing in a spreadsheet.")
+                              "for review/editing in a spreadsheet. Put 'SKIP' in replace_text "
+                              "for a name that should never be restored (leave find_text blank) "
+                              f"-- '{SKIP_SENTINEL}' specifically, see SKIP_SENTINEL.")
     parser.add_argument('--import-lemma-csv', type=Path, default=None,
                          help="Load find_text/replace_text back from a CSV in "
                               "--export-lemma-csv's shape, unconditionally (this becomes the "
