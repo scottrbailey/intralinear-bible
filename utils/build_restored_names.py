@@ -115,6 +115,29 @@ def _parse_hebrew_proper_nouns(path: Path) -> set[str]:
     return strongs_ids
 
 
+def _query_hebrew_proper_from_tokens(conn: sqlite3.Connection) -> set[str]:
+    """{bare Strong's digit string}, for every Hebrew/Aramaic strongs number
+    that shows up in the actual WLC text tagged N-proper-* in parsing_short
+    or parsing_full at least once -- Open Scriptures' own token-level
+    morphology, which can disagree with HebrewStrong.xml's per-lemma pos
+    attribute. H3881 "Levite" is the case that surfaced this: the lexicon
+    entry itself is pos="a" (a plain gentilic adjective, "a Levite or
+    descendant of Levi"), so _parse_hebrew_proper_nouns skips it -- but its
+    actual occurrences in the text are parsed N-proper-ms, N-proper-mp, and
+    (for the construct plural) N-mpc. Not every occurrence of a name-derived
+    word is tagged proper (construct forms often aren't), so this only
+    requires it to happen at least once; that's enough signal that the word
+    belongs in the same pass as the ordinary n-pr lexicon entries. Same
+    'proper' in parsing_short/parsing_full check already used by
+    scan_compound_strongs.py's is_proper()."""
+    cur = conn.execute("""
+        SELECT DISTINCT strongs FROM tokens
+        WHERE language IN ('H', 'A') AND strongs IS NOT NULL
+          AND (parsing_short LIKE '%proper%' OR parsing_full LIKE '%proper%')
+    """)
+    return {row[0] for row in cur}
+
+
 def _first_strongsref(entry: ET.Element, language: str) -> str | None:
     xref = entry.find(f'.//strongsref[@language="{language}"]')
     strongs = xref.get('strongs') if xref is not None else None
@@ -366,6 +389,13 @@ def populate_strongs_lemma(conn: sqlite3.Connection, hebrew_lexicon: Path,
     hebrew_proper = _parse_hebrew_proper_nouns(hebrew_lexicon) if hebrew_lexicon.exists() else set()
     if not hebrew_proper:
         print(f"WARNING: no proper nouns found in {hebrew_lexicon} -- skipping Hebrew pass.")
+    from_tokens = _query_hebrew_proper_from_tokens(conn)
+    added_from_tokens = from_tokens - hebrew_proper
+    if added_from_tokens:
+        print(f"replace_text: +{len(added_from_tokens):,} Hebrew/Aramaic strongs number(s) "
+              f"from token-level N-proper-* parsing not tagged n-pr in the lexicon itself "
+              f"(gentilics like Levite, Reubenite, ...).")
+    hebrew_proper |= from_tokens
     greek_hebrew_origin = _parse_greek_hebrew_origin(greek_lexicon) if greek_lexicon.exists() else {}
 
     # Seeded entries (the divine name) are applied first and always win --
