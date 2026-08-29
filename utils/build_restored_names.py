@@ -313,6 +313,35 @@ def _find_text_pattern(find_text: str) -> re.Pattern:
     return pattern
 
 
+def _split_find_replace_pairs(find_text: str, replace_text: str) -> list[tuple[str, str]]:
+    """'Pharisee|Pharisees' / 'Parush|Perushim' -> [('Pharisees', 'Perushim'),
+    ('Pharisee', 'Parush')] -- for a Strong's number whose singular and
+    plural share one lemma (normal Strong's convention: a number is a
+    lemma-level citation, not a word-form-level one -- confirmed for
+    G5330 Pharisaios, which covers both "Pharisee" and "Pharisees") but
+    need genuinely different restored spellings, not just a looser match
+    on one shared find_text (Hebrew/Greek plurals aren't simply the
+    singular plus a suffix the way English "-s" is).
+
+    Sorted longest-find_text-first so a shorter form can never be tried
+    before a longer one it happens to be a prefix of, regardless of which
+    order the CSV lists them in -- belt and suspenders alongside the
+    \\b-wrapped matching _find_text_pattern() already does, which on its
+    own already prevents 'Pharisee' from matching inside 'Pharisees'
+    (word-to-word isn't a boundary), confirmed directly rather than
+    assumed. A single (non-piped) pair is unaffected: splits to a
+    one-element list."""
+    finds = find_text.split('|')
+    replaces = replace_text.split('|')
+    if len(finds) != len(replaces):
+        print(f"WARNING: find_text/replace_text have a different number of "
+              f"'|'-separated parts, skipping entirely: {find_text!r} / {replace_text!r}")
+        return []
+    pairs = list(zip(finds, replaces))
+    pairs.sort(key=lambda pair: len(pair[0]), reverse=True)
+    return pairs
+
+
 _ARTICLE_RE_CACHE: dict[str, re.Pattern] = {}
 
 
@@ -440,6 +469,11 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
     matters for --annotate (skips a pointless 'Adam (Adam)') and for any
     future first-occurrence-per-book gloss built on this same rule set,
     which would have the identical problem otherwise.
+
+    find_text/replace_text may each hold several '|'-separated values (see
+    _split_find_replace_pairs) for a Strong's number covering both a
+    singular and plural surface form under one lemma -- every sub-pair is
+    tried (longest find_text first), not just the first.
     """
     conn.execute("UPDATE tokens SET english_restored = NULL")
 
@@ -449,7 +483,10 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
         WHERE find_text IS NOT NULL AND replace_text IS NOT NULL
           AND replace_text != ? AND find_text != replace_text
     """, (SKIP_SENTINEL,)):
-        rules_by_strongs.setdefault(strongs, []).append((lang, find_text, replace_text))
+        for f, r in _split_find_replace_pairs(find_text, replace_text):
+            if f == r:
+                continue  # this sub-pair specifically is a no-op even if the row as a whole isn't
+            rules_by_strongs.setdefault(strongs, []).append((lang, f, r))
 
     changes = []
     total_candidates = 0
@@ -461,13 +498,14 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
         if not rules:
             continue
         lang_key = 'H' if language in ('H', 'A') else 'G'
-        for lang, find_text, replace_text in rules:
-            if lang != lang_key:
-                continue
-            total_candidates += 1
+        lang_rules = [r for r in rules if r[0] == lang_key]
+        if not lang_rules:
+            continue
+        total_candidates += 1
+        for lang, find_text, replace_text in lang_rules:
             pattern = _find_text_pattern(find_text)
             if not pattern.search(english):
-                break  # token exists for this name but this occurrence didn't use find_text's wording
+                continue  # this occurrence didn't use this sub-pair's wording -- try the next one
             display = f'{replace_text} ({find_text})' if annotate else replace_text
             new_english = pattern.sub(lambda m: display, english)
             # Still stripped against the bare replace_text -- the pattern's
@@ -478,6 +516,9 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
             if new_english != english:
                 changes.append((new_english, bsb_sort))
             break
+        # else: none of this strongs's find_text variant(s) were found in
+        # this token's own wording -- expected for pronoun-glossed
+        # occurrences, counted below (total_candidates - len(changes))
 
     conn.executemany("UPDATE tokens SET english_restored = ? WHERE bsb_sort = ?", changes)
     conn.commit()
