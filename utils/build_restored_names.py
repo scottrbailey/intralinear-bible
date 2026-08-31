@@ -481,6 +481,41 @@ def add_restored_column(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+_BRACKET_RE = re.compile(r'\[[^\[\]]*\]')
+
+
+def _bracket_name_rules(rules_by_strongs: dict) -> list[tuple[re.Pattern, str, str]]:
+    """Flatten every strongs-keyed (lang, find_text, replace_text) rule into
+    one find_text-deduped, longest-first list, language dropped. BSB
+    sometimes supplies a name in brackets on a token that isn't the name's
+    own Strong's number at all -- Mark 8:7's eulogesas (G2127, "bless") is
+    glossed "[Jesus] blessed" because the Greek participle carries no
+    separate word for its subject, so there's no G2424 token here for the
+    ordinary strongs-keyed pass to match against. A bracket is always the
+    translators' own supplied clarification, never running text, so
+    matching it by wording alone (any curated name, regardless of which
+    strongs the enclosing token happens to carry) is safe in a way it
+    wouldn't be outside brackets."""
+    flat: dict[str, str] = {}
+    for rules in rules_by_strongs.values():
+        for _lang, find_text, replace_text in rules:
+            flat.setdefault(find_text, replace_text)
+    return [(_find_text_pattern(f), f, r)
+            for f, r in sorted(flat.items(), key=lambda kv: -len(kv[0]))]
+
+
+def _restore_brackets(text: str, bracket_rules: list, annotate: bool) -> str:
+    def sub_span(m: re.Match) -> str:
+        inner = m.group(0)[1:-1]
+        for pattern, find_text, replace_text in bracket_rules:
+            if pattern.search(inner):
+                display = f'{replace_text} ({find_text})' if annotate else replace_text
+                inner = pattern.sub(lambda mm: display, inner)
+                inner = _strip_leading_article(inner, replace_text)
+        return f'[{inner}]'
+    return _BRACKET_RE.sub(sub_span, text)
+
+
 def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None:
     """Full rebuild each run: clear english_restored, then re-derive it from
     the current strongs_lemma find_text/replace_text so a hand-edit there is
@@ -504,6 +539,11 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
     _split_find_replace_pairs) for a Strong's number covering both a
     singular and plural surface form under one lemma -- every sub-pair is
     tried (longest find_text first), not just the first.
+
+    A bracketed span ('[Jesus]') gets a second, separate pass via
+    _restore_brackets -- see its docstring -- run against every candidate
+    token's text regardless of whether its own strongs matched, since the
+    bracket's name and the token's own strongs are frequently unrelated.
     """
     conn.execute("UPDATE tokens SET english_restored = NULL")
 
@@ -517,45 +557,53 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
             if f == r:
                 continue  # this sub-pair specifically is a no-op even if the row as a whole isn't
             rules_by_strongs.setdefault(strongs, []).append((lang, f, r))
+    bracket_rules = _bracket_name_rules(rules_by_strongs)
 
     changes = []
     total_candidates = 0
+    bracket_changes = 0
     for bsb_sort, language, strongs, english in conn.execute("""
         SELECT bsb_sort, language, strongs, english FROM tokens
         WHERE strongs IS NOT NULL AND english IS NOT NULL
     """):
+        text = english
         rules = rules_by_strongs.get(strongs)
-        if not rules:
-            continue
-        lang_key = 'H' if language in ('H', 'A') else 'G'
-        lang_rules = [r for r in rules if r[0] == lang_key]
-        if not lang_rules:
-            continue
-        total_candidates += 1
-        for lang, find_text, replace_text in lang_rules:
-            pattern = _find_text_pattern(find_text)
-            if not pattern.search(english):
-                continue  # this occurrence didn't use this sub-pair's wording -- try the next one
-            display = f'{replace_text} ({find_text})' if annotate else replace_text
-            new_english = pattern.sub(lambda m: display, english)
-            # Still stripped against the bare replace_text -- the pattern's
-            # trailing \b matches on the space before "(find_text)" just as
-            # well as on a word boundary, and the substitution only touches
-            # "the <name>", leaving the trailing annotation untouched.
-            new_english = _strip_leading_article(new_english, replace_text)
-            if new_english != english:
-                changes.append((new_english, bsb_sort))
-            break
-        # else: none of this strongs's find_text variant(s) were found in
-        # this token's own wording -- expected for pronoun-glossed
-        # occurrences, counted below (total_candidates - len(changes))
+        if rules:
+            lang_key = 'H' if language in ('H', 'A') else 'G'
+            lang_rules = [r for r in rules if r[0] == lang_key]
+            if lang_rules:
+                total_candidates += 1
+                for lang, find_text, replace_text in lang_rules:
+                    pattern = _find_text_pattern(find_text)
+                    if not pattern.search(text):
+                        continue  # this occurrence didn't use this sub-pair's wording -- try the next one
+                    display = f'{replace_text} ({find_text})' if annotate else replace_text
+                    text = pattern.sub(lambda m: display, text)
+                    # Still stripped against the bare replace_text -- the pattern's
+                    # trailing \b matches on the space before "(find_text)" just as
+                    # well as on a word boundary, and the substitution only touches
+                    # "the <name>", leaving the trailing annotation untouched.
+                    text = _strip_leading_article(text, replace_text)
+                    break
+                # else: none of this strongs's find_text variant(s) were found in
+                # this token's own wording -- expected for pronoun-glossed
+                # occurrences, counted below (total_candidates - len(changes))
+
+        if '[' in text:
+            bracketed = _restore_brackets(text, bracket_rules, annotate)
+            if bracketed != text:
+                bracket_changes += 1
+            text = bracketed
+
+        if text != english:
+            changes.append((text, bsb_sort))
 
     conn.executemany("UPDATE tokens SET english_restored = ? WHERE bsb_sort = ?", changes)
     conn.commit()
-    print(f"english_restored: set on {len(changes):,} of {total_candidates:,} token(s) tagged "
-          f"with a curated Strong's number ({total_candidates - len(changes):,} didn't contain "
-          f"that name's find_text in their own wording -- expected for pronoun-glossed "
-          f"occurrences, worth a look otherwise).")
+    print(f"english_restored: set on {len(changes):,} token(s) -- {total_candidates:,} tagged "
+          f"with a curated Strong's number ({bracket_changes:,} more via a bracketed "
+          f"translator-supplied name not tied to that token's own strongs, e.g. "
+          f"'[Jesus] blessed').")
 
 
 def write_review_csv(conn: sqlite3.Connection, out_path: Path) -> None:
