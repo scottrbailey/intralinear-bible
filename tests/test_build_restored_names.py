@@ -168,3 +168,39 @@ class TestBracketedTranslatorSuppliedNames:
         apply_restorations(conn)
         row = conn.execute("SELECT english_restored FROM tokens WHERE bsb_sort = 1").fetchone()
         assert row[0] == 'said [Yehovah] to him'
+
+
+class TestAnnotateSuppressesDivineName:
+    """--annotate's '(find_text)' suffix is meant to make a rare/surprising
+    restoration easy to spot -- but the divine name (H3068 LORD, H3069 GOD)
+    is so frequent that annotating every occurrence is noise, not a
+    debugging aid. Suppressed regardless of which pass (own-strongs or
+    bracket) restored it."""
+
+    def test_own_strongs_pass_not_annotated_for_divine_name(self):
+        conn = _make_restorations_conn(
+            lemma_rows=[('3068', 'H', 'LORD', 'Yehovah')],
+            token_rows=[(1, 'H', '3068', 'the LORD said')],
+        )
+        apply_restorations(conn, annotate=True)
+        row = conn.execute("SELECT english_restored FROM tokens WHERE bsb_sort = 1").fetchone()
+        assert row[0] == 'Yehovah said'
+
+    def test_own_strongs_pass_annotated_for_ordinary_name(self):
+        """Sanity check the suppression is scoped to 3068/3069, not global."""
+        conn = _make_restorations_conn(
+            lemma_rows=[('4872', 'H', 'Moses', 'Mosheh')],
+            token_rows=[(1, 'H', '4872', 'Moses said')],
+        )
+        apply_restorations(conn, annotate=True)
+        row = conn.execute("SELECT english_restored FROM tokens WHERE bsb_sort = 1").fetchone()
+        assert row[0] == 'Mosheh (Moses) said'
+
+    def test_bracket_pass_not_annotated_for_divine_name(self):
+        conn = _make_restorations_conn(
+            lemma_rows=[('3069', 'H', 'GOD', 'Yehovih')],
+            token_rows=[(1, 'H', '5555', 'the Lord [GOD] spoke')],
+        )
+        apply_restorations(conn, annotate=True)
+        row = conn.execute("SELECT english_restored FROM tokens WHERE bsb_sort = 1").fetchone()
+        assert row[0] == 'the Lord [Yehovih] spoke'

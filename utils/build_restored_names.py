@@ -317,6 +317,14 @@ _SEED_FIND_REPLACE = {
     ('3068', 'H'): ('LORD', 'Yehovah'),
 }
 
+# --annotate's '(find_text)' suffix exists to make a rare or surprising
+# restoration easy to spot while scanning a build -- but H3068/H3069 (LORD/
+# GOD, the divine name) are so frequent that the annotation stops helping
+# and starts drowning out everything else on the page. Suppressed by bare
+# Hebrew strongs digit string; a Greek row can never collide with these
+# (Greek and Hebrew numbering are independent), so no lang check is needed.
+_ANNOTATE_SUPPRESS_STRONGS = {'3068', '3069'}
+
 _FIND_TEXT_RE_CACHE: dict[str, re.Pattern] = {}
 
 
@@ -484,9 +492,11 @@ def add_restored_column(conn: sqlite3.Connection) -> None:
 _BRACKET_RE = re.compile(r'\[[^\[\]]*\]')
 
 
-def _bracket_name_rules(rules_by_strongs: dict) -> list[tuple[re.Pattern, str, str]]:
+def _bracket_name_rules(rules_by_strongs: dict) -> list[tuple[re.Pattern, str, str, str]]:
     """Flatten every strongs-keyed (lang, find_text, replace_text) rule into
-    one find_text-deduped, longest-first list, language dropped. BSB
+    one find_text-deduped, longest-first list of (pattern, find_text,
+    replace_text, strongs) -- strongs kept (language dropped) so the
+    --annotate suppression list can still be checked per rule. BSB
     sometimes supplies a name in brackets on a token that isn't the name's
     own Strong's number at all -- Mark 8:7's eulogesas (G2127, "bless") is
     glossed "[Jesus] blessed" because the Greek participle carries no
@@ -496,20 +506,21 @@ def _bracket_name_rules(rules_by_strongs: dict) -> list[tuple[re.Pattern, str, s
     matching it by wording alone (any curated name, regardless of which
     strongs the enclosing token happens to carry) is safe in a way it
     wouldn't be outside brackets."""
-    flat: dict[str, str] = {}
-    for rules in rules_by_strongs.values():
+    flat: dict[str, tuple[str, str]] = {}
+    for strongs, rules in rules_by_strongs.items():
         for _lang, find_text, replace_text in rules:
-            flat.setdefault(find_text, replace_text)
-    return [(_find_text_pattern(f), f, r)
-            for f, r in sorted(flat.items(), key=lambda kv: -len(kv[0]))]
+            flat.setdefault(find_text, (replace_text, strongs))
+    return [(_find_text_pattern(f), f, replace_text, strongs)
+            for f, (replace_text, strongs) in sorted(flat.items(), key=lambda kv: -len(kv[0]))]
 
 
 def _restore_brackets(text: str, bracket_rules: list, annotate: bool) -> str:
     def sub_span(m: re.Match) -> str:
         inner = m.group(0)[1:-1]
-        for pattern, find_text, replace_text in bracket_rules:
+        for pattern, find_text, replace_text, strongs in bracket_rules:
             if pattern.search(inner):
-                display = f'{replace_text} ({find_text})' if annotate else replace_text
+                show_annotation = annotate and strongs not in _ANNOTATE_SUPPRESS_STRONGS
+                display = f'{replace_text} ({find_text})' if show_annotation else replace_text
                 inner = pattern.sub(lambda mm: display, inner)
                 inner = _strip_leading_article(inner, replace_text)
         return f'[{inner}]'
@@ -521,12 +532,15 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
     the current strongs_lemma find_text/replace_text so a hand-edit there is
     always reflected after a rerun, never stuck from a stale prior pass.
 
-    annotate=True renders 'Yehovah (LORD)' instead of bare 'Yehovah' --
+    annotate=True renders 'Mosheh (Moses)' instead of bare 'Mosheh' --
     restored Hebrew/Greek names are frequently transliterations that read
     like plausible English words on their own (Yochanan, Mosheh, ...), so
     scanning a compiled module for what got caught vs. missed is otherwise
     slow going. Debugging aid, not meant to ship in a real build -- see
-    --annotate.
+    --annotate. H3068/H3069 (LORD/GOD, the divine name) are excluded from
+    the annotation regardless -- see _ANNOTATE_SUPPRESS_STRONGS -- since
+    they're frequent enough that '(LORD)' on every other word is noise,
+    not a debugging aid.
 
     A row where find_text == replace_text exactly (e.g. Adam, whose
     restored form happens to already be spelled the way BSB spells it) is
@@ -577,7 +591,8 @@ def apply_restorations(conn: sqlite3.Connection, annotate: bool = False) -> None
                     pattern = _find_text_pattern(find_text)
                     if not pattern.search(text):
                         continue  # this occurrence didn't use this sub-pair's wording -- try the next one
-                    display = f'{replace_text} ({find_text})' if annotate else replace_text
+                    show_annotation = annotate and strongs not in _ANNOTATE_SUPPRESS_STRONGS
+                    display = f'{replace_text} ({find_text})' if show_annotation else replace_text
                     text = pattern.sub(lambda m: display, text)
                     # Still stripped against the bare replace_text -- the pattern's
                     # trailing \b matches on the space before "(find_text)" just as
