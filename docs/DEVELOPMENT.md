@@ -229,6 +229,7 @@ intralinear-bible/
 │   │                          #   fallback for coverage holes) -> strongs_lemma table, for
 │   │                          #   BTB-L1/L2's lemma transliteration
 │   ├── build_books_table.py  # one-time: biblelib -> data/books.db
+│   ├── import_mjaa_plan.py   # yearly: MJAA reading-plan web page -> data/parshat-<year>.json
 │   └── extract_bsb_xrefs.py  # one-time: BSB USX -> data/bsb_xrefs.json (AlignmentComposer path)
 ├── heb_devotional/       # separate pipeline — see Devotional Modules below
 │   ├── reading_plan.py   # Hebcal fetch, day/date assignment, reference resolution (shared)
@@ -245,7 +246,8 @@ intralinear-bible/
     │                           #   primary source for strongs_lemma
     ├── strongsgreek.xml        # Strong's Greek dictionary (morphgnt/strongs-dictionary-xml) —
     │                           #   primary source for strongs_lemma
-    ├── parshat.json            # MJAA Hebrew-calendar reading plan (heb_devotional/ input)
+    ├── parshat.json            # MJAA Hebrew-calendar reading plan, 5786 (heb_devotional/ input)
+    ├── parshat-<year>.json     # one per later Hebrew year (utils/import_mjaa_plan.py)
     └── parashah_translations.json  # English translation of each parashah name
 ```
 
@@ -408,7 +410,7 @@ current limitations and open questions.
 A separate pipeline, `heb_devotional/`, generates a Hebrew-calendar
 reading-plan devotional module — e-Sword Daily Devotional (`.devi`),
 e-Sword generic Book-format reference module (`.refi`), MySword
-Journal-format reference book (`.bok.mybible`) — from `data/parshat.json`
+Journal-format reference book (`.bok.mybible`) — from `data/parshat-<year>.json`
 (the MJAA "Bible in a Year" reading plan: weekly Torah/Haftarah portions plus
 daily OT/NT readings, keyed to Simchat Torah through Simchat Torah) and a
 live [Hebcal](https://www.hebcal.com/) fetch, which supplies each week's real
@@ -433,6 +435,28 @@ defaults to 5786. e-Sword needs `data/bsb_tables.db` (fills in real verse
 ranges: its `<ref>` tag, unlike MySword's own bible link, doesn't resolve a
 bare "book chapter" reference — see `utils/import_bsb_table.py`); MySword
 needs no such lookup.
+
+The reading plan comes from `data/parshat-<hebrew_year>.json`, falling back
+to `data/parshat.json` (5786) when there isn't one. Before any dates are
+assigned, `check_plan_fits_cycle()` checks that the plan's week count
+matches the cycle's real number of weeks (51 in 5786, 55 in the leap year
+5787), so a plan for the wrong year fails loudly instead of quietly
+mis-dating every week after the first combined/split parsha.
+
+### New year's plan
+
+MJAA re-paces the daily readings every year, so each year gets its own
+plan. The PDF has no text layer (outlined Illustrator export), so the
+importer reads the web page instead:
+
+1. Save https://mjaa.org/bible-in-a-year/ as HTML.
+2. Check the page against that year's PDF and record every difference in
+   `CORRECTIONS[<year>]` in `utils/import_mjaa_plan.py`, plus the PDF's
+   `*Holiday Readings` box (which the page doesn't have). Where the PDF
+   itself is wrong, keep the PDF's version — the module should match what
+   MJAA's readers have in hand.
+3. `python utils/import_mjaa_plan.py page.html <year>`, then add any new
+   week names it warns about to `data/parashah_translations.json`.
 
 ### Package layout
 
@@ -504,8 +528,8 @@ needs no such lookup.
 
 ### Data
 
-- `data/parshat.json` — the reading plan itself: `{week_no, week, type:
-  D|W|H, refs: [...], label?}`.
+- `data/parshat-<year>.json` (and `data/parshat.json`, 5786) — the
+  reading plan itself: `{week_no, week, type: D|W|H, refs: [...], label?}`.
 - `data/parashah_translations.json` — English translation of each parashah
   name, shown under the Hebrew heading.
 

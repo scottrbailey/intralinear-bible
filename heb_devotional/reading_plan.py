@@ -5,7 +5,8 @@ Shared input-side logic for the Hebrew-calendar devotional generators
 (heb_devotional/esword.py, heb_devotional/esword_book.py,
 heb_devotional/mysword.py). Everything here is output-format-agnostic: it
 turns an intermediate reading-plan JSON (parshat.json shape: list of
-{week_no, week, type: D|W|H, refs: [...], label?}) plus a live Hebcal
+{week_no, week, type: D|W|H, refs: [...], label?}; one per Hebrew year,
+data/parshat-<year>.json, see plan_path_for_year()) plus a live Hebcal
 fetch into
   - {date: [(heading, parashah_name, refs), ...]} (build_day_entries) --
     every reading assigned to its real calendar date
@@ -103,6 +104,44 @@ def find_cycle_window(hebrew_year, start="simchat_torah"):
     cycle_end = floor_sunday(st_next) - timedelta(days=1)
     window_start = rosh_hashanah if start == "rosh_hashanah" else cycle_start
     return window_start, cycle_start, cycle_end
+
+
+def plan_path_for_year(hebrew_year: int, data_dir: Path) -> Path:
+    """
+    The reading-plan JSON for one cycle: data_dir/parshat-<year>.json if
+    it exists (built by utils/import_mjaa_plan.py from that year's MJAA
+    plan), else data_dir/parshat.json.
+
+    Per-year rather than one file per year type (regular/leap): MJAA
+    re-paces the daily readings every year, and the week count itself
+    depends on more than leap vs. regular -- which parshiyot are combined
+    shifts with the year's full calendar layout (e.g. Chukat-Balak).
+    check_plan_fits_cycle() catches a fallback plan that doesn't fit.
+    """
+    per_year = data_dir / f"parshat-{hebrew_year}.json"
+    return per_year if per_year.exists() else data_dir / "parshat.json"
+
+
+def check_plan_fits_cycle(num_weeks: int, cycle_start: date, cycle_end: date) -> None:
+    """
+    Raise ValueError unless the reading plan's week count matches the
+    number of Sunday-Saturday weeks from cycle_start to cycle_end (see
+    find_cycle_window()) -- e.g. a 51-week regular-year plan against a
+    55-week leap-year cycle.
+
+    derive_week_saturdays() only catches a plan with MORE weeks than the
+    cycle (it runs into the next Bereshit); a plan with FEWER weeks just
+    stops early and silently mis-dates everything after the first
+    combined/split parsha difference. This pure date arithmetic catches
+    both directions before any of that runs.
+    """
+    cycle_weeks = ((cycle_end - cycle_start).days + 1) // 7
+    if num_weeks != cycle_weeks:
+        raise ValueError(
+            f"Reading plan has {num_weeks} weeks but the {cycle_start.isoformat()} to "
+            f"{cycle_end.isoformat()} cycle has {cycle_weeks} -- build this year's plan with "
+            f"utils/import_mjaa_plan.py (data/parshat-<year>.json)"
+        )
 
 def fetch_hebcal(start:date, end:date, hebrew_year:int):
     """
@@ -508,7 +547,8 @@ def derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=None):
     first_week_name is hit first -- that mismatch means this year's
     combined/split parsha pattern doesn't match reading_plan.json's
     week count (e.g. a leap year), and week_saturday needs a JSON built
-    for that year type rather than being silently mis-zipped.
+    for that year rather than being silently mis-zipped. A plan with
+    too FEW weeks isn't caught here -- see check_plan_fits_cycle().
 
     If weeks (the {week_no: {"name": ..., ...}} dict from
     load_reading_plan) is passed, each derived Saturday's actual Hebcal

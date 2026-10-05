@@ -1,0 +1,3008 @@
+[
+  {
+    "week_no": 1,
+    "week": "Bereshit",
+    "type": "D",
+    "refs": [
+      "Joshua 1-3",
+      "Matthew 1"
+    ]
+  },
+  {
+    "week_no": 1,
+    "week": "Bereshit",
+    "type": "D",
+    "refs": [
+      "Joshua 4-6",
+      "Matthew 2"
+    ]
+  },
+  {
+    "week_no": 1,
+    "week": "Bereshit",
+    "type": "D",
+    "refs": [
+      "Joshua 7-9",
+      "Matthew 3"
+    ]
+  },
+  {
+    "week_no": 1,
+    "week": "Bereshit",
+    "type": "D",
+    "refs": [
+      "Joshua 10-12",
+      "Matthew 4"
+    ]
+  },
+  {
+    "week_no": 1,
+    "week": "Bereshit",
+    "type": "D",
+    "refs": [
+      "Joshua 13-15",
+      "Matthew 5"
+    ]
+  },
+  {
+    "week_no": 1,
+    "week": "Bereshit",
+    "type": "W",
+    "refs": [
+      "Genesis 1:1-6:8",
+      "I Samuel 20:18-42"
+    ]
+  },
+  {
+    "week_no": 1,
+    "week": "Bereshit",
+    "type": "H",
+    "label": "Simchat Torah",
+    "refs": [
+      "Deuteronomy 33:1-34:12",
+      "Numbers 29:35-30:1",
+      "Joshua 1:1-18"
+    ]
+  },
+  {
+    "week_no": 2,
+    "week": "Noach",
+    "type": "D",
+    "refs": [
+      "Joshua 16-18",
+      "Matthew 6"
+    ]
+  },
+  {
+    "week_no": 2,
+    "week": "Noach",
+    "type": "D",
+    "refs": [
+      "Joshua 19-21",
+      "Matthew 7"
+    ]
+  },
+  {
+    "week_no": 2,
+    "week": "Noach",
+    "type": "D",
+    "refs": [
+      "Joshua 22-24",
+      "Matthew 8"
+    ]
+  },
+  {
+    "week_no": 2,
+    "week": "Noach",
+    "type": "D",
+    "refs": [
+      "Judges 1-3",
+      "Matthew 9"
+    ]
+  },
+  {
+    "week_no": 2,
+    "week": "Noach",
+    "type": "D",
+    "refs": [
+      "Judges 4-6",
+      "Matthew 10"
+    ]
+  },
+  {
+    "week_no": 2,
+    "week": "Noach",
+    "type": "W",
+    "refs": [
+      "Genesis 6:9-11:32",
+      "Isaiah 54:1-55:5"
+    ]
+  },
+  {
+    "week_no": 3,
+    "week": "Lech-Lecha",
+    "type": "D",
+    "refs": [
+      "Judges 7-9",
+      "Matthew 11"
+    ]
+  },
+  {
+    "week_no": 3,
+    "week": "Lech-Lecha",
+    "type": "D",
+    "refs": [
+      "Judges 10-12",
+      "Matthew 12"
+    ]
+  },
+  {
+    "week_no": 3,
+    "week": "Lech-Lecha",
+    "type": "D",
+    "refs": [
+      "Judges 13-15",
+      "Matthew 13"
+    ]
+  },
+  {
+    "week_no": 3,
+    "week": "Lech-Lecha",
+    "type": "D",
+    "refs": [
+      "Judges 16-18",
+      "Matthew 14"
+    ]
+  },
+  {
+    "week_no": 3,
+    "week": "Lech-Lecha",
+    "type": "D",
+    "refs": [
+      "Judges 19-21",
+      "Matthew 15"
+    ]
+  },
+  {
+    "week_no": 3,
+    "week": "Lech-Lecha",
+    "type": "W",
+    "refs": [
+      "Genesis 12:1-17:27",
+      "Isaiah 40:27-41:16"
+    ]
+  },
+  {
+    "week_no": 4,
+    "week": "Vayera",
+    "type": "D",
+    "refs": [
+      "I Samuel 1-3",
+      "Matthew 16"
+    ]
+  },
+  {
+    "week_no": 4,
+    "week": "Vayera",
+    "type": "D",
+    "refs": [
+      "I Samuel 4-6",
+      "Matthew 17"
+    ]
+  },
+  {
+    "week_no": 4,
+    "week": "Vayera",
+    "type": "D",
+    "refs": [
+      "I Samuel 7-9",
+      "Matthew 18"
+    ]
+  },
+  {
+    "week_no": 4,
+    "week": "Vayera",
+    "type": "D",
+    "refs": [
+      "I Samuel 10-12",
+      "Matthew 19"
+    ]
+  },
+  {
+    "week_no": 4,
+    "week": "Vayera",
+    "type": "D",
+    "refs": [
+      "I Samuel 13-14",
+      "Matthew 20"
+    ]
+  },
+  {
+    "week_no": 4,
+    "week": "Vayera",
+    "type": "W",
+    "refs": [
+      "Genesis 18:1-22:24",
+      "II Kings 4:1-37"
+    ]
+  },
+  {
+    "week_no": 5,
+    "week": "Chayei Sara",
+    "type": "D",
+    "refs": [
+      "I Samuel 15-17",
+      "Matthew 21"
+    ]
+  },
+  {
+    "week_no": 5,
+    "week": "Chayei Sara",
+    "type": "D",
+    "refs": [
+      "I Samuel 18-20",
+      "Matthew 22"
+    ]
+  },
+  {
+    "week_no": 5,
+    "week": "Chayei Sara",
+    "type": "D",
+    "refs": [
+      "I Samuel 21-23",
+      "Matthew 23"
+    ]
+  },
+  {
+    "week_no": 5,
+    "week": "Chayei Sara",
+    "type": "D",
+    "refs": [
+      "I Samuel 24-26",
+      "Matthew 24"
+    ]
+  },
+  {
+    "week_no": 5,
+    "week": "Chayei Sara",
+    "type": "D",
+    "refs": [
+      "I Samuel 27-28",
+      "Matthew 25"
+    ]
+  },
+  {
+    "week_no": 5,
+    "week": "Chayei Sara",
+    "type": "W",
+    "refs": [
+      "Genesis 23:1-25:18",
+      "I Kings 1:1-31"
+    ]
+  },
+  {
+    "week_no": 6,
+    "week": "Toldot",
+    "type": "D",
+    "refs": [
+      "I Samuel 29-31",
+      "Matthew 26"
+    ]
+  },
+  {
+    "week_no": 6,
+    "week": "Toldot",
+    "type": "D",
+    "refs": [
+      "II Samuel 1-3",
+      "Matthew 27"
+    ]
+  },
+  {
+    "week_no": 6,
+    "week": "Toldot",
+    "type": "D",
+    "refs": [
+      "II Samuel 4-6",
+      "Matthew 28"
+    ]
+  },
+  {
+    "week_no": 6,
+    "week": "Toldot",
+    "type": "D",
+    "refs": [
+      "II Samuel 7-9",
+      "Mark 1"
+    ]
+  },
+  {
+    "week_no": 6,
+    "week": "Toldot",
+    "type": "D",
+    "refs": [
+      "II Samuel 10-12",
+      "Mark 2"
+    ]
+  },
+  {
+    "week_no": 6,
+    "week": "Toldot",
+    "type": "W",
+    "refs": [
+      "Genesis 25:19-28:9",
+      "Malachi 1:1-2:7"
+    ]
+  },
+  {
+    "week_no": 7,
+    "week": "Vayetzei",
+    "type": "D",
+    "refs": [
+      "II Samuel 13-15",
+      "Mark 3"
+    ]
+  },
+  {
+    "week_no": 7,
+    "week": "Vayetzei",
+    "type": "D",
+    "refs": [
+      "II Samuel 16-18",
+      "Mark 4"
+    ]
+  },
+  {
+    "week_no": 7,
+    "week": "Vayetzei",
+    "type": "D",
+    "refs": [
+      "II Samuel 19-21",
+      "Mark 5"
+    ]
+  },
+  {
+    "week_no": 7,
+    "week": "Vayetzei",
+    "type": "D",
+    "refs": [
+      "II Samuel 22-24",
+      "Mark 6"
+    ]
+  },
+  {
+    "week_no": 7,
+    "week": "Vayetzei",
+    "type": "D",
+    "refs": [
+      "I Kings 1-2",
+      "Mark 7"
+    ]
+  },
+  {
+    "week_no": 7,
+    "week": "Vayetzei",
+    "type": "W",
+    "refs": [
+      "Genesis 28:10-32:3",
+      "Hosea 12:13-14:10"
+    ]
+  },
+  {
+    "week_no": 8,
+    "week": "Vayishlach",
+    "type": "D",
+    "refs": [
+      "I Kings 3-5",
+      "Mark 8"
+    ]
+  },
+  {
+    "week_no": 8,
+    "week": "Vayishlach",
+    "type": "D",
+    "refs": [
+      "I Kings 6-8",
+      "Mark 9"
+    ]
+  },
+  {
+    "week_no": 8,
+    "week": "Vayishlach",
+    "type": "D",
+    "refs": [
+      "I Kings 9-11",
+      "Mark 10"
+    ]
+  },
+  {
+    "week_no": 8,
+    "week": "Vayishlach",
+    "type": "D",
+    "refs": [
+      "I Kings 12-14",
+      "Mark 11"
+    ]
+  },
+  {
+    "week_no": 8,
+    "week": "Vayishlach",
+    "type": "D",
+    "refs": [
+      "I Kings 15-16",
+      "Mark 12"
+    ]
+  },
+  {
+    "week_no": 8,
+    "week": "Vayishlach",
+    "type": "W",
+    "refs": [
+      "Genesis 32:4-36:43",
+      "Obadiah 1:1-21"
+    ]
+  },
+  {
+    "week_no": 9,
+    "week": "Vayeshev",
+    "type": "D",
+    "refs": [
+      "I Kings 17-19",
+      "Mark 13"
+    ]
+  },
+  {
+    "week_no": 9,
+    "week": "Vayeshev",
+    "type": "D",
+    "refs": [
+      "I Kings 20-22",
+      "Mark 14"
+    ]
+  },
+  {
+    "week_no": 9,
+    "week": "Vayeshev",
+    "type": "D",
+    "refs": [
+      "II Kings 1-3",
+      "Mark 15"
+    ]
+  },
+  {
+    "week_no": 9,
+    "week": "Vayeshev",
+    "type": "D",
+    "refs": [
+      "II Kings 4-6",
+      "Mark 16"
+    ]
+  },
+  {
+    "week_no": 9,
+    "week": "Vayeshev",
+    "type": "D",
+    "refs": [
+      "II Kings 7-9",
+      "Luke 1"
+    ]
+  },
+  {
+    "week_no": 9,
+    "week": "Vayeshev",
+    "type": "W",
+    "refs": [
+      "Genesis 37:1-40:23",
+      "Zechariah 2:14-4:7"
+    ]
+  },
+  {
+    "week_no": 10,
+    "week": "Miketz",
+    "type": "D",
+    "refs": [
+      "II Kings 10-12",
+      "Luke 2"
+    ]
+  },
+  {
+    "week_no": 10,
+    "week": "Miketz",
+    "type": "D",
+    "refs": [
+      "II Kings 13-15",
+      "Luke 3"
+    ]
+  },
+  {
+    "week_no": 10,
+    "week": "Miketz",
+    "type": "D",
+    "refs": [
+      "II Kings 16-18",
+      "Luke 4"
+    ]
+  },
+  {
+    "week_no": 10,
+    "week": "Miketz",
+    "type": "D",
+    "refs": [
+      "II Kings 19-21",
+      "Luke 5"
+    ]
+  },
+  {
+    "week_no": 10,
+    "week": "Miketz",
+    "type": "D",
+    "refs": [
+      "II Kings 22-23",
+      "Luke 6"
+    ]
+  },
+  {
+    "week_no": 10,
+    "week": "Miketz",
+    "type": "W",
+    "refs": [
+      "Genesis 41:1-44:17",
+      "I Kings 7:40-50"
+    ]
+  },
+  {
+    "week_no": 11,
+    "week": "Vayigash",
+    "type": "D",
+    "refs": [
+      "II Kings 24, 25",
+      "Luke 7"
+    ]
+  },
+  {
+    "week_no": 11,
+    "week": "Vayigash",
+    "type": "D",
+    "refs": [
+      "Isaiah 1-3",
+      "Luke 8"
+    ]
+  },
+  {
+    "week_no": 11,
+    "week": "Vayigash",
+    "type": "D",
+    "refs": [
+      "Isaiah 4-6",
+      "Luke 9"
+    ]
+  },
+  {
+    "week_no": 11,
+    "week": "Vayigash",
+    "type": "D",
+    "refs": [
+      "Isaiah 7-9",
+      "Luke 10"
+    ]
+  },
+  {
+    "week_no": 11,
+    "week": "Vayigash",
+    "type": "D",
+    "refs": [
+      "Isaiah 10-12",
+      "Luke 11"
+    ]
+  },
+  {
+    "week_no": 11,
+    "week": "Vayigash",
+    "type": "W",
+    "refs": [
+      "Genesis 44:18-47:27",
+      "Ezekiel 37:15-28"
+    ]
+  },
+  {
+    "week_no": 12,
+    "week": "Vayechi",
+    "type": "D",
+    "refs": [
+      "Isaiah 13-15",
+      "Luke 12"
+    ]
+  },
+  {
+    "week_no": 12,
+    "week": "Vayechi",
+    "type": "D",
+    "refs": [
+      "Isaiah 16-18",
+      "Luke 13"
+    ]
+  },
+  {
+    "week_no": 12,
+    "week": "Vayechi",
+    "type": "D",
+    "refs": [
+      "Isaiah 19-21",
+      "Luke 14"
+    ]
+  },
+  {
+    "week_no": 12,
+    "week": "Vayechi",
+    "type": "D",
+    "refs": [
+      "Isaiah 22-24",
+      "Luke 15"
+    ]
+  },
+  {
+    "week_no": 12,
+    "week": "Vayechi",
+    "type": "D",
+    "refs": [
+      "Isaiah 25-27",
+      "Luke 16"
+    ]
+  },
+  {
+    "week_no": 12,
+    "week": "Vayechi",
+    "type": "W",
+    "refs": [
+      "Genesis 47:28-50:26",
+      "I Kings 2:1-12"
+    ]
+  },
+  {
+    "week_no": 13,
+    "week": "Shemot",
+    "type": "D",
+    "refs": [
+      "Isaiah 28-30",
+      "Luke 17"
+    ]
+  },
+  {
+    "week_no": 13,
+    "week": "Shemot",
+    "type": "D",
+    "refs": [
+      "Isaiah 31-33",
+      "Luke 18"
+    ]
+  },
+  {
+    "week_no": 13,
+    "week": "Shemot",
+    "type": "D",
+    "refs": [
+      "Isaiah 34-36",
+      "Luke 19"
+    ]
+  },
+  {
+    "week_no": 13,
+    "week": "Shemot",
+    "type": "D",
+    "refs": [
+      "Isaiah 37-39",
+      "Luke 20"
+    ]
+  },
+  {
+    "week_no": 13,
+    "week": "Shemot",
+    "type": "D",
+    "refs": [
+      "Isaiah 40-42",
+      "Luke 21"
+    ]
+  },
+  {
+    "week_no": 13,
+    "week": "Shemot",
+    "type": "W",
+    "refs": [
+      "Exodus 1:1-6:1",
+      "Isaiah 27:6-28:13, 29:22-23"
+    ]
+  },
+  {
+    "week_no": 14,
+    "week": "Vaera",
+    "type": "D",
+    "refs": [
+      "Isaiah 43-45",
+      "Luke 22"
+    ]
+  },
+  {
+    "week_no": 14,
+    "week": "Vaera",
+    "type": "D",
+    "refs": [
+      "Isaiah 46-48",
+      "Luke 23"
+    ]
+  },
+  {
+    "week_no": 14,
+    "week": "Vaera",
+    "type": "D",
+    "refs": [
+      "Isaiah 49-51",
+      "Luke 24"
+    ]
+  },
+  {
+    "week_no": 14,
+    "week": "Vaera",
+    "type": "D",
+    "refs": [
+      "Isaiah 52-54",
+      "John 1"
+    ]
+  },
+  {
+    "week_no": 14,
+    "week": "Vaera",
+    "type": "D",
+    "refs": [
+      "Isaiah 55-57",
+      "John 2"
+    ]
+  },
+  {
+    "week_no": 14,
+    "week": "Vaera",
+    "type": "W",
+    "refs": [
+      "Exodus 6:2-9:35",
+      "Isaiah 66:1-24"
+    ]
+  },
+  {
+    "week_no": 15,
+    "week": "Bo",
+    "type": "D",
+    "refs": [
+      "Isaiah 58-60",
+      "John 3"
+    ]
+  },
+  {
+    "week_no": 15,
+    "week": "Bo",
+    "type": "D",
+    "refs": [
+      "Isaiah 61-63",
+      "John 4"
+    ]
+  },
+  {
+    "week_no": 15,
+    "week": "Bo",
+    "type": "D",
+    "refs": [
+      "Isaiah 64-66",
+      "John 5"
+    ]
+  },
+  {
+    "week_no": 15,
+    "week": "Bo",
+    "type": "D",
+    "refs": [
+      "Jeremiah 1-3",
+      "John 6"
+    ]
+  },
+  {
+    "week_no": 15,
+    "week": "Bo",
+    "type": "D",
+    "refs": [
+      "Jeremiah 4-5",
+      "John 7"
+    ]
+  },
+  {
+    "week_no": 15,
+    "week": "Bo",
+    "type": "W",
+    "refs": [
+      "Exodus 10:1-13:16",
+      "Jeremiah 46:13-28"
+    ]
+  },
+  {
+    "week_no": 16,
+    "week": "Beshalach",
+    "type": "D",
+    "refs": [
+      "Jeremiah 6-8",
+      "John 8"
+    ]
+  },
+  {
+    "week_no": 16,
+    "week": "Beshalach",
+    "type": "D",
+    "refs": [
+      "Jeremiah 9-11",
+      "John 9"
+    ]
+  },
+  {
+    "week_no": 16,
+    "week": "Beshalach",
+    "type": "D",
+    "refs": [
+      "Jeremiah 12-14",
+      "John 10"
+    ]
+  },
+  {
+    "week_no": 16,
+    "week": "Beshalach",
+    "type": "D",
+    "refs": [
+      "Jeremiah 15-17",
+      "John 11"
+    ]
+  },
+  {
+    "week_no": 16,
+    "week": "Beshalach",
+    "type": "D",
+    "refs": [
+      "Jeremiah 18-19",
+      "John 12"
+    ]
+  },
+  {
+    "week_no": 16,
+    "week": "Beshalach",
+    "type": "W",
+    "refs": [
+      "Exodus 13:17-17:16",
+      "Judges 4:4-5:31"
+    ]
+  },
+  {
+    "week_no": 17,
+    "week": "Yitro",
+    "type": "D",
+    "refs": [
+      "Jeremiah 20-22",
+      "John 13"
+    ]
+  },
+  {
+    "week_no": 17,
+    "week": "Yitro",
+    "type": "D",
+    "refs": [
+      "Jeremiah 23-25",
+      "John 14"
+    ]
+  },
+  {
+    "week_no": 17,
+    "week": "Yitro",
+    "type": "D",
+    "refs": [
+      "Jeremiah 26-28",
+      "John 15"
+    ]
+  },
+  {
+    "week_no": 17,
+    "week": "Yitro",
+    "type": "D",
+    "refs": [
+      "Jeremiah 29-31",
+      "John 16"
+    ]
+  },
+  {
+    "week_no": 17,
+    "week": "Yitro",
+    "type": "D",
+    "refs": [
+      "Jeremiah 32-34",
+      "John 17"
+    ]
+  },
+  {
+    "week_no": 17,
+    "week": "Yitro",
+    "type": "W",
+    "refs": [
+      "Exodus 18:1-20:23",
+      "Isaiah 6:1-7:6, 9:5-6"
+    ]
+  },
+  {
+    "week_no": 18,
+    "week": "Mishpatim",
+    "type": "D",
+    "refs": [
+      "Jeremiah 35-37",
+      "John 18"
+    ]
+  },
+  {
+    "week_no": 18,
+    "week": "Mishpatim",
+    "type": "D",
+    "refs": [
+      "Jeremiah 38-40",
+      "John 19"
+    ]
+  },
+  {
+    "week_no": 18,
+    "week": "Mishpatim",
+    "type": "D",
+    "refs": [
+      "Jeremiah 41-43",
+      "John 20"
+    ]
+  },
+  {
+    "week_no": 18,
+    "week": "Mishpatim",
+    "type": "D",
+    "refs": [
+      "Jeremiah 44-46",
+      "John 21"
+    ]
+  },
+  {
+    "week_no": 18,
+    "week": "Mishpatim",
+    "type": "D",
+    "refs": [
+      "Jeremiah 47-49",
+      "Acts 1"
+    ]
+  },
+  {
+    "week_no": 18,
+    "week": "Mishpatim",
+    "type": "W",
+    "refs": [
+      "Exodus 21:1-24:18",
+      "I Samuel 20:18-42"
+    ]
+  },
+  {
+    "week_no": 19,
+    "week": "Terumah",
+    "type": "D",
+    "refs": [
+      "Jeremiah 50-52",
+      "Acts 2"
+    ]
+  },
+  {
+    "week_no": 19,
+    "week": "Terumah",
+    "type": "D",
+    "refs": [
+      "Ezekiel 1-3",
+      "Acts 3"
+    ]
+  },
+  {
+    "week_no": 19,
+    "week": "Terumah",
+    "type": "D",
+    "refs": [
+      "Ezekiel 4-6",
+      "Acts 4"
+    ]
+  },
+  {
+    "week_no": 19,
+    "week": "Terumah",
+    "type": "D",
+    "refs": [
+      "Ezekiel 7-9",
+      "Acts 5"
+    ]
+  },
+  {
+    "week_no": 19,
+    "week": "Terumah",
+    "type": "D",
+    "refs": [
+      "Ezekiel 10-11",
+      "Acts 6"
+    ]
+  },
+  {
+    "week_no": 19,
+    "week": "Terumah",
+    "type": "W",
+    "refs": [
+      "Exodus 25:1-27:19",
+      "I Kings 5:26-6:13"
+    ]
+  },
+  {
+    "week_no": 20,
+    "week": "Tetzaveh",
+    "type": "D",
+    "refs": [
+      "Ezekiel 12-14",
+      "Acts 7"
+    ]
+  },
+  {
+    "week_no": 20,
+    "week": "Tetzaveh",
+    "type": "D",
+    "refs": [
+      "Ezekiel 15-17",
+      "Acts 8"
+    ]
+  },
+  {
+    "week_no": 20,
+    "week": "Tetzaveh",
+    "type": "D",
+    "refs": [
+      "Ezekiel 18-20",
+      "Acts 9"
+    ]
+  },
+  {
+    "week_no": 20,
+    "week": "Tetzaveh",
+    "type": "D",
+    "refs": [
+      "Ezekiel 21-23",
+      "Acts 10"
+    ]
+  },
+  {
+    "week_no": 20,
+    "week": "Tetzaveh",
+    "type": "D",
+    "refs": [
+      "Ezekiel 24-25",
+      "Acts 11"
+    ]
+  },
+  {
+    "week_no": 20,
+    "week": "Tetzaveh",
+    "type": "W",
+    "refs": [
+      "Exodus 27:20-30:10",
+      "Ezekiel 43:10-27"
+    ]
+  },
+  {
+    "week_no": 21,
+    "week": "Ki Tisa",
+    "type": "D",
+    "refs": [
+      "Ezekiel 26-28",
+      "Acts 12"
+    ]
+  },
+  {
+    "week_no": 21,
+    "week": "Ki Tisa",
+    "type": "D",
+    "refs": [
+      "Ezekiel 29-31",
+      "Acts 13"
+    ]
+  },
+  {
+    "week_no": 21,
+    "week": "Ki Tisa",
+    "type": "D",
+    "refs": [
+      "Ezekiel 32-34",
+      "Acts 14"
+    ]
+  },
+  {
+    "week_no": 21,
+    "week": "Ki Tisa",
+    "type": "D",
+    "refs": [
+      "Ezekiel 35-37",
+      "Acts 15"
+    ]
+  },
+  {
+    "week_no": 21,
+    "week": "Ki Tisa",
+    "type": "D",
+    "refs": [
+      "Ezekiel 38-39",
+      "Acts 16"
+    ]
+  },
+  {
+    "week_no": 21,
+    "week": "Ki Tisa",
+    "type": "W",
+    "refs": [
+      "Exodus 30:11-34:35",
+      "I Kings 18:1-39"
+    ]
+  },
+  {
+    "week_no": 22,
+    "week": "Vayakhel",
+    "type": "D",
+    "refs": [
+      "Ezekiel 40-42",
+      "Acts 17"
+    ]
+  },
+  {
+    "week_no": 22,
+    "week": "Vayakhel",
+    "type": "D",
+    "refs": [
+      "Ezekiel 43-45",
+      "Acts 18"
+    ]
+  },
+  {
+    "week_no": 22,
+    "week": "Vayakhel",
+    "type": "D",
+    "refs": [
+      "Ezekiel 46-48",
+      "Acts 19"
+    ]
+  },
+  {
+    "week_no": 22,
+    "week": "Vayakhel",
+    "type": "D",
+    "refs": [
+      "Hosea 1-3",
+      "Acts 20"
+    ]
+  },
+  {
+    "week_no": 22,
+    "week": "Vayakhel",
+    "type": "D",
+    "refs": [
+      "Hosea 4-6",
+      "Acts 21"
+    ]
+  },
+  {
+    "week_no": 22,
+    "week": "Vayakhel",
+    "type": "W",
+    "refs": [
+      "Exodus 35:1-38:20",
+      "II Kings 12:1-17"
+    ]
+  },
+  {
+    "week_no": 23,
+    "week": "Pekudei",
+    "type": "D",
+    "refs": [
+      "Hosea 7-9",
+      "Acts 22"
+    ]
+  },
+  {
+    "week_no": 23,
+    "week": "Pekudei",
+    "type": "D",
+    "refs": [
+      "Hosea 10-12",
+      "Acts 23"
+    ]
+  },
+  {
+    "week_no": 23,
+    "week": "Pekudei",
+    "type": "D",
+    "refs": [
+      "Hosea 13, 14",
+      "Acts 24"
+    ]
+  },
+  {
+    "week_no": 23,
+    "week": "Pekudei",
+    "type": "D",
+    "refs": [
+      "Joel 1-3",
+      "Acts 25"
+    ]
+  },
+  {
+    "week_no": 23,
+    "week": "Pekudei",
+    "type": "D",
+    "refs": [
+      "Amos 1-3",
+      "Acts 26"
+    ]
+  },
+  {
+    "week_no": 23,
+    "week": "Pekudei",
+    "type": "W",
+    "refs": [
+      "Exodus 38:21-40:38",
+      "I Kings 7:51-8:21"
+    ]
+  },
+  {
+    "week_no": 24,
+    "week": "Vayikra",
+    "type": "D",
+    "refs": [
+      "Amos 4-6",
+      "Acts 27"
+    ]
+  },
+  {
+    "week_no": 24,
+    "week": "Vayikra",
+    "type": "D",
+    "refs": [
+      "Amos 7-9",
+      "Acts 28"
+    ]
+  },
+  {
+    "week_no": 24,
+    "week": "Vayikra",
+    "type": "D",
+    "refs": [
+      "Obadiah 1",
+      "Romans 1:1-17"
+    ]
+  },
+  {
+    "week_no": 24,
+    "week": "Vayikra",
+    "type": "D",
+    "refs": [
+      "Jonah 1-4",
+      "Romans 1:18-32"
+    ]
+  },
+  {
+    "week_no": 24,
+    "week": "Vayikra",
+    "type": "D",
+    "refs": [
+      "Micah 1-3",
+      "Romans 2:1-16"
+    ]
+  },
+  {
+    "week_no": 24,
+    "week": "Vayikra",
+    "type": "W",
+    "refs": [
+      "Leviticus 1:1-5:26",
+      "I Samuel 15:2-34"
+    ]
+  },
+  {
+    "week_no": 25,
+    "week": "Tzav",
+    "type": "D",
+    "refs": [
+      "Micah 4-7",
+      "Romans 2:17-29"
+    ]
+  },
+  {
+    "week_no": 25,
+    "week": "Tzav",
+    "type": "D",
+    "refs": [
+      "Nahum 1-3",
+      "Romans 3:1-20"
+    ]
+  },
+  {
+    "week_no": 25,
+    "week": "Tzav",
+    "type": "D",
+    "refs": [
+      "Habakkuk 1-3",
+      "Romans 3:21-31"
+    ]
+  },
+  {
+    "week_no": 25,
+    "week": "Tzav",
+    "type": "D",
+    "refs": [
+      "Zephaniah 1-3",
+      "Romans 4:1-12"
+    ]
+  },
+  {
+    "week_no": 25,
+    "week": "Tzav",
+    "type": "D",
+    "refs": [
+      "Haggai 1-2",
+      "Romans 4:13-25"
+    ]
+  },
+  {
+    "week_no": 25,
+    "week": "Tzav",
+    "type": "W",
+    "refs": [
+      "Leviticus 6:1-8:36",
+      "Ezekiel 36:16-38"
+    ]
+  },
+  {
+    "week_no": 25,
+    "week": "Tzav",
+    "type": "H",
+    "label": "Purim",
+    "refs": [
+      "Exodus 17:8-16",
+      "Esther 1-10"
+    ]
+  },
+  {
+    "week_no": 26,
+    "week": "Shmini",
+    "type": "D",
+    "refs": [
+      "Zechariah 1-3",
+      "Romans 5:1-11"
+    ]
+  },
+  {
+    "week_no": 26,
+    "week": "Shmini",
+    "type": "D",
+    "refs": [
+      "Zechariah 4-6",
+      "Romans 5:12-21"
+    ]
+  },
+  {
+    "week_no": 26,
+    "week": "Shmini",
+    "type": "D",
+    "refs": [
+      "Zechariah 7-9",
+      "Romans 6:1-14"
+    ]
+  },
+  {
+    "week_no": 26,
+    "week": "Shmini",
+    "type": "D",
+    "refs": [
+      "Zechariah 10-12",
+      "Romans 6:15-23"
+    ]
+  },
+  {
+    "week_no": 26,
+    "week": "Shmini",
+    "type": "D",
+    "refs": [
+      "Zechariah 13-14",
+      "Romans 7:1-13"
+    ]
+  },
+  {
+    "week_no": 26,
+    "week": "Shmini",
+    "type": "W",
+    "refs": [
+      "Leviticus 9:1-11:47",
+      "Ezekiel 45:16-46:18"
+    ]
+  },
+  {
+    "week_no": 27,
+    "week": "Tazria",
+    "type": "D",
+    "refs": [
+      "Malachi 1-4",
+      "Romans 7:14-25"
+    ]
+  },
+  {
+    "week_no": 27,
+    "week": "Tazria",
+    "type": "D",
+    "refs": [
+      "Psalms 1-3",
+      "Romans 8:1-17"
+    ]
+  },
+  {
+    "week_no": 27,
+    "week": "Tazria",
+    "type": "D",
+    "refs": [
+      "Psalms 4-6",
+      "Romans 8:18-39"
+    ]
+  },
+  {
+    "week_no": 27,
+    "week": "Tazria",
+    "type": "D",
+    "refs": [
+      "Psalms 7-9",
+      "Romans 9:1-13"
+    ]
+  },
+  {
+    "week_no": 27,
+    "week": "Tazria",
+    "type": "D",
+    "refs": [
+      "Psalms 10-12",
+      "Romans 9:14-33"
+    ]
+  },
+  {
+    "week_no": 27,
+    "week": "Tazria",
+    "type": "W",
+    "refs": [
+      "Leviticus 12:1-13:59",
+      "II Kings 4:42-5:19"
+    ]
+  },
+  {
+    "week_no": 28,
+    "week": "Metzora",
+    "type": "D",
+    "refs": [
+      "Psalms 13-15",
+      "Romans 10:1-13"
+    ]
+  },
+  {
+    "week_no": 28,
+    "week": "Metzora",
+    "type": "D",
+    "refs": [
+      "Psalms 16-18",
+      "Romans 10:14-21"
+    ]
+  },
+  {
+    "week_no": 28,
+    "week": "Metzora",
+    "type": "D",
+    "refs": [
+      "Psalms 19-21",
+      "Romans 11:1-21"
+    ]
+  },
+  {
+    "week_no": 28,
+    "week": "Metzora",
+    "type": "D",
+    "refs": [
+      "Psalms 22-24",
+      "Romans 11:22-36"
+    ]
+  },
+  {
+    "week_no": 28,
+    "week": "Metzora",
+    "type": "D",
+    "refs": [
+      "Psalms 25-27",
+      "Romans 12:1-8"
+    ]
+  },
+  {
+    "week_no": 28,
+    "week": "Metzora",
+    "type": "W",
+    "refs": [
+      "Leviticus 14:1-15:33",
+      "Malachi 3:4-24"
+    ]
+  },
+  {
+    "week_no": 29,
+    "week": "Pesach",
+    "type": "D",
+    "refs": [
+      "Psalms 28-30",
+      "Romans 12:9-21"
+    ]
+  },
+  {
+    "week_no": 29,
+    "week": "Pesach",
+    "type": "D",
+    "refs": [
+      "Psalms 31-33",
+      "Romans 13:1-7"
+    ]
+  },
+  {
+    "week_no": 29,
+    "week": "Pesach",
+    "type": "D",
+    "refs": [
+      "Psalms 34-36",
+      "Romans 13:8-14"
+    ]
+  },
+  {
+    "week_no": 29,
+    "week": "Pesach",
+    "type": "D",
+    "refs": [
+      "Psalms 37-38",
+      "Romans 14:1-12"
+    ]
+  },
+  {
+    "week_no": 29,
+    "week": "Pesach",
+    "type": "D",
+    "refs": [
+      "Psalms 39-41",
+      "Romans 14:13-23"
+    ]
+  },
+  {
+    "week_no": 29,
+    "week": "Pesach",
+    "type": "W",
+    "refs": [
+      "Exodus 33:12-34:26",
+      "Numbers 28:19-25",
+      "Song of Songs 1:1-8:14"
+    ]
+  },
+  {
+    "week_no": 30,
+    "week": "Achrei Mot",
+    "type": "D",
+    "refs": [
+      "Psalms 42-44",
+      "Romans 15:1-21"
+    ]
+  },
+  {
+    "week_no": 30,
+    "week": "Achrei Mot",
+    "type": "D",
+    "refs": [
+      "Psalms 45-47",
+      "Romans 15:22-33"
+    ]
+  },
+  {
+    "week_no": 30,
+    "week": "Achrei Mot",
+    "type": "D",
+    "refs": [
+      "Psalms 48-50",
+      "Romans 16"
+    ]
+  },
+  {
+    "week_no": 30,
+    "week": "Achrei Mot",
+    "type": "D",
+    "refs": [
+      "Psalms 51-53",
+      "1 Corinthians 1"
+    ]
+  },
+  {
+    "week_no": 30,
+    "week": "Achrei Mot",
+    "type": "D",
+    "refs": [
+      "Psalms 54-56",
+      "1 Corinthians 2"
+    ]
+  },
+  {
+    "week_no": 30,
+    "week": "Achrei Mot",
+    "type": "W",
+    "refs": [
+      "Leviticus 16:1-18:30",
+      "Amos 9:7-15"
+    ]
+  },
+  {
+    "week_no": 31,
+    "week": "Kedoshim",
+    "type": "D",
+    "refs": [
+      "Psalms 57-59",
+      "1 Corinthians 3"
+    ]
+  },
+  {
+    "week_no": 31,
+    "week": "Kedoshim",
+    "type": "D",
+    "refs": [
+      "Psalms 60-62",
+      "1 Corinthians 4"
+    ]
+  },
+  {
+    "week_no": 31,
+    "week": "Kedoshim",
+    "type": "D",
+    "refs": [
+      "Psalms 63-65",
+      "1 Corinthians 5"
+    ]
+  },
+  {
+    "week_no": 31,
+    "week": "Kedoshim",
+    "type": "D",
+    "refs": [
+      "Psalms 66-67",
+      "1 Corinthians 6"
+    ]
+  },
+  {
+    "week_no": 31,
+    "week": "Kedoshim",
+    "type": "D",
+    "refs": [
+      "Psalms 68-70",
+      "1 Corinthians 7"
+    ]
+  },
+  {
+    "week_no": 31,
+    "week": "Kedoshim",
+    "type": "W",
+    "refs": [
+      "Leviticus 19:1-20:27",
+      "Isaiah 66:1-24"
+    ]
+  },
+  {
+    "week_no": 32,
+    "week": "Emor",
+    "type": "D",
+    "refs": [
+      "Psalms 71-73",
+      "1 Corinthians 8"
+    ]
+  },
+  {
+    "week_no": 32,
+    "week": "Emor",
+    "type": "D",
+    "refs": [
+      "Psalms 74-76",
+      "1 Corinthians 9"
+    ]
+  },
+  {
+    "week_no": 32,
+    "week": "Emor",
+    "type": "D",
+    "refs": [
+      "Psalms 77-78",
+      "1 Corinthians 10"
+    ]
+  },
+  {
+    "week_no": 32,
+    "week": "Emor",
+    "type": "D",
+    "refs": [
+      "Psalms 79-81",
+      "1 Corinthians 11"
+    ]
+  },
+  {
+    "week_no": 32,
+    "week": "Emor",
+    "type": "D",
+    "refs": [
+      "Psalms 82-85",
+      "1 Corinthians 12"
+    ]
+  },
+  {
+    "week_no": 32,
+    "week": "Emor",
+    "type": "W",
+    "refs": [
+      "Leviticus 21:1-24:23",
+      "Ezekiel 44:15-31"
+    ]
+  },
+  {
+    "week_no": 33,
+    "week": "Behar",
+    "type": "D",
+    "refs": [
+      "Psalms 86-88",
+      "1 Corinthians 13"
+    ]
+  },
+  {
+    "week_no": 33,
+    "week": "Behar",
+    "type": "D",
+    "refs": [
+      "Psalms 89-91",
+      "1 Corinthians 14"
+    ]
+  },
+  {
+    "week_no": 33,
+    "week": "Behar",
+    "type": "D",
+    "refs": [
+      "Psalms 92-95",
+      "1 Corinthians 15"
+    ]
+  },
+  {
+    "week_no": 33,
+    "week": "Behar",
+    "type": "D",
+    "refs": [
+      "Psalms 96-99",
+      "1 Corinthians 16"
+    ]
+  },
+  {
+    "week_no": 33,
+    "week": "Behar",
+    "type": "D",
+    "refs": [
+      "Psalms 100-102",
+      "2 Corinthians 1"
+    ]
+  },
+  {
+    "week_no": 33,
+    "week": "Behar",
+    "type": "W",
+    "refs": [
+      "Leviticus 25:1-26:2",
+      "Jeremiah 32:6-27"
+    ]
+  },
+  {
+    "week_no": 34,
+    "week": "Bechukotai",
+    "type": "D",
+    "refs": [
+      "Psalms 103-105",
+      "2 Corinthians 2"
+    ]
+  },
+  {
+    "week_no": 34,
+    "week": "Bechukotai",
+    "type": "D",
+    "refs": [
+      "Psalms 106-107",
+      "2 Corinthians 3"
+    ]
+  },
+  {
+    "week_no": 34,
+    "week": "Bechukotai",
+    "type": "D",
+    "refs": [
+      "Psalms 108-110",
+      "2 Corinthians 4"
+    ]
+  },
+  {
+    "week_no": 34,
+    "week": "Bechukotai",
+    "type": "D",
+    "refs": [
+      "Psalms 111-115",
+      "2 Corinthians 5"
+    ]
+  },
+  {
+    "week_no": 34,
+    "week": "Bechukotai",
+    "type": "D",
+    "refs": [
+      "Psalms 116-118",
+      "2 Corinthians 6"
+    ]
+  },
+  {
+    "week_no": 34,
+    "week": "Bechukotai",
+    "type": "W",
+    "refs": [
+      "Leviticus 26:3-27:34",
+      "Jeremiah 16:19-17:14"
+    ]
+  },
+  {
+    "week_no": 35,
+    "week": "Bamidbar",
+    "type": "D",
+    "refs": [
+      "Psalms 119:1-89",
+      "2 Corinthians 7"
+    ]
+  },
+  {
+    "week_no": 35,
+    "week": "Bamidbar",
+    "type": "D",
+    "refs": [
+      "Psalms 119:90-176",
+      "2 Corinthians 8"
+    ]
+  },
+  {
+    "week_no": 35,
+    "week": "Bamidbar",
+    "type": "D",
+    "refs": [
+      "Psalms 120-122",
+      "2 Corinthians 9"
+    ]
+  },
+  {
+    "week_no": 35,
+    "week": "Bamidbar",
+    "type": "D",
+    "refs": [
+      "Psalms 123-125",
+      "2 Corinthians 10"
+    ]
+  },
+  {
+    "week_no": 35,
+    "week": "Bamidbar",
+    "type": "D",
+    "refs": [
+      "Psalms 126-128",
+      "2 Corinthians 11"
+    ]
+  },
+  {
+    "week_no": 35,
+    "week": "Bamidbar",
+    "type": "W",
+    "refs": [
+      "Numbers 1:1-4:20",
+      "I Samuel 20:18-42"
+    ]
+  },
+  {
+    "week_no": 36,
+    "week": "Shavuot",
+    "type": "D",
+    "refs": [
+      "Psalms 129-131",
+      "2 Corinthians 12"
+    ]
+  },
+  {
+    "week_no": 36,
+    "week": "Shavuot",
+    "type": "D",
+    "refs": [
+      "Psalms 132-134",
+      "2 Corinthians 13"
+    ]
+  },
+  {
+    "week_no": 36,
+    "week": "Shavuot",
+    "type": "D",
+    "refs": [
+      "Psalms 135-137",
+      "Galatians 1"
+    ]
+  },
+  {
+    "week_no": 36,
+    "week": "Shavuot",
+    "type": "D",
+    "refs": [
+      "Psalms 138-140",
+      "Galatians 2"
+    ]
+  },
+  {
+    "week_no": 36,
+    "week": "Shavuot",
+    "type": "D",
+    "refs": [
+      "Psalms 141-143",
+      "Galatians 3"
+    ]
+  },
+  {
+    "week_no": 36,
+    "week": "Shavuot",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 14:22-16:17",
+      "Numbers 28:26-31",
+      "Habakkuk 3:1-19"
+    ]
+  },
+  {
+    "week_no": 37,
+    "week": "Nasso",
+    "type": "D",
+    "refs": [
+      "Psalms 144-146",
+      "Galatians 4"
+    ]
+  },
+  {
+    "week_no": 37,
+    "week": "Nasso",
+    "type": "D",
+    "refs": [
+      "Psalms 147-150",
+      "Galatians 5"
+    ]
+  },
+  {
+    "week_no": 37,
+    "week": "Nasso",
+    "type": "D",
+    "refs": [
+      "Proverbs 1",
+      "Galatians 6"
+    ]
+  },
+  {
+    "week_no": 37,
+    "week": "Nasso",
+    "type": "D",
+    "refs": [
+      "Proverbs 2",
+      "Ephesians 1"
+    ]
+  },
+  {
+    "week_no": 37,
+    "week": "Nasso",
+    "type": "D",
+    "refs": [
+      "Proverbs 3",
+      "Ephesians 2"
+    ]
+  },
+  {
+    "week_no": 37,
+    "week": "Nasso",
+    "type": "W",
+    "refs": [
+      "Numbers 4:21-7:89",
+      "Judges 13:2-25"
+    ]
+  },
+  {
+    "week_no": 38,
+    "week": "Beha'alotcha",
+    "type": "D",
+    "refs": [
+      "Proverbs 4",
+      "Ephesians 3"
+    ]
+  },
+  {
+    "week_no": 38,
+    "week": "Beha'alotcha",
+    "type": "D",
+    "refs": [
+      "Proverbs 5",
+      "Ephesians 4"
+    ]
+  },
+  {
+    "week_no": 38,
+    "week": "Beha'alotcha",
+    "type": "D",
+    "refs": [
+      "Proverbs 6",
+      "Ephesians 5"
+    ]
+  },
+  {
+    "week_no": 38,
+    "week": "Beha'alotcha",
+    "type": "D",
+    "refs": [
+      "Proverbs 7",
+      "Ephesians 6"
+    ]
+  },
+  {
+    "week_no": 38,
+    "week": "Beha'alotcha",
+    "type": "D",
+    "refs": [
+      "Proverbs 8",
+      "Philippians 1"
+    ]
+  },
+  {
+    "week_no": 38,
+    "week": "Beha'alotcha",
+    "type": "W",
+    "refs": [
+      "Numbers 8:1-12:16",
+      "Zechariah 2:14-4:7"
+    ]
+  },
+  {
+    "week_no": 39,
+    "week": "Sh'lach",
+    "type": "D",
+    "refs": [
+      "Proverbs 9",
+      "Philippians 2"
+    ]
+  },
+  {
+    "week_no": 39,
+    "week": "Sh'lach",
+    "type": "D",
+    "refs": [
+      "Proverbs 10",
+      "Philippians 3"
+    ]
+  },
+  {
+    "week_no": 39,
+    "week": "Sh'lach",
+    "type": "D",
+    "refs": [
+      "Proverbs 11",
+      "Philippians 4"
+    ]
+  },
+  {
+    "week_no": 39,
+    "week": "Sh'lach",
+    "type": "D",
+    "refs": [
+      "Proverbs 12",
+      "Colossians 1"
+    ]
+  },
+  {
+    "week_no": 39,
+    "week": "Sh'lach",
+    "type": "D",
+    "refs": [
+      "Proverbs 13",
+      "Colossians 2"
+    ]
+  },
+  {
+    "week_no": 39,
+    "week": "Sh'lach",
+    "type": "W",
+    "refs": [
+      "Numbers 13:1-15:41",
+      "Joshua 2:1-24"
+    ]
+  },
+  {
+    "week_no": 40,
+    "week": "Korach",
+    "type": "D",
+    "refs": [
+      "Proverbs 14",
+      "Colossians 3"
+    ]
+  },
+  {
+    "week_no": 40,
+    "week": "Korach",
+    "type": "D",
+    "refs": [
+      "Proverbs 15",
+      "Colossians 4"
+    ]
+  },
+  {
+    "week_no": 40,
+    "week": "Korach",
+    "type": "D",
+    "refs": [
+      "Proverbs 16",
+      "1 Thessalonians 1"
+    ]
+  },
+  {
+    "week_no": 40,
+    "week": "Korach",
+    "type": "D",
+    "refs": [
+      "Proverbs 17",
+      "1 Thessalonians 2"
+    ]
+  },
+  {
+    "week_no": 40,
+    "week": "Korach",
+    "type": "D",
+    "refs": [
+      "Proverbs 18",
+      "1 Thessalonians 3"
+    ]
+  },
+  {
+    "week_no": 40,
+    "week": "Korach",
+    "type": "W",
+    "refs": [
+      "Numbers 16:1-18:32",
+      "I Samuel 11:14-12:22"
+    ]
+  },
+  {
+    "week_no": 41,
+    "week": "Chukat-Balak",
+    "type": "D",
+    "refs": [
+      "Proverbs 19",
+      "1 Thessalonians 4"
+    ]
+  },
+  {
+    "week_no": 41,
+    "week": "Chukat-Balak",
+    "type": "D",
+    "refs": [
+      "Proverbs 20",
+      "1 Thessalonians 5"
+    ]
+  },
+  {
+    "week_no": 41,
+    "week": "Chukat-Balak",
+    "type": "D",
+    "refs": [
+      "Proverbs 21",
+      "2 Thessalonians 1"
+    ]
+  },
+  {
+    "week_no": 41,
+    "week": "Chukat-Balak",
+    "type": "D",
+    "refs": [
+      "Proverbs 22",
+      "2 Thessalonians 2"
+    ]
+  },
+  {
+    "week_no": 41,
+    "week": "Chukat-Balak",
+    "type": "D",
+    "refs": [
+      "Proverbs 23",
+      "2 Thessalonians 3"
+    ]
+  },
+  {
+    "week_no": 41,
+    "week": "Chukat-Balak",
+    "type": "W",
+    "refs": [
+      "Numbers 19:1-25:9",
+      "Micah 5:6-6:8"
+    ]
+  },
+  {
+    "week_no": 42,
+    "week": "Pinchas",
+    "type": "D",
+    "refs": [
+      "Proverbs 24",
+      "1 Timothy 1"
+    ]
+  },
+  {
+    "week_no": 42,
+    "week": "Pinchas",
+    "type": "D",
+    "refs": [
+      "Proverbs 25",
+      "1 Timothy 2"
+    ]
+  },
+  {
+    "week_no": 42,
+    "week": "Pinchas",
+    "type": "D",
+    "refs": [
+      "Proverbs 26",
+      "1 Timothy 3"
+    ]
+  },
+  {
+    "week_no": 42,
+    "week": "Pinchas",
+    "type": "D",
+    "refs": [
+      "Proverbs 27",
+      "1 Timothy 4"
+    ]
+  },
+  {
+    "week_no": 42,
+    "week": "Pinchas",
+    "type": "D",
+    "refs": [
+      "Proverbs 28",
+      "1 Timothy 5"
+    ]
+  },
+  {
+    "week_no": 42,
+    "week": "Pinchas",
+    "type": "W",
+    "refs": [
+      "Numbers 25:10-30:1",
+      "Jeremiah 1:1-2:3"
+    ]
+  },
+  {
+    "week_no": 43,
+    "week": "Matot-Masei",
+    "type": "D",
+    "refs": [
+      "Proverbs 29",
+      "1 Timothy 6"
+    ]
+  },
+  {
+    "week_no": 43,
+    "week": "Matot-Masei",
+    "type": "D",
+    "refs": [
+      "Proverbs 30",
+      "2 Timothy 1"
+    ]
+  },
+  {
+    "week_no": 43,
+    "week": "Matot-Masei",
+    "type": "D",
+    "refs": [
+      "Proverbs 31",
+      "2 Timothy 2"
+    ]
+  },
+  {
+    "week_no": 43,
+    "week": "Matot-Masei",
+    "type": "D",
+    "refs": [
+      "Job 1-3",
+      "2 Timothy 3"
+    ]
+  },
+  {
+    "week_no": 43,
+    "week": "Matot-Masei",
+    "type": "D",
+    "refs": [
+      "Job 4-6",
+      "2 Timothy 4"
+    ]
+  },
+  {
+    "week_no": 43,
+    "week": "Matot-Masei",
+    "type": "W",
+    "refs": [
+      "Numbers 30:2-36:13",
+      "Jeremiah 2:4-28, 3:4"
+    ]
+  },
+  {
+    "week_no": 44,
+    "week": "Devarim",
+    "type": "D",
+    "refs": [
+      "Job 7-9",
+      "Titus 1"
+    ]
+  },
+  {
+    "week_no": 44,
+    "week": "Devarim",
+    "type": "D",
+    "refs": [
+      "Job 10-12",
+      "Titus 2"
+    ]
+  },
+  {
+    "week_no": 44,
+    "week": "Devarim",
+    "type": "D",
+    "refs": [
+      "Job 13-15",
+      "Titus 3"
+    ]
+  },
+  {
+    "week_no": 44,
+    "week": "Devarim",
+    "type": "D",
+    "refs": [
+      "Job 16-18",
+      "Philemon 1"
+    ]
+  },
+  {
+    "week_no": 44,
+    "week": "Devarim",
+    "type": "D",
+    "refs": [
+      "Job 19-21",
+      "Hebrews 1"
+    ]
+  },
+  {
+    "week_no": 44,
+    "week": "Devarim",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 1:1-3:22",
+      "Isaiah 1:1-27"
+    ]
+  },
+  {
+    "week_no": 45,
+    "week": "Vaetchanan",
+    "type": "D",
+    "refs": [
+      "Job 22-24",
+      "Hebrews 2"
+    ]
+  },
+  {
+    "week_no": 45,
+    "week": "Vaetchanan",
+    "type": "D",
+    "refs": [
+      "Job 25-27",
+      "Hebrews 3"
+    ]
+  },
+  {
+    "week_no": 45,
+    "week": "Vaetchanan",
+    "type": "D",
+    "refs": [
+      "Job 28-30",
+      "Hebrews 4"
+    ]
+  },
+  {
+    "week_no": 45,
+    "week": "Vaetchanan",
+    "type": "D",
+    "refs": [
+      "Job 31-33",
+      "Hebrews 5"
+    ]
+  },
+  {
+    "week_no": 45,
+    "week": "Vaetchanan",
+    "type": "D",
+    "refs": [
+      "Job 34-36",
+      "Hebrews 6"
+    ]
+  },
+  {
+    "week_no": 45,
+    "week": "Vaetchanan",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 3:23-7:11",
+      "Isaiah 40:1-26"
+    ]
+  },
+  {
+    "week_no": 46,
+    "week": "Eikev",
+    "type": "D",
+    "refs": [
+      "Job 37-39",
+      "Hebrews 7"
+    ]
+  },
+  {
+    "week_no": 46,
+    "week": "Eikev",
+    "type": "D",
+    "refs": [
+      "Job 40-42",
+      "Hebrews 8"
+    ]
+  },
+  {
+    "week_no": 46,
+    "week": "Eikev",
+    "type": "D",
+    "refs": [
+      "Song of Songs 1-4",
+      "Hebrews 9"
+    ]
+  },
+  {
+    "week_no": 46,
+    "week": "Eikev",
+    "type": "D",
+    "refs": [
+      "Song of Songs 5-8",
+      "Hebrews 10"
+    ]
+  },
+  {
+    "week_no": 46,
+    "week": "Eikev",
+    "type": "D",
+    "refs": [
+      "Ruth 1-4",
+      "Hebrews 11"
+    ]
+  },
+  {
+    "week_no": 46,
+    "week": "Eikev",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 7:12-11:25",
+      "Isaiah 49:14-51:3"
+    ]
+  },
+  {
+    "week_no": 47,
+    "week": "Re'eh",
+    "type": "D",
+    "refs": [
+      "Lamentations 1-3",
+      "Hebrews 12"
+    ]
+  },
+  {
+    "week_no": 47,
+    "week": "Re'eh",
+    "type": "D",
+    "refs": [
+      "Lamentations 4-5",
+      "Hebrews 13"
+    ]
+  },
+  {
+    "week_no": 47,
+    "week": "Re'eh",
+    "type": "D",
+    "refs": [
+      "Ecclesiastes 1-3",
+      "James 1"
+    ]
+  },
+  {
+    "week_no": 47,
+    "week": "Re'eh",
+    "type": "D",
+    "refs": [
+      "Ecclesiastes 4-6",
+      "James 2"
+    ]
+  },
+  {
+    "week_no": 47,
+    "week": "Re'eh",
+    "type": "D",
+    "refs": [
+      "Ecclesiastes 7-9",
+      "James 3"
+    ]
+  },
+  {
+    "week_no": 47,
+    "week": "Re'eh",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 11:26-16:17",
+      "Isaiah 54:11-55:5"
+    ]
+  },
+  {
+    "week_no": 48,
+    "week": "Shoftim",
+    "type": "D",
+    "refs": [
+      "Ecclesiastes 10-12",
+      "James 4"
+    ]
+  },
+  {
+    "week_no": 48,
+    "week": "Shoftim",
+    "type": "D",
+    "refs": [
+      "Esther 1-3",
+      "James 5"
+    ]
+  },
+  {
+    "week_no": 48,
+    "week": "Shoftim",
+    "type": "D",
+    "refs": [
+      "Esther 4-6",
+      "1 Peter 1"
+    ]
+  },
+  {
+    "week_no": 48,
+    "week": "Shoftim",
+    "type": "D",
+    "refs": [
+      "Esther 7-10",
+      "1 Peter 2"
+    ]
+  },
+  {
+    "week_no": 48,
+    "week": "Shoftim",
+    "type": "D",
+    "refs": [
+      "Daniel 1-3",
+      "1 Peter 3"
+    ]
+  },
+  {
+    "week_no": 48,
+    "week": "Shoftim",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 16:18-21:9",
+      "Isaiah 51:12-52:12"
+    ]
+  },
+  {
+    "week_no": 49,
+    "week": "Ki Teitzei",
+    "type": "D",
+    "refs": [
+      "Daniel 4-6",
+      "1 Peter 4"
+    ]
+  },
+  {
+    "week_no": 49,
+    "week": "Ki Teitzei",
+    "type": "D",
+    "refs": [
+      "Daniel 7-9",
+      "1 Peter 5"
+    ]
+  },
+  {
+    "week_no": 49,
+    "week": "Ki Teitzei",
+    "type": "D",
+    "refs": [
+      "Daniel 10-12",
+      "2 Peter 1"
+    ]
+  },
+  {
+    "week_no": 49,
+    "week": "Ki Teitzei",
+    "type": "D",
+    "refs": [
+      "Ezra 1-3",
+      "2 Peter 2"
+    ]
+  },
+  {
+    "week_no": 49,
+    "week": "Ki Teitzei",
+    "type": "D",
+    "refs": [
+      "Ezra 4-6",
+      "2 Peter 3"
+    ]
+  },
+  {
+    "week_no": 49,
+    "week": "Ki Teitzei",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 21:10-25:19",
+      "Isaiah 54:1-10"
+    ]
+  },
+  {
+    "week_no": 50,
+    "week": "Ki Tavo",
+    "type": "D",
+    "refs": [
+      "Ezra 7-10",
+      "1 John 1"
+    ]
+  },
+  {
+    "week_no": 50,
+    "week": "Ki Tavo",
+    "type": "D",
+    "refs": [
+      "Nehemiah 1-3",
+      "1 John 2"
+    ]
+  },
+  {
+    "week_no": 50,
+    "week": "Ki Tavo",
+    "type": "D",
+    "refs": [
+      "Nehemiah 4-6",
+      "1 John 3"
+    ]
+  },
+  {
+    "week_no": 50,
+    "week": "Ki Tavo",
+    "type": "D",
+    "refs": [
+      "Nehemiah 7-9",
+      "1 John 4"
+    ]
+  },
+  {
+    "week_no": 50,
+    "week": "Ki Tavo",
+    "type": "D",
+    "refs": [
+      "Nehemiah 10-13",
+      "1 John 5"
+    ]
+  },
+  {
+    "week_no": 50,
+    "week": "Ki Tavo",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 26:1-29:8",
+      "Isaiah 60:1-22"
+    ]
+  },
+  {
+    "week_no": 51,
+    "week": "Nitzavim-Vayeilech",
+    "type": "D",
+    "refs": [
+      "I Chronicles 1-2",
+      "2 John 1"
+    ]
+  },
+  {
+    "week_no": 51,
+    "week": "Nitzavim-Vayeilech",
+    "type": "D",
+    "refs": [
+      "I Chronicles 3-4",
+      "3 John 1"
+    ]
+  },
+  {
+    "week_no": 51,
+    "week": "Nitzavim-Vayeilech",
+    "type": "D",
+    "refs": [
+      "I Chronicles 5-7",
+      "Jude 1"
+    ]
+  },
+  {
+    "week_no": 51,
+    "week": "Nitzavim-Vayeilech",
+    "type": "D",
+    "refs": [
+      "I Chronicles 8-10",
+      "Revelation 1"
+    ]
+  },
+  {
+    "week_no": 51,
+    "week": "Nitzavim-Vayeilech",
+    "type": "D",
+    "refs": [
+      "I Chronicles 11-13",
+      "Revelation 2"
+    ]
+  },
+  {
+    "week_no": 51,
+    "week": "Nitzavim-Vayeilech",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 29:9-31:30",
+      "Isaiah 61:10-63:9"
+    ]
+  },
+  {
+    "week_no": 52,
+    "week": "Rosh Hashana",
+    "type": "D",
+    "refs": [
+      "I Chronicles 14-15",
+      "Revelation 3"
+    ]
+  },
+  {
+    "week_no": 52,
+    "week": "Rosh Hashana",
+    "type": "D",
+    "refs": [
+      "I Chronicles 16-17",
+      "Revelation 4"
+    ]
+  },
+  {
+    "week_no": 52,
+    "week": "Rosh Hashana",
+    "type": "D",
+    "refs": [
+      "I Chronicles 18-20",
+      "Revelation 5"
+    ]
+  },
+  {
+    "week_no": 52,
+    "week": "Rosh Hashana",
+    "type": "D",
+    "refs": [
+      "I Chronicles 21-23",
+      "Revelation 6"
+    ]
+  },
+  {
+    "week_no": 52,
+    "week": "Rosh Hashana",
+    "type": "D",
+    "refs": [
+      "I Chronicles 24-26",
+      "Revelation 7"
+    ]
+  },
+  {
+    "week_no": 52,
+    "week": "Rosh Hashana",
+    "type": "W",
+    "refs": [
+      "Genesis 21:1-34",
+      "Numbers 29:1-6",
+      "I Samuel 1:1-2:10"
+    ]
+  },
+  {
+    "week_no": 53,
+    "week": "Ha'azinu",
+    "type": "D",
+    "refs": [
+      "I Chronicles 27-29",
+      "Revelation 8"
+    ]
+  },
+  {
+    "week_no": 53,
+    "week": "Ha'azinu",
+    "type": "D",
+    "refs": [
+      "II Chronicles 1-2",
+      "Revelation 9"
+    ]
+  },
+  {
+    "week_no": 53,
+    "week": "Ha'azinu",
+    "type": "D",
+    "refs": [
+      "II Chronicles 3-4",
+      "Revelation 10"
+    ]
+  },
+  {
+    "week_no": 53,
+    "week": "Ha'azinu",
+    "type": "D",
+    "refs": [
+      "II Chronicles 5-7",
+      "Revelation 11"
+    ]
+  },
+  {
+    "week_no": 53,
+    "week": "Ha'azinu",
+    "type": "D",
+    "refs": [
+      "II Chronicles 8-10",
+      "Revelation 12"
+    ]
+  },
+  {
+    "week_no": 53,
+    "week": "Ha'azinu",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 31:1-31:30",
+      "Isaiah 55:6-56:8"
+    ]
+  },
+  {
+    "week_no": 54,
+    "week": "Sukkot",
+    "type": "D",
+    "refs": [
+      "II Chronicles 11-13",
+      "Revelation 13"
+    ]
+  },
+  {
+    "week_no": 54,
+    "week": "Sukkot",
+    "type": "D",
+    "refs": [
+      "II Chronicles 14-16",
+      "Revelation 14"
+    ]
+  },
+  {
+    "week_no": 54,
+    "week": "Sukkot",
+    "type": "D",
+    "refs": [
+      "II Chronicles 17-19",
+      "Revelation 15"
+    ]
+  },
+  {
+    "week_no": 54,
+    "week": "Sukkot",
+    "type": "D",
+    "refs": [
+      "II Chronicles 20-22",
+      "Revelation 16"
+    ]
+  },
+  {
+    "week_no": 54,
+    "week": "Sukkot",
+    "type": "D",
+    "refs": [
+      "II Chronicles 23-25",
+      "Revelation 17"
+    ]
+  },
+  {
+    "week_no": 54,
+    "week": "Sukkot",
+    "type": "W",
+    "refs": [
+      "Leviticus 22:26-23:44",
+      "Zechariah 14:1-21"
+    ]
+  },
+  {
+    "week_no": 54,
+    "week": "Sukkot",
+    "type": "H",
+    "label": "Yom Kippur",
+    "refs": [
+      "Leviticus 16:1-34",
+      "Numbers 29:7-11",
+      "Isaiah 57:14-58:14"
+    ]
+  },
+  {
+    "week_no": 55,
+    "week": "Shmini Atzeret",
+    "type": "D",
+    "refs": [
+      "II Chronicles 26-28",
+      "Revelation 18"
+    ]
+  },
+  {
+    "week_no": 55,
+    "week": "Shmini Atzeret",
+    "type": "D",
+    "refs": [
+      "II Chronicles 29-30",
+      "Revelation 19"
+    ]
+  },
+  {
+    "week_no": 55,
+    "week": "Shmini Atzeret",
+    "type": "D",
+    "refs": [
+      "II Chronicles 31-32",
+      "Revelation 20"
+    ]
+  },
+  {
+    "week_no": 55,
+    "week": "Shmini Atzeret",
+    "type": "D",
+    "refs": [
+      "II Chronicles 33-34",
+      "Revelation 21"
+    ]
+  },
+  {
+    "week_no": 55,
+    "week": "Shmini Atzeret",
+    "type": "D",
+    "refs": [
+      "II Chronicles 35-36",
+      "Revelation 22"
+    ]
+  },
+  {
+    "week_no": 55,
+    "week": "Shmini Atzeret",
+    "type": "W",
+    "refs": [
+      "Deuteronomy 14:22-16:17",
+      "Numbers 29:35-30:1",
+      "Joshua 1:1-18"
+    ]
+  }
+]

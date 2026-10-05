@@ -1,5 +1,35 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **5787 reading plan** (`data/parshat-5787.json`): MJAA's 2026–2027 plan,
+  55 weeks (leap year: Vayakhel/Pekudei, Tazria/Metzora, Achrei
+  Mot/Kedoshim and Behar/Bechukotai read separately), checked week by week
+  against MJAA's PDF and matching it exactly — including the PDF's own
+  slips (Ha'azinu's Torah portion printed as Deuteronomy 31:1-31:30, the
+  fast-day haftarah on Shabbat Shuva, Simchat Torah's haftarah on Shmini
+  Atzeret), so the module agrees with the printed plan.
+- **`utils/import_mjaa_plan.py`**: builds `data/parshat-<year>.json` from a
+  saved copy of MJAA's reading-plan web page, applying a per-year table of
+  page-vs-PDF corrections (the page is a hand-pasted copy of the PDF with
+  garbled haftarot and a dropped weekday) and the PDF-only holiday
+  readings.
+- **`plan_path_for_year()` / `check_plan_fits_cycle()`**
+  (`heb_devotional/reading_plan.py`): the generators now pick
+  `data/parshat-<year>.json` (falling back to `parshat.json`) and refuse a
+  plan whose week count doesn't match the cycle's.
+- Translations for the eight parashiyot that are only read separately in
+  leap years (`data/parashah_translations.json`).
+- `tests/test_reading_plan.py`.
+
+### Fixed
+- **Leap years silently mis-dated**: running a 51-week plan against a
+  55-week cycle didn't raise — `derive_week_saturdays()` just stopped
+  after 51 Saturdays, printed a NOTE for every week past the first split
+  parsha, and the module ended four weeks early (on Sukkot).
+  `check_plan_fits_cycle()` now fails before any dates are assigned.
+
 ## [1.1.5] - 2026-08-27
 
 ### Added
