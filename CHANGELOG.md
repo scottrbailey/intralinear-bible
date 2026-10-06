@@ -26,6 +26,12 @@
 - `tests/test_reading_plan.py`.
 
 ### Fixed
+- **Calendar/day links dead on iOS e-Sword after scrolling** (`.refi`):
+  WebKit re-snaps to the last section a touch scroll snapped to, so once
+  the reader scrolled by hand, every `#anchor` jump landed for a frame and
+  was pulled back — until e-Sword was restarted. Scroll snapping is now
+  switched off on iOS only (`@supports (-webkit-touch-callout: none)`);
+  Android keeps it. Both confirmed on-device.
 - **Leap years silently mis-dated**: running a 51-week plan against a
   55-week cycle didn't raise — `derive_week_saturdays()` just stopped
   after 51 Saturdays, printed a NOTE for every week past the first split

@@ -58,6 +58,16 @@ _CSS = (
     # smooth -- tried it, but it made anchor-link jumps (calendar<->day)
     # glide instead of jump, which read as more distracting than helpful.
     'html, body {scroll-snap-type:y mandatory;} '
+    # ...except on iOS. WebKit remembers the section a touch scroll last
+    # snapped to and re-snaps back to it after any other scroll, so once
+    # the reader has scrolled by hand, every calendar<->day anchor jump
+    # lands for a frame and is yanked back -- the links look dead until
+    # e-Sword is restarted. Confirmed on-device (the jump visibly flashes
+    # before snapping back). -webkit-touch-callout is only supported by
+    # iOS WebKit, so this switches snapping off there alone; Android's
+    # Chromium WebView doesn't re-snap and keeps it (confirmed on-device).
+    # Must stay after the rule above so it wins the cascade.
+    '@supports (-webkit-touch-callout: none) {html, body {scroll-snap-type:none;}} '
     '.head-info {min-width:100%; background-color:#F2F7F8; padding:4px; margin:4px 0;} '
     '.head-info * {display:block; width:100%; text-align:center;} '
     '.cal {width:100%; table-layout:fixed; border-collapse:collapse; text-align:center;} '
