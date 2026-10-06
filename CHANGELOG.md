@@ -26,6 +26,11 @@
 - `tests/test_reading_plan.py`.
 
 ### Fixed
+- **5786 plan's Noach week read Mark 8-12** (`data/parshat.json`): a
+  transcription slip copied week 8's NT readings into week 2, so Matthew
+  6-10 was never read and Mark 8-12 was read twice. Week 2 now reads
+  Matthew 6-10, one chapter a day — exactly the five-chapter gap between
+  week 1 (Matthew 1-5) and week 3 (Matthew 11-15).
 - **Calendar/day links dead on iOS e-Sword after scrolling** (`.refi`):
   WebKit re-snaps to the last section a touch scroll snapped to, so once
   the reader scrolled by hand, every `#anchor` jump landed for a frame and

@@ -107,6 +107,14 @@ class TestPlanData:
             resolve_refs_simple(rec["refs"], book_lookup, unresolved)
         assert unresolved == []
 
+    def test_no_daily_reading_repeats(self, filename: str) -> None:
+        """Regression: parshat.json's Noach week (2) repeated Mark 8-12
+        from week 8 instead of reading Matthew 6-10."""
+        daily = [ref for wk in load_reading_plan(DATA / filename).values()
+                 for refs in wk["D"] for ref in refs]
+        repeats = sorted({ref for ref in daily if daily.count(ref) > 1})
+        assert repeats == []
+
 
 def test_5787_haazinu_reads_deuteronomy_32() -> None:
     """Regression: MJAA's PDF prints Ha'azinu as Deuteronomy 31:1-31:30,
