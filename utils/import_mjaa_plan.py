@@ -21,11 +21,14 @@ missing holiday-readings box). So each year's import is:
        PDF-only "*Holiday Readings" box as H rows,
     3. write the JSON.
 
-CORRECTIONS deliberately only reconciles page -> PDF. Where the PDF
-itself is wrong (5787: Ha'azinu's Torah portion printed as Deuteronomy
-31:1-31:30, Shabbat Shuva getting the fast-day haftarah, Shmini Atzeret
-getting Simchat Torah's haftarah), the PDF wins anyway: the point is to
-match what everyone reading MJAA's printed plan sees.
+CORRECTIONS mostly reconciles page -> PDF. Where the PDF itself departs
+from the usual reading (5787: Shabbat Shuva getting the fast-day
+haftarah, Shmini Atzeret getting Simchat Torah's haftarah), the PDF wins:
+the point is to match what everyone reading MJAA's printed plan sees.
+The exception is an outright PDF erratum -- a reading that can't be what
+MJAA meant (5787: Ha'azinu's Torah portion printed as Deuteronomy
+31:1-31:30, a repeat of the previous week) -- which is corrected here
+with a comment marking it as a PDF erratum, and reported to MJAA.
 
 Each year's cycle runs Bereshit through Shmini Atzeret. The page's first
 card is the previous cycle's closing Shmini Atzeret week (a lead-in); it
@@ -90,6 +93,10 @@ CORRECTIONS = {
             # Page has the next card's header pasted into the haftarah.
             "Eikev": ["Deuteronomy 7:12-11:25", "Isaiah 49:14-51:3"],
             "Re'eh": ["Deuteronomy 11:26-16:17", "Isaiah 54:11-55:5"],
+            # PDF erratum, not a page error: the PDF prints Deuteronomy
+            # 31:1-31:30, which Nitzavim-Vayeilech (week 51) already read
+            # through 31:30. Reported to MJAA. Haftarah kept as printed.
+            "Ha'azinu": ["Deuteronomy 32:1-52", "Isaiah 55:6-56:8"],
         },
         "holidays": [
             ("Bereshit", "Simchat Torah",

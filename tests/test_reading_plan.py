@@ -108,6 +108,14 @@ class TestPlanData:
         assert unresolved == []
 
 
+def test_5787_haazinu_reads_deuteronomy_32() -> None:
+    """Regression: MJAA's PDF prints Ha'azinu as Deuteronomy 31:1-31:30,
+    repeating the end of Nitzavim-Vayeilech; the importer corrects it."""
+    weeks = load_reading_plan(DATA / "parshat-5787.json")
+    haazinu = next(wk for wk in weeks.values() if wk["name"] == "Ha'azinu")
+    assert haazinu["W"][0] == "Deuteronomy 32:1-52"
+
+
 # ── Leap-year date mapping, end to end (synthetic Hebcal) ───────────────────
 
 # Hebcal titles for the holiday-named weeks, which carry suffixes the

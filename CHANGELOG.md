@@ -6,10 +6,12 @@
 - **5787 reading plan** (`data/parshat-5787.json`): MJAA's 2026–2027 plan,
   55 weeks (leap year: Vayakhel/Pekudei, Tazria/Metzora, Achrei
   Mot/Kedoshim and Behar/Bechukotai read separately), checked week by week
-  against MJAA's PDF and matching it exactly — including the PDF's own
-  slips (Ha'azinu's Torah portion printed as Deuteronomy 31:1-31:30, the
-  fast-day haftarah on Shabbat Shuva, Simchat Torah's haftarah on Shmini
-  Atzeret), so the module agrees with the printed plan.
+  against MJAA's PDF and matching it — including its unusual haftarah
+  choices (the fast-day haftarah on Shabbat Shuva, Simchat Torah's
+  haftarah on Shmini Atzeret), so the module agrees with the printed plan.
+  One PDF erratum is corrected: Ha'azinu's Torah portion is printed as
+  Deuteronomy 31:1-31:30, repeating the end of Nitzavim-Vayeilech; the
+  module reads Deuteronomy 32:1-52 (reported to MJAA).
 - **`utils/import_mjaa_plan.py`**: builds `data/parshat-<year>.json` from a
   saved copy of MJAA's reading-plan web page, applying a per-year table of
   page-vs-PDF corrections (the page is a hand-pasted copy of the PDF with

@@ -453,8 +453,11 @@ importer reads the web page instead:
 2. Check the page against that year's PDF and record every difference in
    `CORRECTIONS[<year>]` in `utils/import_mjaa_plan.py`, plus the PDF's
    `*Holiday Readings` box (which the page doesn't have). Where the PDF
-   itself is wrong, keep the PDF's version — the module should match what
-   MJAA's readers have in hand.
+   makes an unusual but deliberate choice, keep the PDF's version — the
+   module should match what MJAA's readers have in hand. Only an outright
+   erratum (5787: Ha'azinu printed as a repeat of the previous week's
+   Torah portion) gets corrected, marked as a PDF erratum in
+   `CORRECTIONS`, and reported to MJAA.
 3. `python utils/import_mjaa_plan.py page.html <year>`, then add any new
    week names it warns about to `data/parashah_translations.json`.
 
