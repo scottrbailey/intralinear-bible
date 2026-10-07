@@ -28,7 +28,8 @@ from collections import defaultdict
 from pathlib import Path
 
 from .reading_plan import (
-    load_reading_plan, find_cycle_window, fetch_hebcal, process_hebcal_data,
+    load_reading_plan, find_cycle_window, check_plan_fits_cycle, plan_path_for_year,
+    fetch_hebcal, process_hebcal_data,
     derive_week_saturdays, derive_holiday_dates, build_day_entries,
     _book_name_to_abbrev, resolve_refs,
 )
@@ -134,6 +135,7 @@ def generate_devi(reading_plan_path, hebrew_year, output_path,
     h_labels = {wk["H"]["label"] for wk in weeks.values() if wk["H"]}
 
     window_start, cycle_start, cycle_end = find_cycle_window(hebrew_year)
+    check_plan_fits_cycle(num_weeks, cycle_start, cycle_end)
     hebcal_json = fetch_hebcal(window_start, cycle_end, hebrew_year)
 
     week_saturday = derive_week_saturdays(hebcal_json, first_week_name, num_weeks, weeks=weeks)
@@ -235,7 +237,7 @@ if __name__ == "__main__":
     base_dir = Path(__file__).parent.parent
     output_path = base_dir / "output" / f"mjaa-{hebrew_year}.devi"
     count = generate_devi(
-        reading_plan_path=base_dir / "data" / "parshat.json",
+        reading_plan_path=plan_path_for_year(hebrew_year, base_dir / "data"),
         hebrew_year=hebrew_year,
         output_path=output_path,
         title=f"MJAA Messianic Reading Plan {hebrew_year}",

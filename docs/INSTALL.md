@@ -1,8 +1,12 @@
+### Install Warning
+
+_Some browsers will prompt you to install the GitHub application when viewing this page.  You **do not** need to install the GitHub app or have a GitHub login._
+
 # Berean Transliterated Bible — Installation Guide
 
 The Berean Transliterated Bible combines the **Berean Standard Bible** with inline Hebrew and Greek transliteration linked to Strong's lexicon. 
 The module also includes translator notes, cross-references, and words of Christ in red (can be toggled off in the application).
-It is available for two Bible apps:
+It is available for two offline Bible apps:
 
 - **[MySword](#mysword-android)** — Android phones and tablets
 - **[e-Sword](#e-sword-android-and-ios)** — Android and iOS phones and tablets (does not play well with the desktop version of e-Sword)
@@ -139,10 +143,10 @@ A daily devotional based on the [Messianic Jewish Association of America's](http
 - Sunday/Thursday Bible in a (Hebrew) year readings
 - Includes information on major and minor holidays, new moons and fast days
 - MySword version includes an interactive calendar with both Gregorian and Hebrew dates
-- 5786 Reading Plan downloads:
-  - **[mjaa-5786.bok.mybible](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5786.bok.mybible)** MySword Devotional + Calendar (available under Books)
-  - **[mjaa-5786.refi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5786.refi)**  e-Sword Devotional + Calendar (available under "Reference")
-  - **[mjaa-5786.devi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5786.devi)**  e-Sword Devotional (available under "Devotional" or "Today")
+- 5787 Reading Plan downloads:
+  - **[mjaa-5787.bok.mybible](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5787.bok.mybible)** MySword Reading Plan + Calendar (available under Books)
+  - **[mjaa-5787.refi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5787.refi)**  e-Sword Reading Plan + Calendar (available under "Reference")
+  - **[mjaa-5787.devi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5787.devi)**  e-Sword Devotional, **No calendar** (available under "Devotional" or "Today")
 <img src="assets/mjaa_cal_mysword.jpg" width="360"  alt="Hebrew calendar on MySword"/>
 <img src="assets/mjaa_day_mysword.jpg" width="360"  alt="Daily devotional for MySword"/>
 ---

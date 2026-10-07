@@ -1,5 +1,48 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **5787 reading plan** (`data/parshat-5787.json`): MJAA's 2026–2027 plan,
+  55 weeks (leap year: Vayakhel/Pekudei, Tazria/Metzora, Achrei
+  Mot/Kedoshim and Behar/Bechukotai read separately), checked week by week
+  against MJAA's PDF and matching it — including its unusual haftarah
+  choices (the fast-day haftarah on Shabbat Shuva, Simchat Torah's
+  haftarah on Shmini Atzeret), so the module agrees with the printed plan.
+  One PDF erratum is corrected: Ha'azinu's Torah portion is printed as
+  Deuteronomy 31:1-31:30, repeating the end of Nitzavim-Vayeilech; the
+  module reads Deuteronomy 32:1-52 (reported to MJAA).
+- **`utils/import_mjaa_plan.py`**: builds `data/parshat-<year>.json` from a
+  saved copy of MJAA's reading-plan web page, applying a per-year table of
+  page-vs-PDF corrections (the page is a hand-pasted copy of the PDF with
+  garbled haftarot and a dropped weekday) and the PDF-only holiday
+  readings.
+- **`plan_path_for_year()` / `check_plan_fits_cycle()`**
+  (`heb_devotional/reading_plan.py`): the generators now pick
+  `data/parshat-<year>.json` (falling back to `parshat.json`) and refuse a
+  plan whose week count doesn't match the cycle's.
+- Translations for the eight parashiyot that are only read separately in
+  leap years (`data/parashah_translations.json`).
+- `tests/test_reading_plan.py`.
+
+### Fixed
+- **5786 plan's Noach week read Mark 8-12** (`data/parshat.json`): a
+  transcription slip copied week 8's NT readings into week 2, so Matthew
+  6-10 was never read and Mark 8-12 was read twice. Week 2 now reads
+  Matthew 6-10, one chapter a day — exactly the five-chapter gap between
+  week 1 (Matthew 1-5) and week 3 (Matthew 11-15).
+- **Calendar/day links dead on iOS e-Sword after scrolling** (`.refi`):
+  WebKit re-snaps to the last section a touch scroll snapped to, so once
+  the reader scrolled by hand, every `#anchor` jump landed for a frame and
+  was pulled back — until e-Sword was restarted. Scroll snapping is now
+  switched off on iOS only (`@supports (-webkit-touch-callout: none)`);
+  Android keeps it. Both confirmed on-device.
+- **Leap years silently mis-dated**: running a 51-week plan against a
+  55-week cycle didn't raise — `derive_week_saturdays()` just stopped
+  after 51 Saturdays, printed a NOTE for every week past the first split
+  parsha, and the module ended four weeks early (on Sukkot).
+  `check_plan_fits_cycle()` now fails before any dates are assigned.
+
 ## [1.1.5] - 2026-08-27
 
 ### Added
