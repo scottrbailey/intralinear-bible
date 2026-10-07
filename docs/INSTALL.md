@@ -145,8 +145,8 @@ A daily devotional based on the [Messianic Jewish Association of America's](http
 - MySword version includes an interactive calendar with both Gregorian and Hebrew dates
 - 5787 Reading Plan downloads:
   - **[mjaa-5787.bok.mybible](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5787.bok.mybible)** MySword Reading Plan + Calendar (available under Books)
-  - **[mjaa-5787.refi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5787.refi)**  e-Sword Reading Plan + Calendar (available under "Reference")
-  - **[mjaa-5787.devi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5787.devi)**  e-Sword Devotional, **No calendar** (available under "Devotional" or "Today")
+  - **[mjaa-5787.refi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5787.refi)**  e-Sword Reading Plan + Calendar (available under "Reference").  _Phones and tablets only._
+  - **[mjaa-5787.devi](https://github.com/scottrbailey/intralinear-bible/releases/latest/download/mjaa-5787.devi)**  e-Sword Devotional, **No calendar** (available under "Devotional" or "Today"). _Also works with desktop version of e-Sword._
 <img src="assets/mjaa_cal_mysword.jpg" width="360"  alt="Hebrew calendar on MySword"/>
 <img src="assets/mjaa_day_mysword.jpg" width="360"  alt="Daily devotional for MySword"/>
 ---
