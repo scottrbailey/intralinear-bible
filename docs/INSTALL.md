@@ -110,18 +110,6 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 
 ---
 
-## Features
-
-- **Transliteration** — Hebrew and Greek words are shown in Latin script so you can pronounce them without knowing the original alphabets. As the target audience for the Transliterated Bible is not seminarians and Bible academics, a simple transliteration scheme with syllable separators and stress markers was chosen. If you want academic or phonetic transliterations, you can select a different transliteration scheme in the config.yaml file.
-- **Hebrew and Greek** — The BSB-L3 version has the original Hebrew, Aramaic and Greek text over the transliteration.  
-- **Strong's Links** — Tap any transliteration to open the corresponding Strong's lexicon entry explaining the word's meaning and usage.
-- **Translator Notes** — Footnotes from the BSB translation team are included and accessible by tapping the note markers.
-- **Cross-References** — The BSB translator cross-references are included.
-- **Section Headers** — Because e-Sword uses their own section headers by default (called pericopes), the headers from the BSB were not included by default. 
-- **Configurable** — To change the transliteration scheme, section headers or cross-references, clone this repository, change the config.yaml file and compile your own modules using the directions in [DEVELOPMENT.md](DEVELOPMENT.md)
-
----
-
 ## Lexicon/Dictionary Suggestions
 
 Tapping on any of the transliterated words will take you to the lexicon entry for that word.  Which lexicon it takes you to is configurable by you. But first you need to download one or more lexicons. 
