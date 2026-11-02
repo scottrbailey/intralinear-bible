@@ -5,7 +5,7 @@ The module also includes translator notes, cross-references, and words of Christ
 It is available for two Bible apps:
 
 - **[MySword](#mysword-android)** — Android phones and tablets
-- **[e-Sword](#e-sword-android-and-ios)** — Android and iOS phones and tablets (does not play well with the desktop version of e-Sword)
+- **[e-Sword](#e-sword-android-and-ios)** — Android and iOS phones and tablets (does not play well with the PC version of e-Sword)
 
 ---
 
@@ -103,18 +103,6 @@ If you want to use the transliterated Bible on iOS, this is your only choice.
 2. Navigate to your **Downloads** folder and extract the `BTB-L1.zip`, `BTB-L2.zip`, `BTB-L3.zip`, `BSRB.zip` file.
 3. You should see a file named `BTB-L1.bbli`, `BTB-L2.bbli`, `BTB-L3.bbli`, or `BSRB.bbli` (and `rmac.dcti` RMAC dictionary)
 4. Open e-Sword and tap General > Import. Navigate to your Downloads folder, select the unzipped file and click `Open` to import the module. When selecting files to import, you can long press to select and install multiple modules at a time.
-
----
-
-## Features
-
-- **Transliteration** — Hebrew and Greek words are shown in Latin script so you can pronounce them without knowing the original alphabets. As the target audience for the Transliterated Bible is not seminarians and Bible academics, a simple transliteration scheme with syllable separators and stress markers was chosen. If you want academic or phonetic transliterations, you can select a different transliteration scheme in the config.yaml file.
-- **Hebrew and Greek** — The BSB-L3 version has the original Hebrew, Aramaic and Greek text over the transliteration.  
-- **Strong's Links** — Tap any transliteration to open the corresponding Strong's lexicon entry explaining the word's meaning and usage.
-- **Translator Notes** — Footnotes from the BSB translation team are included and accessible by tapping the note markers.
-- **Cross-References** — The BSB translator cross-references are included.
-- **Section Headers** — Because e-Sword uses their own section headers by default (called pericopes), the headers from the BSB were not included by default. 
-- **Configurable** — To change the transliteration scheme, section headers or cross-references, clone this repository, change the config.yaml file and compile your own modules using the directions in [DEVELOPMENT.md](DEVELOPMENT.md)
 
 ---
 
